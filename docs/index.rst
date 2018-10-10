@@ -324,6 +324,8 @@ Represents a column in a table. The core annotations of a column are:
    but may often be overridden by additional annotations for DBMS or format-specific datatypes.
 -  **value** — the default value for a column. This is used in DBMS systems that support it, and it
    may also be used when processing a table.
+-  **length** — the length for this column. This is used in types that support it, namely ``char``,
+   ``string``, ``unicode``, ``text``, and ``binary``.
 -  **nullable** — if the column is nullable. When set to ``false``, this will cause a ``NOT NULL``
    to be appended to SQL DDL. false. A missing value is assumed to be equivalent to ``true``. If the
    value is set to ``false`` and the column is referenced in the ``primaryKey`` property of a table,
@@ -366,7 +368,7 @@ Constraints
 
 -  **name** — The name of this constraint. This is optional.
 -  **@id** — an identifier for this constraint
--  **@type** — One of "ForeignKey", "Unique", "Check". Required.
+-  **@type** — One of "ForeignKey", "Unique", "Check". *Required.*
 -  **description** — A description of this constraint
 -  **columns** — A column reference property that holds either a single reference to a column
    description object within this schema, or an list of references.
@@ -388,9 +390,9 @@ Column Grouping. While a reference to a column might normally be just an ``@id``
 special object so that the reference itself may be annotated with additional information. This is
 mostly useful in the case of Column Groupings.
 
-In VOTable, this is similar to the FIELDref and PARAMref objects. It's also similar a GROUP nested
-in a GROUP, which provides an implicit reference where the nested GROUP would have an implicit
-reference to the parent.
+In VOTable, this is similar to the ``FIELDref`` and ``PARAMref`` objects. It's also similar a
+``GROUP`` nested in a ``GROUP``, which provides an implicit reference where the nested GROUP would
+have an implicit reference to the parent.
 
 -  **name** — The name of this reference
 -  **@id** — an identifier for this reference
@@ -664,3 +666,239 @@ PyTables is an opinionated way of representing tabular data in HDF5.
 
 Examples
 --------
+
+::
+
+   ---
+   name: sdqa
+   description: The SDQA Schema
+   - name: sdqa_ImageStatus
+     "@id": "#sdqa_ImageStatus"
+     description: Unique set of status names and their definitions, e.g. 'passed', 'failed',
+       etc.
+     columns:
+     - name: sdqa_imageStatusId
+       "@id": "#sdqa_ImageStatus.sdqa_imageStatusId"
+       datatype: short
+       description: Primary key
+       mysql:datatype: SMALLINT
+     - name: statusName
+       "@id": "#sdqa_ImageStatus.statusName"
+       datatype: string
+       description: One-word, camel-case, descriptive name of a possible image status
+         (e.g., passedAuto, marginallyPassedManual, etc.)
+       length: 30
+       mysql:datatype: VARCHAR(30)
+     - name: definition
+       "@id": "#sdqa_ImageStatus.definition"
+       datatype: string
+       description: Detailed Definition of the image status
+       length: 255
+       mysql:datatype: VARCHAR(255)
+     primaryKey: "#sdqa_ImageStatus.sdqa_imageStatusId"
+     mysql:engine: MyISAM
+
+   - name: sdqa_Metric
+     "@id": "#sdqa_Metric"
+     description: Unique set of metric names and associated metadata (e.g., 'nDeadPix';,
+       'median';, etc.). There will be approximately 30 records total in this table.
+     columns:
+     - name: sdqa_metricId
+       "@id": "#sdqa_Metric.sdqa_metricId"
+       datatype: short
+       description: Primary key.
+       mysql:datatype: SMALLINT
+     - name: metricName
+       "@id": "#sdqa_Metric.metricName"
+       datatype: string
+       description: One-word, camel-case, descriptive name of a possible metric (e.g.,
+         mSatPix, median, etc).
+       length: 30
+       mysql:datatype: VARCHAR(30)
+     - name: physicalUnits
+       "@id": "#sdqa_Metric.physicalUnits"
+       datatype: string
+       description: Physical units of metric.
+       length: 30
+       mysql:datatype: VARCHAR(30)
+     - name: dataType
+       "@id": "#sdqa_Metric.dataType"
+       datatype: char
+       description: Flag indicating whether data type of the metric value is integer
+         (0) or float (1).
+       length: 1
+       mysql:datatype: CHAR(1)
+     - name: definition
+       "@id": "#sdqa_Metric.definition"
+       datatype: string
+       length: 255
+       mysql:datatype: VARCHAR(255)
+     primaryKey: "#sdqa_Metric.sdqa_metricId"
+     constraints:
+     - name: UQ_sdqaMetric_metricName
+       "@id": "#UQ_sdqaMetric_metricName"
+       "@type": Unique
+       columns:
+       - "#sdqa_Metric.metricName"
+     mysql:engine: MyISAM
+
+   - name: sdqa_Rating_ForAmpVisit
+     "@id": "#sdqa_Rating_ForAmpVisit"
+     description: Various SDQA ratings for a given amplifier image. There will approximately
+       30 of these records per image record.
+     columns:
+     - name: sdqa_ratingId
+       "@id": "#sdqa_Rating_ForAmpVisit.sdqa_ratingId"
+       datatype: long
+       description: Primary key. Auto-increment is used, we define a composite unique
+         key, so potential duplicates will be captured.
+       mysql:datatype: BIGINT
+     - name: sdqa_metricId
+       "@id": "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
+       datatype: short
+       description: Pointer to sdqa_Metric.
+       mysql:datatype: SMALLINT
+     - name: sdqa_thresholdId
+       "@id": "#sdqa_Rating_ForAmpVisit.sdqa_thresholdId"
+       datatype: short
+       description: Pointer to sdqa_Threshold.
+       mysql:datatype: SMALLINT
+     - name: ampVisitId
+       "@id": "#sdqa_Rating_ForAmpVisit.ampVisitId"
+       datatype: long
+       description: Pointer to AmpVisit.
+       mysql:datatype: BIGINT
+       ivoa:ucd: meta.id;obs.image
+     - name: metricValue
+       "@id": "#sdqa_Rating_ForAmpVisit.metricValue"
+       datatype: double
+       description: Value of this SDQA metric.
+       mysql:datatype: DOUBLE
+     - name: metricSigma
+       "@id": "#sdqa_Rating_ForAmpVisit.metricSigma"
+       datatype: double
+       description: Uncertainty of the value of this metric.
+       mysql:datatype: DOUBLE
+     primaryKey: "#sdqa_Rating_ForAmpVisit.sdqa_ratingId"
+     constraints:
+     - name: UQ_sdqaRatingForAmpVisit_metricId_ampVisitId
+       "@id": "#UQ_sdqaRatingForAmpVisit_metricId_ampVisitId"
+       "@type": Unique
+       columns:
+       - "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
+       - "#sdqa_Rating_ForAmpVisit.ampVisitId"
+     indexes:
+     - name: IDX_sdqaRatingForAmpVisit_metricId
+       "@id": "#IDX_sdqaRatingForAmpVisit_metricId"
+       columns:
+       - "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
+     - name: IDX_sdqaRatingForAmpVisit_thresholdId
+       "@id": "#IDX_sdqaRatingForAmpVisit_thresholdId"
+       columns:
+       - "#sdqa_Rating_ForAmpVisit.sdqa_thresholdId"
+     - name: IDX_sdqaRatingForAmpVisit_ampVisitId
+       "@id": "#IDX_sdqaRatingForAmpVisit_ampVisitId"
+       columns:
+       - "#sdqa_Rating_ForAmpVisit.ampVisitId"
+     mysql:engine: MyISAM
+
+   - name: sdqa_Rating_CcdVisit
+     "@id": "#sdqa_Rating_CcdVisit"
+     description: Various SDQA ratings for a given CcdVisit.
+     columns:
+     - name: sdqa_ratingId
+       "@id": "#sdqa_Rating_CcdVisit.sdqa_ratingId"
+       datatype: long
+       description: Primary key. Auto-increment is used, we define a composite unique
+         key, so potential duplicates will be captured.
+       mysql:datatype: BIGINT
+     - name: sdqa_metricId
+       "@id": "#sdqa_Rating_CcdVisit.sdqa_metricId"
+       datatype: short
+       description: Pointer to sdqa_Metric.
+       mysql:datatype: SMALLINT
+     - name: sdqa_thresholdId
+       "@id": "#sdqa_Rating_CcdVisit.sdqa_thresholdId"
+       datatype: short
+       description: Pointer to sdqa_Threshold.
+       mysql:datatype: SMALLINT
+     - name: ccdVisitId
+       "@id": "#sdqa_Rating_CcdVisit.ccdVisitId"
+       datatype: long
+       description: Pointer to CcdVisit.
+       mysql:datatype: BIGINT
+       ivoa:ucd: meta.id;obs.image
+     - name: metricValue
+       "@id": "#sdqa_Rating_CcdVisit.metricValue"
+       datatype: double
+       description: Value of this SDQA metric.
+       mysql:datatype: DOUBLE
+     - name: metricSigma
+       "@id": "#sdqa_Rating_CcdVisit.metricSigma"
+       datatype: double
+       description: Uncertainty of the value of this metric.
+       mysql:datatype: DOUBLE
+     primaryKey: "#sdqa_Rating_CcdVisit.sdqa_ratingId"
+     constraints:
+     - name: UQ_sdqaRatingCcdVisit_metricId_ccdVisitId
+       "@id": "#UQ_sdqaRatingCcdVisit_metricId_ccdVisitId"
+       "@type": Unique
+       columns:
+       - "#sdqa_Rating_CcdVisit.sdqa_metricId"
+       - "#sdqa_Rating_CcdVisit.ccdVisitId"
+     indexes:
+     - name: IDX_sdqaRatingCcdVisit_metricId
+       "@id": "#IDX_sdqaRatingCcdVisit_metricId"
+       columns:
+       - "#sdqa_Rating_CcdVisit.sdqa_metricId"
+     - name: IDX_sdqaRatingCcdVisit_thresholdId
+       "@id": "#IDX_sdqaRatingCcdVisit_thresholdId"
+       columns:
+       - "#sdqa_Rating_CcdVisit.sdqa_thresholdId"
+     - name: IDX_sdqaRatingCcdVisit_ccdVisitId
+       "@id": "#IDX_sdqaRatingCcdVisit_ccdVisitId"
+       columns:
+       - "#sdqa_Rating_CcdVisit.ccdVisitId"
+     mysql:engine: MyISAM
+
+   - name: sdqa_Threshold
+     "@id": "#sdqa_Threshold"
+     description: Version-controlled metric thresholds. Total number of these records
+       is approximately equal to 30 x the number of times the thresholds will be changed
+       over the entire period of LSST operations (of order of 100), with most of the
+       changes occuring in the first year of operations.
+     columns:
+     - name: sdqa_thresholdId
+       "@id": "#sdqa_Threshold.sdqa_thresholdId"
+       datatype: short
+       description: Primary key.
+       mysql:datatype: SMALLINT
+     - name: sdqa_metricId
+       "@id": "#sdqa_Threshold.sdqa_metricId"
+       datatype: short
+       description: Pointer to sdqa_Metric table.
+       mysql:datatype: SMALLINT
+     - name: upperThreshold
+       "@id": "#sdqa_Threshold.upperThreshold"
+       datatype: double
+       description: Threshold for which a metric value is tested to be greater than.
+       mysql:datatype: DOUBLE
+     - name: lowerThreshold
+       "@id": "#sdqa_Threshold.lowerThreshold"
+       datatype: double
+       description: Threshold for which a metric value is tested to be less than.
+       mysql:datatype: DOUBLE
+     - name: createdDate
+       "@id": "#sdqa_Threshold.createdDate"
+       datatype: timestamp
+       description: Database timestamp when the record is inserted.
+       value: CURRENT_TIMESTAMP
+       mysql:datatype: TIMESTAMP
+     primaryKey: "#sdqa_Threshold.sdqa_thresholdId"
+     indexes:
+     - name: IDX_sdqaThreshold_metricId
+       "@id": "#IDX_sdqaThreshold_metricId"
+       columns:
+       - "#sdqa_Threshold.sdqa_metricId"
+     mysql:engine: MyISAM
+
