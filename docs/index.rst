@@ -10,29 +10,37 @@ comprehensive way to describe tabular data, using annotations on tables, columns
 document scientifically useful metadata as well as implementation-specific metadata for database
 management systems, file formats, and application data models.
 
-When processing a Felis description, we envision SQLAlchemy to be the target implementation backend,
+When processing a felis description, we envision SQLAlchemy to be the target implementation backend,
 so descriptions for Tables, Columns, Foreign Keys, Constraints, and Indexes should generally map
 very closely to SQLAlchemy parameters for those objects.
 
 Liquibase descriptions were also consulted. Liquibase is oriented around the concept of a changeset.
-It should be the case that a Felis description could be transformed into a Liquibase changeset
+It should be the case that a felis description could be transformed into a Liquibase changeset
 without too much effort.
 
 JSON-LD
 -------
 
-JSON-LD is a way of representing data in a linked fashion. The reason why it's most interesting for
-this problem is because it provides a few algorithms for manipulating data which is useful for being
-able to also provide a succinct way to describe something that's human readable, and algorithms to
+JSON-LD is a way of representing data in a linked fashion. It is built on the core concepts of
+`Linked Data <https://www.w3.org/DesignIssues/LinkedData.html>`__.
+
+The rule we're most interested in for felis is the first rule:
+
+::
+
+   Use URIs as names for things
+
+This rule, coupled with technologies in JSON-LD, allow us to identify things in a well-defined
+manner using a syntax that is "very terse and human readable". JSON-LD also provides algorithms to
 translate those descriptions into objects that are easier to process by a computer.
 
-Because of the emphasis put on linking objects together, it provides a natural way of describing the
-fundamentally relational objects that make up a database, including metadata about them.
+Due of the emphasis put on linking data, it provides a natural way of describing the fundamentally
+relational objects that make up a database.
 
-Felis is heavily influenced by work on CSVW, but CSVW is oriented a bit more towards publishing data
-to the web, and that doesn't quite capture the use case of desribing tables, especially those which
-haven't been created yet. Still, for services which may return CSV files, a translation to CSVW
-should be straightforward.
+Felis is influenced by work on CSVW, which uses JSON-LD to describe CSV files. CSVW is oriented a
+bit more towards publishing data to the web, and that doesn't quite capture the use case of
+desribing tables, especially those which haven't been created yet. Still, for services which may
+return CSV files, a translation to CSVW will be straightforward.
 
 Some links that might be helpful for understanding JSON-LD:
 
@@ -42,13 +50,14 @@ https://w3c.github.io/json-ld-syntax/#basic-concept
 IRIs and @context
 ~~~~~~~~~~~~~~~~~
 
-Linked Data, and the Web in general, uses IRIs (Internationalized Resource Identifiers as described
-in [RFC3987]) for unambiguous identification. This means the key in every annotation must be an IRI.
+Following from the first rule of Linked Data, JSON-LD uses IRIs (Internationalized Resource
+Identifiers as described in [RFC3987]) for unambiguous identification. This means the key in every
+annotation must be an IRI.
 
 The simplest possible schema, a schema with one table which contains a point, represented in JSON,
 would look like the following:
 
-::
+.. code:: json
 
    {
      "name": "MySchema",
@@ -72,7 +81,7 @@ would look like the following:
 We can infer that this is probably describing a schema, but it's possible the definitions are
 ambiguous. IRIs help with this:
 
-::
+.. code:: json
 
    {
      "http://lsst.org/felis/name": "MySchema",
@@ -102,7 +111,7 @@ To help with this, JSON-LD document has a context. Every Felis description shoul
 Used to define the short-hand names that are used throughout a JSON-LD document. These short-hand
 names are called terms and help developers to express specific identifiers in a compact manner.
 
-::
+.. code:: json
 
    {
      "@context": "http://lsst.org/felis/",
@@ -127,7 +136,7 @@ names are called terms and help developers to express specific identifiers in a 
 This is fine, but the base vocabulary of Felis doesn't help much with annotating columns with FITS
 or IVOA terms, for example. So we can add to our context more vocabulary terms.
 
-::
+.. code:: json
 
    {
      "@context": {
@@ -157,24 +166,78 @@ or IVOA terms, for example. So we can add to our context more vocabulary terms.
      ]
    }
 
+It's also fine to `externally define a context as
+well <https://json-ld.org/spec/latest/json-ld/#interpreting-json-as-json-ld>`__. This reduced the
+boilerplate in a file, and allows the JSON appear even simpler.
+
+.. code:: json
+
+   {
+     "name": "MySchema",
+     "tables": [
+       {
+         "name": "Point",
+         "columns": [
+           {
+             "name": "ra",
+             "datatype": "float",
+             "ivoa:ucd": "pos.eq.ra;meta.main",
+             "fits:tunit": "deg"
+           },
+           {
+             "name": "dec",
+             "datatype": "float",
+             "ivoa:ucd": "pos.eq.dec;meta.main",
+             "fits:tunit": "deg"
+           }
+         ]
+       }
+     ]
+   }
+
 Currently, vocabularies aren't formally defined for IVOA, FITS, MySQL, Oracle, Postgres, SQLite. For
 now, we won't worry about that too much. For most descriptions of tables, we will recommend a
 default context of the following:
 
-::
+.. code:: json
 
    {
      "@context": {
        "@vocab": "http://lsst.org/felis/",
-       "ivoa": "http://ivoa.net/",
-       "votable": "http://ivoa.net/documents/VOTable/",
-       "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/",
        "mysql": "http://mysql.com/",
        "postgres": "http://posgresql.org/",
        "oracle": "http://oracle.com/database/",
-       "sqlite": "http://sqlite.org/"
+       "sqlite": "http://sqlite.org/",
+       "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/"
+       "ivoa": "http://ivoa.net/",
+       "votable": "http://ivoa.net/documents/VOTable/"
      }
    }
+
+As YAML
+^^^^^^^
+
+For describing schemas at rest, we recommend YAML, since we assume it will be edited by users.
+
+The table in YAML, with an externally defined context, would appear as the following:
+
+.. code:: yaml
+
+   ---
+   name: MySchema
+   tables:
+   - name: Point
+     columns:
+     - name: ra
+       datatype: float
+       ivoa:ucd: pos.eq.ra;meta.main
+       fits:tunit: deg
+     - name: dec
+       datatype: float
+       ivoa:ucd: pos.eq.dec;meta.main
+       fits:tunit: deg
+
+JSON-LD keywords, those which start with ``@`` like ``@id``, need to be quoted in YAML.
 
 @id
 ~~~
@@ -439,7 +502,10 @@ Datatypes
 
 Notes:
 
--  [1]: This is the default SQLAlchemy Mapping
+-  [1]: This is the default SQLAlchemy Mapping. It's expected implementations processing felis
+   descirptions will use
+   ```with_variant`` <https://docs.sqlalchemy.org/en/latest/core/type_api.html#sqlalchemy.types.TypeEngine.with_variant>`__
+   to construct types based on the types outlined for specific database engines.
 -  [2] SQLAlchemy has no "TinyInteger", so you need to override, or the default is SMALLINT
 -  [3] The length is an additional parameter elsewhere for VOTable types
 -  [4] This is a single byte value between 0-255, not a member of a byte array. It's preferable to
@@ -451,6 +517,72 @@ Notes:
 
 Length Constraints
 ~~~~~~~~~~~~~~~~~~
+
+DBMS Extensions
+---------------
+
+DBMS Extension Annotations may be used to override defaults or provide a way to describe
+non-standard paramters for creating objects in a database or file.
+
+| (The SQLAlchemy documentation on
+  dialects)[https://docs.sqlalchemy.org/en/latest/dialects/mysql.html]
+| is a good reference for where most of these originate from.
+
+Typically, DDL must be executed only after a schema (Postgres/MySQL), user (Oracle), or file
+(SQLite) has already been created. Tools SHOULD take into account the name of the schema defined in
+a felis description, but parameters for creating the schema object are beyond the scope of a felis
+description, because those parameters will likely be instance-dependent and may contaian secrets, as
+in the case of Oracle.
+
+MySQL
+~~~~~
+
+This properties are defined within the context of ``http://mysql.com/``. If using the the
+recommended default context, this means the ``engine`` property for a table would translate to
+``mysql:engine``, for example.
+
+Table
+^^^^^
+
+-  **engine** — The engine for this database. Usually ``INNODB`` would is the default for most
+   instances of MySQL. ``MYISAM`` provides better performance.
+-  **charset** — The charset for this table. ``latin1`` is a typical default for most installations.
+   ``utf8mb4`` is probably a more sensible default.
+
+Column
+^^^^^^
+
+-  **datatype** — The MySQL specific datatypes for a column.
+
+Oracle
+~~~~~~
+
+This properties are defined within the context of ``http://oracle.com/database/``. If using the the
+recommended default context, this means the ``datatype`` property for a column would translate to
+``oracle:datatype``, for example.
+
+In the future, we could think about adding support for temporary tables and specifiying Sequences
+for column primary keys.
+
+.. _table-1:
+
+Table
+^^^^^
+
+-  **compress** — If this table is to use Oracle compression, set this to ``true`` or some other
+   value
+
+Index
+^^^^^
+
+-  **bitmap** — If an index should be a bitmap index in Oracle, set this to ``true``.
+
+SQLite
+~~~~~~
+
+This properties are defined within the context of ``http://sqlite.org/``. If using the the
+recommended default context, this means the ``datatype`` property for a column would translate to
+``sqlite:datatype``, for example.
 
 Processing Metadata
 -------------------
@@ -482,6 +614,8 @@ double. Most of this can probably be automated with a proper vocabulary for Feli
 
 Formats and Models
 ~~~~~~~~~~~~~~~~~~
+
+**This section is under development**
 
 .. _afwtable:
 
@@ -529,3 +663,6 @@ HDF5 and PyTables
 ^^^^^^^^^^^^^^^^^
 
 PyTables is an opinionated way of representing tabular data in HDF5.
+
+Examples
+--------
