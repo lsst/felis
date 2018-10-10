@@ -26,8 +26,6 @@ JSON-LD is a way of representing data in a linked fashion. It is built on the co
 
 The rule we're most interested in for felis is the first rule:
 
-::
-
    Use URIs as names for things
 
 This rule, coupled with technologies in JSON-LD, allow us to identify things in a well-defined
@@ -214,8 +212,15 @@ default context of the following:
      }
    }
 
+@id
+~~~
+
+The main way to reference objects within a JSON-LD document is by id. The ``@id`` attribute of any
+object MUST be unique in that document. ``@id`` is the main way we use to reference objects in a
+Felis description, such as the columns referenced in an index, for example.
+
 As YAML
-^^^^^^^
+~~~~~~~
 
 For describing schemas at rest, we recommend YAML, since we assume it will be edited by users.
 
@@ -238,13 +243,6 @@ The table in YAML, with an externally defined context, would appear as the follo
        fits:tunit: deg
 
 JSON-LD keywords, those which start with ``@`` like ``@id``, need to be quoted in YAML.
-
-@id
-~~~
-
-The main way to reference objects within a JSON-LD document is by id. The ``@id`` attribute of any
-object MUST be unique in that document. ``@id`` is the main way we use to reference objects in a
-Felis description, such as the columns referenced in an index, for example.
 
 Tabular Data Models
 -------------------
@@ -345,7 +343,7 @@ Annotations on a table may include:
 Indexes
 ~~~~~~~
 
-**This section is under development**
+   **This section is under development**
 
 An index that is annotated with a table. An index is typically associated with one or more columns
 from a table, but it may consist of expressions involving the columns of a table instead.
@@ -364,7 +362,7 @@ The core annotations of an index are:
 Constraints
 ~~~~~~~~~~~
 
-**This section is under development**
+   **This section is under development**
 
 -  **name** — The name of this constraint. This is optional.
 -  **@id** — an identifier for this constraint
@@ -383,7 +381,7 @@ Constraints
 References
 ~~~~~~~~~~
 
-**This section is under development**
+   **This section is under development**
 
 References are annotated objects which hold a reference to a single object, usually a Column or a
 Column Grouping. While a reference to a column might normally be just an ``@id``, we create a
@@ -502,9 +500,9 @@ Datatypes
 
 Notes:
 
--  [1]: This is the default SQLAlchemy Mapping. It's expected implementations processing felis
-   descirptions will use
-   ```with_variant`` <https://docs.sqlalchemy.org/en/latest/core/type_api.html#sqlalchemy.types.TypeEngine.with_variant>`__
+-  [1] This is the default SQLAlchemy Mapping. It's expected implementations processing felis
+   descriptions will use
+   `with_variant <https://docs.sqlalchemy.org/en/latest/core/type_api.html#sqlalchemy.types.TypeEngine.with_variant>`__
    to construct types based on the types outlined for specific database engines.
 -  [2] SQLAlchemy has no "TinyInteger", so you need to override, or the default is SMALLINT
 -  [3] The length is an additional parameter elsewhere for VOTable types
@@ -587,12 +585,12 @@ recommended default context, this means the ``datatype`` property for a column w
 Processing Metadata
 -------------------
 
-**This section is under development**
+   **This section is under development**
 
 Creating annotated tables
 -------------------------
 
-**This section is under development**
+   **This section is under development**
 
 Metadata Compatibility
 ----------------------

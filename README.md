@@ -28,7 +28,7 @@ Data](https://www.w3.org/DesignIssues/LinkedData.html).
 
 The rule we're most interested in for felis is the first rule:
 
-    Use URIs as names for things
+> Use URIs as names for things
 
 This rule, coupled with technologies in JSON-LD, allow us to identify
 things in a well-defined manner using a syntax that is "very terse and
@@ -222,7 +222,14 @@ the following:
 }
 ```
 
-#### As YAML
+### @id
+
+The main way to reference objects within a JSON-LD document is by id.
+The `@id` attribute of any object MUST be unique in that document. `@id`
+is the main way we use to reference objects in a Felis description, such
+as the columns referenced in an index, for example.
+
+### As YAML
 
 For describing schemas at rest, we recommend YAML, since we assume it
 will be edited by users.
@@ -248,13 +255,6 @@ tables:
 
 JSON-LD keywords, those which start with `@` like `@id`, need to be
 quoted in YAML.
-
-### @id
-
-The main way to reference objects within a JSON-LD document is by id.
-The `@id` attribute of any object MUST be unique in that document. `@id`
-is the main way we use to reference objects in a Felis description, such
-as the columns referenced in an index, for example.
 
 ## Tabular Data Models
 
@@ -366,7 +366,7 @@ information about the column. Annotations on a table may include:
 
 ### Indexes
 
-**This section is under development**
+> **This section is under development**
 
 An index that is annotated with a table. An index is typically
 associated with one or more columns from a table, but it may consist of
@@ -387,7 +387,7 @@ The core annotations of an index are:
 
 ### Constraints
 
-**This section is under development**
+> **This section is under development**
 
   - **name** — The name of this constraint. This is optional.
   - **@id** — an identifier for this constraint
@@ -408,7 +408,7 @@ The core annotations of an index are:
 
 ### References
 
-**This section is under development**
+> **This section is under development**
 
 References are annotated objects which hold a reference to a single
 object, usually a Column or a Column Grouping. While a reference to a
@@ -491,10 +491,9 @@ references.
 
 Notes:
 
-  - \[1\]: This is the default SQLAlchemy Mapping. It's expected
-    implementations processing felis descirptions will use
-    `` `with_variant``
-    \<<https://docs.sqlalchemy.org/en/latest/core/type_api.html#sqlalchemy.types.TypeEngine.with_variant>\>\`\_\_
+  - \[1\] This is the default SQLAlchemy Mapping. It's expected
+    implementations processing felis descriptions will use
+    [with\_variant](https://docs.sqlalchemy.org/en/latest/core/type_api.html#sqlalchemy.types.TypeEngine.with_variant)
     to construct types based on the types outlined for specific database
     engines.
   - \[2\] SQLAlchemy has no "TinyInteger", so you need to override, or
@@ -574,11 +573,11 @@ property for a column would translate to `sqlite:datatype`, for example.
 
 ## Processing Metadata
 
-**This section is under development**
+> **This section is under development**
 
 ## Creating annotated tables
 
-**This section is under development**
+> **This section is under development**
 
 ## Metadata Compatibility
 
