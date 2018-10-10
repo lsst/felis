@@ -500,7 +500,7 @@ Datatypes
 | binary  | base64Binary | unsignedByte[] | `6 <#note6>`__ |
 +---------+--------------+----------------+----------------+
 
-Notes:
+**Notes:**
 
 -  [1] This is the default SQLAlchemy Mapping. It's expected implementations processing felis
    descriptions will use
@@ -515,18 +515,15 @@ Notes:
 -  [6] There's also hexBinary, but it was not considered as the target format is usually
    human-readable XML
 
-Length Constraints
-~~~~~~~~~~~~~~~~~~
-
 DBMS Extensions
 ---------------
 
 DBMS Extension Annotations may be used to override defaults or provide a way to describe
 non-standard paramters for creating objects in a database or file.
 
-| (The SQLAlchemy documentation on
-  dialects)[https://docs.sqlalchemy.org/en/latest/dialects/mysql.html]
-| is a good reference for where most of these originate from.
+`The SQLAlchemy documentation on
+dialects <https://docs.sqlalchemy.org/en/latest/dialects/mysql.html>`__ is a good reference for
+where most of these originate from, and what we might implement.
 
 Typically, DDL must be executed only after a schema (Postgres/MySQL), user (Oracle), or file
 (SQLite) has already been created. Tools SHOULD take into account the name of the schema defined in
