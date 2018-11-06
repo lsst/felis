@@ -364,7 +364,7 @@ The core annotations of an index are:
 Constraints
 ~~~~~~~~~~~
 
-.. warning:: This section is under development**
+.. warning:: This section is under development
 
 :``name``: The name of this constraint. This is optional.
 :``@id``: an identifier for this constraint
@@ -383,7 +383,7 @@ Constraints
 References
 ~~~~~~~~~~
 
-   **This section is under development**
+.. warning:: This section is under development
 
 References are annotated objects which hold a reference to a single object, usually a Column or a
 Column Grouping. While a reference to a column might normally be just an ``@id``, we create a
@@ -404,11 +404,12 @@ Column Groupings
 
 .. warning:: This section is incomplete
 
+Groupings are annotated objects that contain one or more references to other objects.
+
 :``name``: The name of this table. In implementation terms, this typically maps to a table name
    in a ``CREATE TABLE`` statement in a MySQL/Oracle/Postgres/SQLite.
-:``@id``: an identifier for this table
-:``description``: any number of additional annotations on the table. This annotation may be
-   empty.
+:``@id``: an identifier for this grouping, so that it may be referenced.
+:``description``: A description of the grouping
 :``reference``: A reference to another column grouping, if applicable.
 :``columnReferences``: A list of column references in the table. A Column Grouping MUST have one
    or more column references.
@@ -584,12 +585,12 @@ recommended default context, this means the ``datatype`` property for a column w
 Processing Metadata
 -------------------
 
-   **This section is under development**
+   **This section is under development
 
 Creating annotated tables
 -------------------------
 
-   **This section is under development**
+   **This section is under development
 
 Metadata Compatibility
 ----------------------
@@ -612,7 +613,7 @@ double. Most of this can probably be automated with a proper vocabulary for Feli
 Formats and Models
 ~~~~~~~~~~~~~~~~~~
 
-**This section is under development**
+**This section is under development
 
 .. _afwtable:
 
