@@ -670,6 +670,7 @@ Examples
    ---
    name: sdqa
    description: The SDQA Schema
+   tables:
    - name: sdqa_ImageStatus
      "@id": "#sdqa_ImageStatus"
      description: Unique set of status names and their definitions, e.g. 'passed', 'failed',
