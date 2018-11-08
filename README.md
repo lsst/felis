@@ -276,19 +276,27 @@ A schema comprises a group of annotated tables and a set of annotations
 that relate to that group of tables. The core annotations of a schema
 are:
 
-  - **name** — The name of this schema. In implementation terms, this
-    typically maps to:
-      - A schema in a `CREATE SCHEMA` statement in Postgres.
-      - A database in a `CREATE DATABASE` statement in MySQL. There is
-        also a synonym for this statement under `CREATE SCHEMA`.
-      - A user in a `CREATE USER` statement in Oracle
-      - A SQLite file, which might be named according to `[name].db`
-  - **@id** — an identifier for this group of tables. This may be used
-    for relating schemas together at a higher level. Typically, the name
-    of the schema can be used as the id.
-  - **description** — A textual description of this schema
-  - **tables** — the list of tables in the schema. A schema MUST have
-    one or more tables.
+  - `name`  
+    The name of this schema. In implementation terms, this typically
+    maps to:
+
+>   - A schema in a `CREATE SCHEMA` statement in Postgres.
+>   - A database in a `CREATE DATABASE` statement in MySQL. There is
+>     also a synonym for this statement under `CREATE SCHEMA`.
+>   - A user in a `CREATE USER` statement in Oracle
+>   - A SQLite file, which might be named according to `[name].db`
+
+  - `@id`  
+    An identifier for this group of tables. This may be used for
+    relating schemas together at a higher level. Typically, the name of
+    the schema can be used as the id.
+
+  - `description`  
+    A textual description of this schema
+
+  - `tables`  
+    the list of tables in the schema. A schema MUST have one or more
+    tables.
 
 Schemas MAY in addition have any number of annotations which provide
 information about the group of tables. Annotations on a group of tables
@@ -307,22 +315,33 @@ may include:
 
 A Table within a Schema. The core annotations of a table are:
 
-  - **name** — The name of this table. In implementation terms, this
-    typically maps to a table name in a `CREATE TABLE` statement in a
+  - `name`  
+    The name of this table. In implementation terms, this typically maps
+    to a table name in a `CREATE TABLE` statement in a
     MySQL/Oracle/Postgres/SQLite.
-  - **@id** — an identifier for this table
-  - **description** — A textual of this table
-  - **columns** — the list of columns in the table. A table MUST have
-    one or more columns and the order of the columns within the list is
-    significant and MUST be preserved by applications.
-  - **primaryKey** — A column reference that holds either a single
-    reference to a column id or a list of column id references for
-    compound primary keys.
-  - **constraints** — the list of constraints for the table. A table MAY
-    have zero or more constraints. Usually these are Forein Key
-    constraints.
-  - **indexes** — the list of indexes in the schema. A schema MAY have
-    zero or more indexes.
+
+  - `@id`  
+    an identifier for this table
+
+  - `description`  
+    A textual of this table
+
+  - `columns`  
+    the list of columns in the table. A table MUST have one or more
+    columns and the order of the columns within the list is significant
+    and MUST be preserved by applications.
+
+  - `primaryKey`  
+    A column reference that holds either a single reference to a column
+    id or a list of column id references for compound primary keys.
+
+  - `constraints`  
+    the list of constraints for the table. A table MAY have zero or more
+    constraints. Usually these are Forein Key constraints.
+
+  - `indexes`  
+    the list of indexes in the schema. A schema MAY have zero or more
+    indexes.
 
 Tables MAY in addition have any number of annotations which provide
 information about the table. Annotations on a table may include:
@@ -336,27 +355,39 @@ information about the table. Annotations on a table may include:
 
 Represents a column in a table. The core annotations of a column are:
 
-  - **name** — the name of the column.
-  - **@id** — an identifier for this column
-  - **description** — A textual description of this column
-  - **datatype** — the expected datatype for the value of the column.
-    This is the canonical datatype, but may often be overridden by
-    additional annotations for DBMS or format-specific datatypes.
-  - **value** — the default value for a column. This is used in DBMS
-    systems that support it, and it may also be used when processing a
-    table.
-  - **length** — the length for this column. This is used in types that
-    support it, namely `char`, `string`, `unicode`, `text`, and
-    `binary`.
-  - **nullable** — if the column is nullable. When set to `false`, this
-    will cause a `NOT NULL` to be appended to SQL DDL. false. A missing
-    value is assumed to be equivalent to `true`. If the value is set to
-    `false` and the column is referenced in the `primaryKey` property of
-    a table, then an error should be thrown during the processing of the
+  - `name`  
+    the name of the column.
+
+  - `@id`  
+    an identifier for this column
+
+  - `description`  
+    A textual description of this column
+
+  - `datatype`  
+    the expected datatype for the value of the column. This is the
+    canonical datatype, but may often be overridden by additional
+    annotations for DBMS or format-specific datatypes.
+
+  - `value`  
+    the default value for a column. This is used in DBMS systems that
+    support it, and it may also be used when processing a table.
+
+  - `length`  
+    the length for this column. This is used in types that support it,
+    namely `char`, `string`, `unicode`, `text`, and `binary`.
+
+  - `nullable`  
+    if the column is nullable. When set to `false`, this will cause a
+    `NOT NULL` to be appended to SQL DDL. false. A missing value is
+    assumed to be equivalent to `true`. If the value is set to `false`
+    and the column is referenced in the `primaryKey` property of a
+    table, then an error should be thrown during the processing of the
     metadata.
-  - **autoincrement** — If the column is the primary key or part of a
-    primary key, this may be used to specify autoincrement behavior. We
-    derive semantics from
+
+  - `autoincrement`  
+    If the column is the primary key or part of a primary key, this may
+    be used to specify autoincrement behavior. We derive semantics from
     [SQLAlchemy.](https://docs.sqlalchemy.org/en/rel_1_1/core/metadata.html#sqlalchemy.schema.Column.params.autoincrement)
 
 Columns MAY in addition have any number of annotations which provide
@@ -369,7 +400,17 @@ information about the column. Annotations on a table may include:
 
 ### Indexes
 
-> **This section is under development**
+<div class="warning">
+
+<div class="admonition-title">
+
+Warning
+
+</div>
+
+This section is under development
+
+</div>
 
 An index that is annotated with a table. An index is typically
 associated with one or more columns from a table, but it may consist of
@@ -377,41 +418,85 @@ expressions involving the columns of a table instead.
 
 The core annotations of an index are:
 
-  - **name** — The name of this index. This is optional.
-  - **@id** — an identifier for this index
-  - **description** — A textual description of this index
-  - **columns** — A column reference property that holds either a single
-    reference to a column description object within this schema, or an
-    list of references. *This annotation is mutually exclusive with the
+  - `name`  
+    The name of this index. This is optional.
+
+  - `@id`  
+    an identifier for this index
+
+  - `description`  
+    A textual description of this index
+
+  - `columns`  
+    A column reference property that holds either a single reference to
+    a column description object within this schema, or an list of
+    references. *This annotation is mutually exclusive with the
     expressions annotation.*
-  - **expressions** — A column reference property that holds either a
-    single column expression object, or a list of them. *This annotation
-    is mutually exclusive with the columns annotation.*
+
+  - `expressions`  
+    A column reference property that holds either a single column
+    expression object, or a list of them. *This annotation is mutually
+    exclusive with the columns annotation.*
 
 ### Constraints
 
-> **This section is under development**
+<div class="warning">
 
-  - **name** — The name of this constraint. This is optional.
-  - **@id** — an identifier for this constraint
-  - **@type** — One of "ForeignKey", "Unique", "Check". *Required.*
-  - **description** — A description of this constraint
-  - **columns** — A column reference property that holds either a single
-    reference to a column description object within this schema, or an
-    list of references.
-  - **referencedColumns** — A column reference property that holds
-    either a single reference to a column description object within this
-    schema, or an list of references. Used on *ForeignKey* Constraints.
-  - **expression** — A column expression object. Used on *Check*
-    Constraints.
-  - **deferrable** — If `true`, emit DEFERRABLE or NOT DEFERRABLE when
-    issuing DDL for this constraint.
-  - **initially** — If set, emit INITIALLY when issuing DDL for this
-    constraint.
+<div class="admonition-title">
+
+Warning
+
+</div>
+
+This section is under development
+
+</div>
+
+  - `name`  
+    The name of this constraint. This is optional.
+
+  - `@id`  
+    an identifier for this constraint
+
+  - `@type`  
+    One of `ForeignKey`, `Unique`, `Check`. *Required.*
+
+  - `description`  
+    A description of this constraint
+
+  - `columns`  
+    A column reference property that holds either a single reference to
+    a column description object within this schema, or an list of
+    references.
+
+  - `referencedColumns`  
+    A column reference property that holds either a single reference to
+    a column description object within this schema, or an list of
+    references. Used on *ForeignKey* Constraints.
+
+  - `expression`  
+    A column expression object. Used on *Check* Constraints.
+
+  - `deferrable`  
+    If `true`, emit DEFERRABLE or NOT DEFERRABLE when issuing DDL for
+    this constraint.
+
+  - `initially`  
+    If set, emit INITIALLY when issuing DDL for this constraint.
 
 ### References
 
-> **This section is under development**
+<div class="warning">
+
+<div class="admonition-title">
+
+Warning
+
+</div>
+
+This section is under development
+
+</div>
 
 References are annotated objects which hold a reference to a single
 object, usually a Column or a Column Grouping. While a reference to a
@@ -424,25 +509,52 @@ It's also similar a `GROUP` nested in a `GROUP`, which provides an
 implicit reference where the nested GROUP would have an implicit
 reference to the parent.
 
-  - **name** — The name of this reference
-  - **@id** — an identifier for this reference
-  - **description** — A description of the reference
-  - **reference** — The id of the object being referenced
+  - `name`  
+    The name of this reference
+
+  - `@id`  
+    an identifier for this reference
+
+  - `description`  
+    A description of the reference
+
+  - `reference`  
+    The id of the object being referenced
 
 ### Column Groupings
 
-**This section is incomplete**
+<div class="warning">
 
-  - **name** — The name of this table. In implementation terms, this
-    typically maps to a table name in a `CREATE TABLE` statement in a
+<div class="admonition-title">
+
+Warning
+
+</div>
+
+This section is incomplete
+
+</div>
+
+Groupings are annotated objects that contain one or more references to
+other objects.
+
+  - `name`  
+    The name of this table. In implementation terms, this typically maps
+    to a table name in a `CREATE TABLE` statement in a
     MySQL/Oracle/Postgres/SQLite.
-  - **@id** — an identifier for this table
-  - **description** — any number of additional annotations on the table.
-    This annotation may be empty.
-  - **reference** — A reference to another column grouping, if
-    applicable.
-  - **columnReferences** — A list of column references in the table. A
-    Column Grouping MUST have one or more column
+
+  - `@id`  
+    an identifier for this grouping, so that it may be referenced.
+
+  - `description`  
+    A description of the grouping
+
+  - `reference`  
+    A reference to another column grouping, if applicable.
+
+  - `columnReferences`  
+    A list of column references in the table. A Column Grouping MUST
+    have one or more column
 references.
 
 ## Datatypes
@@ -536,16 +648,18 @@ property for a table would translate to `mysql:engine`, for example.
 
 #### Table
 
-  - **engine** — The engine for this database. Usually `INNODB` would is
-    the default for most instances of MySQL. `MYISAM` provides better
-    performance.
-  - **charset** — The charset for this table. `latin1` is a typical
-    default for most installations. `utf8mb4` is probably a more
-    sensible default.
+  - `engine`  
+    The engine for this database. Usually `INNODB` would is the default
+    for most instances of MySQL. `MYISAM` provides better performance.
+
+  - `charset`  
+    The charset for this table. `latin1` is a typical default for most
+    installations. `utf8mb4` is probably a more sensible default.
 
 #### Column
 
-  - **datatype** — The MySQL specific datatypes for a column.
+  - `datatype`  
+    The MySQL specific datatypes for a column.
 
 ### Oracle
 
@@ -559,13 +673,14 @@ and specifiying Sequences for column primary keys.
 
 #### Table
 
-  - **compress** — If this table is to use Oracle compression, set this
-    to `true` or some other value
+  - `compress`  
+    If this table is to use Oracle compression, set this to `true` or
+    some other value
 
 #### Index
 
-  - **bitmap** — If an index should be a bitmap index in Oracle, set
-    this to `true`.
+  - `bitmap`  
+    If an index should be a bitmap index in Oracle, set this to `true`.
 
 ### SQLite
 
@@ -575,11 +690,11 @@ property for a column would translate to `sqlite:datatype`, for example.
 
 ## Processing Metadata
 
-> **This section is under development**
+> \*\*This section is under development
 
 ## Creating annotated tables
 
-> **This section is under development**
+> \*\*This section is under development
 
 ## Metadata Compatibility
 
@@ -603,7 +718,7 @@ this can probably be automated with a proper vocabulary for Felis.
 
 ### Formats and Models
 
-**This section is under development**
+\*\*This section is under development
 
 #### afw.table
 
@@ -648,6 +763,7 @@ PyTables is an opinionated way of representing tabular data in HDF5.
     ---
     name: sdqa
     description: The SDQA Schema
+    tables:
     - name: sdqa_ImageStatus
       "@id": "#sdqa_ImageStatus"
       description: Unique set of status names and their definitions, e.g. 'passed', 'failed',
