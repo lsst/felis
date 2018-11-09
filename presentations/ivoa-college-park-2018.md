@@ -5,7 +5,9 @@ background-size: contain
 
 # Felis - A way of describing catalogs
 
-.footnote[IVOA Interop College Park Maryland - 11/9/2018]
+.footnote[Brian Van Klaveren (LSST/SLAC)
+
+IVOA Interop College Park Maryland - 11/9/2018]
 
 ---
 background-image: url(presentation_page.png)
