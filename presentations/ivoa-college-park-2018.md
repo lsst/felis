@@ -7,7 +7,7 @@ background-size: contain
 
 .footnote[Brian Van Klaveren (LSST/SLAC)
 
-IVOA Interop College Park Maryland - 11/9/2018]
+IVOA Interop - College Park, MD - 11/9/2018]
 
 ---
 background-image: url(presentation_page.png)
