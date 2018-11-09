@@ -109,6 +109,7 @@ another object (`@id`), or they can be an annotated reference.
 ---
 background-image: url(presentation_page.png)
 background-size: contain
+class: smaller
 
 # Default Data Type Mappings
 Trying to get default database types based on C++/Python/Java types is kind of
@@ -155,6 +156,9 @@ background-image: url(presentation_page.png)
 background-size: contain
 
 # Cheating the Context
+
+This is effectively the default context. This namespaces the felis vocabulary for the document 
+and defines some pseudo-vocabularies from different things we care about.
 
 ```json
 {
@@ -205,17 +209,56 @@ tables:
   mysql:engine: MyISAM
 ```
 
+---
+background-image: url(presentation_page.png)
+background-size: contain
+class: smaller
+
+### [Sample Output](https://gist.github.com/brianv0/340866422bb3a031b9c935e0a1be3256)
+
+#### MySQL
+
+```sql
+CREATE TABLE sdqa.`sdqa_Metric` (
+	`sdqa_metricId` SMALLINT NOT NULL COMMENT 'Primary key.' AUTO_INCREMENT, 
+	`metricName` VARCHAR(30) COMMENT 'One-word, camel-case, descriptive name of a possible metric (e.g., mSatPix, median, etc).', 
+	`physicalUnits` VARCHAR(30) COMMENT 'Physical units of metric.', 
+	`dataType` CHAR(1) COMMENT 'Flag indicating whether data type of the metric value is integer (0) or float (1).', 
+	definition VARCHAR(255), 
+	PRIMARY KEY (`sdqa_metricId`), 
+	CONSTRAINT `UQ_sdqaMetric_metricName` UNIQUE (`metricName`)
+)COMMENT='Unique set of metric names and associated metadata (e.g., ''nDeadPix'';, ''median'';, etc.). There will be approximately 30 records total in this table.'
+```
+
+#### Postgres
+```sql
+CREATE TABLE sdqa."sdqa_Metric" (
+	"sdqa_metricId" SMALLSERIAL NOT NULL, 
+	"metricName" VARCHAR(30), 
+	"physicalUnits" VARCHAR(30), 
+	"dataType" CHAR(1), 
+	definition VARCHAR(255), 
+	PRIMARY KEY ("sdqa_metricId"), 
+	CONSTRAINT "UQ_sdqaMetric_metricName" UNIQUE ("metricName")
+)
+
+COMMENT ON TABLE sdqa."sdqa_Metric" IS 'Unique set of metric names and associated metadata (e.g., ''nDeadPix'';, ''median'';, etc.). There will be approximately 30 records total in this table.'
+```
 
 ---
 background-image: url(presentation_page.png)
 background-size: contain
+class: smaller
 
 ### Future Directions
 
+**Groupings and References**
+
+Some work needs to be done to get the groupings and references finished.
+
 **Populating TAP_SCHEMA**
 
-This is the immediate goal for LSST and Felis. It's a core requirement from the LSST Scientific 
-Data Model.
+It's a core requirement from the LSST Scientific Data Model.
 
 **Metadata in Parquet**
 
