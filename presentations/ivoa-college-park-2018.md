@@ -57,7 +57,7 @@ class: larger
 * We are headed towards _at least_ three tabular data file formats internally: 
 FITS, Parquet, and HDF5. Maybe Avro.
 
-* We are using three lanaguages - C++, Python, and Java.
+* We are using three languages - C++, Python, and Java.
   - And _at least_ three tabular libraries: afw.table, pandas, and astropy
 
 ---
@@ -100,7 +100,7 @@ background-size: contain
  - `name`, `columns`...
    
 **`Constraint`** - A database constraint
- - `name`, `columnns`, `@type`...
+ - `name`, `columns`, `@type`...
 
 **`Reference`** and **`Grouping`** - A grouping is a collection of references, which itself can 
 reference another grouping. References can be simple, consisting only of the identifier of 
