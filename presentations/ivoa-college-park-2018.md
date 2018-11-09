@@ -2,7 +2,6 @@ class: center, middle, white-text
 
 background-image: url(title_page.png)
 background-size: contain
-color: white
 
 # Felis - A way of describing catalogs
 
@@ -11,13 +10,14 @@ color: white
 ---
 background-image: url(presentation_page.png)
 background-size: contain
+class: larger
 
 # Why?
 First and foremost, LSST needs a way to describe our 
 [Scientific Data Model.](https://confluence.lsstcorp.org/display/DM/The+Science+Data+Model+and+its+Standardization)
 
 Historically, we had a way of describing catalogs using pseudo-XML
-annotations in SQL comments. That's in our [`cat`](https://github.com/lsst/cat) package.
+annotations in SQL comments. That's in our ["`cat`"](https://github.com/lsst/cat) package.
 
 The DDL was MySQL specific. Parsing properly was a bit rough.
 
@@ -29,19 +29,24 @@ background-image: url(presentation_page.png)
 background-size: contain
 
 # The Scientific Data Model:
-* must contain sufficient information for a physical SQL schema definition to be derived from it, 
+* MUST contain sufficient information for a physical SQL schema definition to be derived from it, 
 given a choice of SQL flavor (e.g., MariaDB, Oracle, PostgreSQL).
+
 * is written in YAML
-* must contain information that itemizes how it satisfies the DPDD requirements for the content of 
+
+* MUST contain information that itemizes how it satisfies the DPDD requirements for the content of 
 the data model.  For example, each SDM element that realizes a data item from the DPDD might 
 contain a field that references the appropriate DPDD Identifier 
+
 * Elements MUST be described by a unique identifier ("SDM Identifier") that can be used 
-programmatically in applications that consume the SDM YAML definition 
+programmatically in applications that consume the SDM YAML definition
+ 
 * MAY contain additional elements beyond those required by the DPDD
 
 ---
 background-image: url(presentation_page.png)
 background-size: contain
+class: larger
 
 # The LSST Operational Environment
 
@@ -49,10 +54,10 @@ background-size: contain
  MySQL(_+ Qserv_), Oracle, and SQLite. 
   - Testing has also been done in BigQuery and Postgres.
  
-* We are headed towards _at least_ three tabular data formats: 
-FITS, HDF5, and Parquet. Maybe Avro.
+* We are headed towards _at least_ three tabular data file formats internally: 
+FITS, Parquet, and HDF5. Maybe Avro.
 
-* We are using _at least_ three lanaguages - C++, Python, and Java.
+* We are using three lanaguages - C++, Python, and Java.
   - And _at least_ three tabular libraries: afw.table, pandas, and astropy
 
 ---
@@ -67,6 +72,9 @@ CSVW is oriented towards data publishing, but a lot of Felis was derived from a 
 CSVW, SQLAlchemy, and Liquibase, in order to provide a catalog description that can be used to 
 create database tables.
 
+Felis will make heavy use of the `@id` property of an object. We use this to relate objects to 
+other objects within the Felis document.  
+
 ### Alternatives
 VOTable could help with some of the problems, but we'd still need a  convention for describing 
 indexes, constraints, override types, type mappings, and more. That would probably look like a 
@@ -77,24 +85,50 @@ lot of INFO, PARAM, and FIELDref elements.
 background-image: url(presentation_page.png)
 background-size: contain
 
-# Core Objects
+### Core Objects
 
-* `Schema` - which contains tables
-* `Table`, which contains Columns, Primary Key/Constraints, and Indexes
-* `Column` - A database column
-* `Index` - A database index
-* `Constraint` - A database constraint
-* `Reference` - An annotated reference to an object
-* `Grouping` - An annotated grouping of references
+**`Schema`** - which contains tables
+ - `name`, `description`, `tables`
+ 
+**`Table`** - a database table
+ - `name`, `description`, `columns`, `primaryKey`, `constraints`, `indexes`
+ 
+**`Column`** - A database column
+ - `name`, `description`, `datatype`... usually with `ivoa:ucd`, `fits:tunit` also
+ 
+**`Index`** - A database index
+ - `name`, `columns`...
+   
+**`Constraint`** - A database constraint
+ - `name`, `columnns`, `@type`...
+
+**`Reference`** and **`Grouping`** - A grouping is a collection of references, which itself can 
+reference another grouping. References can be simple, consisting only of the identifier of 
+another object (`@id`), or they can be an annotated reference.
 
 ---
 background-image: url(presentation_page.png)
 background-size: contain
 
 # Default Data Type Mappings
-Trying to get default database types based on C++/Python/Java (or even VOTable) types is kind of
-tough, especially across all the languages and formats. So Felis includes some default data type
- mappings.
+Trying to get default database types based on C++/Python/Java types is kind of
+tough. Felis defines default mappings across languages and DBs/formats.
+
+| Type    | MySQL    | SQLite   | Oracle        | Postgres         | Parquet     | VOTable
+| ------- | -------- | -------- | ------------- | ---------------- | ----------- | ----------------
+| boolean | BIT(1)   | BOOLEAN  | NUMBER(1)     | BOOLEAN          | BOOLEAN     | boolean         
+| byte    | TINYINT  | TINYINT  | NUMBER(3)     | SMALLINT         | INT\_8      | unsignedByte
+| short   | SMALLINT | SMALLINT | NUMBER(5)     | SMALLINT         | INT\_16     | short
+| int     | INT      | INTEGER  | INTEGER       | INT              | INT\_32     | int
+| long    | BIGINT   | BIGINT   | NUMBER(38, 0) | BIGINT           | INT\_64     | long
+| float   | FLOAT    | FLOAT    | FLOAT         | FLOAT            | FLOAT       | float
+| double  | DOUBLE   | DOUBLE   | FLOAT(24)     | DOUBLE PRECISION | DOUBLE      | double
+| char    | CHAR     | CHAR     | CHAR          | CHAR             | UTF8/STRING | char\[\]
+| string  | VARCHAR  | VARCHAR  | VARCHAR2      | VARCHAR          | UTF8/STRING | char\[\]
+| unicode | NVARCHAR | NVARCHAR | NVARCHAR2     | VARCHAR          | UTF8/STRING | unicodeChar\[\]
+| text    | LONGTEXT | TEXT     | CLOB          | TEXT             | UTF8/STRING | unicodeChar\[\]
+| binary  | LONGBLOB | BLOB     | BLOB          | BYTEA            | BYTE\_ARRAY | unsignedByte\[\]
+
 
 ---
 background-image: url(presentation_page.png)
@@ -189,19 +223,19 @@ Use the native `List<KeyValue>` objects in Parquet on Table and Column objects t
 metadata. When presented with more complicated objects (Groupings), serialize them to JSON under
 their proper name.  
 
-**VOTable JSON**
+**~~VOTable~~ JSON**
 
 A VOTable Vocabulary can allow us to mix in VOTable semantics in JSON without defining an 
 explicit mapping. JSON-LD, with it's well-defined [processing algorithms and API](https://www.w3
 .org/TR/json-ld-api/), can enable transformation of JSON into user-friendly formats for 
-user consumption and processing.
+user consumption and processing. Plus we have linking. 
 
 
 **CSVW**
 
 CSVW is another options for annotating CSV data. [It is used by Google for describing 
 datasets](https://developers.google
-.com/search/docs/data-types/dataset). Felis is vert compatible with CSVW
+.com/search/docs/data-types/dataset). Felis is very compatible with CSVW.
 
 
 ---
@@ -211,3 +245,6 @@ background-size: contain
 # More info
 
 https://felis.lsst.io and https://github.com/lsst-dm/felis
+
+.footnote-final[(In retrospect, the obvious name was [lynx...](https://en.wikipedia
+.org/wiki/Lynx))]
