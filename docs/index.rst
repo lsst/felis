@@ -208,7 +208,8 @@ default context of the following:
        "sqlite": "http://sqlite.org/",
        "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/"
        "ivoa": "http://ivoa.net/rdf/",
-       "votable": "http://ivoa.net/rdf/VOTable/"
+       "votable": "http://ivoa.net/rdf/VOTable/",
+       "tap": "http://ivoa.net/documents/TAP/"
      }
    }
 

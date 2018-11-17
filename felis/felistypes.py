@@ -90,6 +90,23 @@ NAME_MAP = dict(
     timestamp=Timestamp
 )
 
+
+VOTABLE_MAP = dict(
+    boolean="boolean",
+    byte="unsignedByte",
+    short="short",
+    int="int",
+    long="long",
+    float="float",
+    double="double",
+    char="char[]",
+    string="char[]",
+    unicode="unicodeChar[]",
+    text="unicodeChar[]",
+    binary="unsignedByte[]",
+    timestamp="string"
+)
+
 TYPE_NAMES = NAME_MAP.keys()
 
 NUMERIC_TYPES = {
@@ -107,4 +124,8 @@ LENGTH_TYPES = {
     "unicode",
     "text",
     "binary"
+}
+
+DATETIME_TYPES = {
+    "timestamp"
 }
