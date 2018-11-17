@@ -139,7 +139,7 @@ or IVOA terms, for example. So we can add to our context more vocabulary terms.
    {
      "@context": {
        "@vocab": "http://lsst.org/felis/",
-       "ivoa": "http://ivoa.net/",
+       "ivoa": "http://ivoa.net/rdf/",
        "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/"
      },
      "name": "MySchema",
@@ -207,8 +207,9 @@ default context of the following:
        "oracle": "http://oracle.com/database/",
        "sqlite": "http://sqlite.org/",
        "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/"
-       "ivoa": "http://ivoa.net/",
-       "votable": "http://ivoa.net/documents/VOTable/"
+       "ivoa": "http://ivoa.net/rdf/",
+       "votable": "http://ivoa.net/rdf/VOTable/",
+       "tap": "http://ivoa.net/documents/TAP/"
      }
    }
 
