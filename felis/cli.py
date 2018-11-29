@@ -94,7 +94,7 @@ def load_tap(engine_url, schema_name, catalog_name, dry_run, file):
         # After the engine is created, update the executor with the dialect
         _insert_dump.dialect = engine.dialect
 
-    if engine_url == "sqlite://":
+    if engine_url == "sqlite://" and not dry_run:
         # In Memory SQLite - Mostly used to test
         Tap11Base.metadata.create_all(engine)
 
