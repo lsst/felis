@@ -19,13 +19,13 @@
 
 import re
 
-from sqlalchemy import create_engine, MetaData, Column, Numeric, ForeignKeyConstraint, \
+from sqlalchemy import MetaData, Column, Numeric, ForeignKeyConstraint, \
     CheckConstraint, UniqueConstraint, PrimaryKeyConstraint, Index
 from sqlalchemy.dialects import mysql, oracle, postgresql, sqlite
 from sqlalchemy.schema import Table
 
-from felis.db import sqltypes
-from felis.felistypes import TYPE_NAMES, LENGTH_TYPES
+from .db import sqltypes
+from .felistypes import TYPE_NAMES, LENGTH_TYPES
 
 MYSQL = "mysql"
 ORACLE = "oracle"
@@ -60,13 +60,18 @@ class Schema:
 
 
 class Visitor:
-    def __init__(self):
+    def __init__(self, schema_name=None):
+        """
+        A Visitor which populates a SQLAlchemy metadata object.
+        :param schema_name: Override the schema name
+        """
         self.graph_index = {}
         self.metadata = MetaData()
+        self.schema_name = schema_name
 
     def visit_schema(self, schema_obj):
         schema = Schema()
-        schema.name = schema_obj["name"]
+        schema.name = self.schema_name or schema_obj["name"]
         schema.tables = [self.visit_table(t, schema_obj) for t in schema_obj["tables"]]
         schema.metadata = self.metadata
         schema.graph_index = self.graph_index
@@ -78,12 +83,13 @@ class Visitor:
         name = table_obj["name"]
         table_id = table_obj["@id"]
         description = table_obj.get("description")
+        schema_name = self.schema_name or schema_obj["name"]
 
         table = Table(
             name,
             self.metadata,
             *columns,
-            schema=schema_obj["name"],
+            schema=schema_name,
             comment=description
         )
 
@@ -218,36 +224,3 @@ def _process_variant_override(dialect_name, variant_override_str):
     if match:
         length_params.extend([int(i) for i in match.group(1).split(",")])
     return variant_type(*length_params)
-
-
-def test():
-    import yaml
-    obj = yaml.load(open("test.yml"))
-
-    visitor = Visitor()
-    schema = visitor.visit_schema(obj)
-
-    metadata = schema.metadata
-
-    def metadata_dump(sql, *multiparams, **params):
-        # print or write to log or file etc
-        print(sql.compile(dialect=engine.dialect))
-
-    print("sqlite")
-    engine = create_engine("sqlite:///:mem:", strategy='mock', executor=metadata_dump)
-    metadata.create_all(engine)
-    #
-    print("mysql")
-    engine = create_engine("mysql://", strategy='mock', executor=metadata_dump)
-    metadata.create_all(engine)
-
-    # print("oracle")
-    # engine = create_engine("oracle://", strategy='mock', executor=metadata_dump)
-    # metadata.create_all(engine)
-
-    print("postgresql")
-    engine = create_engine("postgresql://", strategy='mock', executor=metadata_dump)
-    metadata.create_all(engine)
-
-
-test()
