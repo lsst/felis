@@ -24,7 +24,7 @@ from sqlalchemy import create_engine
 
 from .model import Visitor
 from .tap import TapLoadingVisitor, Tap11Base
-from .version import __version__
+from . import __version__
 
 
 @click.group()
@@ -160,3 +160,7 @@ class InsertDump:
                     new_params[key] = value
 
             print(sql_str % new_params)
+
+
+if __name__ == '__main__':
+    cli()

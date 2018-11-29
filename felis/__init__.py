@@ -18,8 +18,10 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 
-from .cli import cli
+from pkg_resources import get_distribution, DistributionNotFound
 
-
-if __name__ == '__main__':
-    cli()
+try:
+    __version__ = get_distribution(__name__).version
+except DistributionNotFound:
+    # package is not installed
+    __version__ = "source"
