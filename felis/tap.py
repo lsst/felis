@@ -1,74 +1,82 @@
 from typing import List
 
 from sqlalchemy import Column, String, Integer
-from sqlalchemy.engine import Engine, create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.sql.expression import insert
+from .felistypes import LENGTH_TYPES, VOTABLE_MAP
 
-from felistypes import LENGTH_TYPES
-
-Base = declarative_base()
+Tap11Base = declarative_base()
 
 
-class Tap11Schemas(Base):
+IDENTIFIER_LENGTH = 128
+SMALL_FIELD_LENGTH = 32
+SIMPLE_FIELD_LENGTH = 128
+TEXT_FIELD_LENGTH = 2048
+QUALIFIED_TABLE_LENGTH = 3 * IDENTIFIER_LENGTH + 2
+
+
+class Tap11Schemas(Tap11Base):
     __tablename__ = "schemas"
-    schema_name = Column(String(), primary_key=True, nullable=False)
-    utype = Column(String())
-    description = Column(String())
-    schema_index = Column(Integer())
+    schema_name = Column(String(IDENTIFIER_LENGTH), primary_key=True, nullable=False)
+    utype = Column(String(SIMPLE_FIELD_LENGTH))
+    description = Column(String(TEXT_FIELD_LENGTH))
+    schema_index = Column(Integer)
 
 
-class Tap11Tables(Base):
+class Tap11Tables(Tap11Base):
     __tablename__ = "tables"
-    schema_name = Column(String, nullable=False)
-    table_name = Column(String, nullable=False, primary_key=True)
-    table_type = Column(String, nullable=False)
-    utype = Column(String)
-    description = Column(String)
+    schema_name = Column(String(IDENTIFIER_LENGTH), nullable=False)
+    table_name = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False, primary_key=True)
+    table_type = Column(String(SMALL_FIELD_LENGTH), nullable=False)
+    utype = Column(String(SIMPLE_FIELD_LENGTH))
+    description = Column(String(TEXT_FIELD_LENGTH))
     table_index = Column(Integer)
 
 
-class Tap11Columns(Base):
+class Tap11Columns(Tap11Base):
     __tablename__ = "columns"
-    table_name = Column(String, nullable=False, primary_key=True)
-    column_name = Column(String, nullable=False, primary_key=True)
-    datatype = Column(String, nullable=False)
-    arraysize = Column(String)
-    xtype = Column(String)
+    table_name = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False, primary_key=True)
+    column_name = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
+    datatype = Column(String(SIMPLE_FIELD_LENGTH), nullable=False)
+    arraysize = Column(String(10))
+    xtype = Column(String(SIMPLE_FIELD_LENGTH))
     # Size is deprecated
     # size = Column(Integer(), quote=True)
-    description = Column(String)
-    utype = Column(String)
-    unit = Column(String)
-    ucd = Column(String)
+    description = Column(String(TEXT_FIELD_LENGTH))
+    utype = Column(String(SIMPLE_FIELD_LENGTH))
+    unit = Column(String(SIMPLE_FIELD_LENGTH))
+    ucd = Column(String(SIMPLE_FIELD_LENGTH))
     indexed = Column(Integer, nullable=False)
     principal = Column(Integer, nullable=False)
     std = Column(Integer, nullable=False)
     column_index = Column(Integer)
 
 
-class Tap11Keys(Base):
+class Tap11Keys(Tap11Base):
     __tablename__ = "keys"
-    key_id = Column(String, nullable=False, primary_key=True)
-    from_table = Column(String, nullable=False)
-    target_table = Column(String, nullable=False)
-    description = Column(String)
-    utype = Column(String)
+    key_id = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
+    from_table = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False)
+    target_table = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False)
+    description = Column(String(TEXT_FIELD_LENGTH))
+    utype = Column(String(SIMPLE_FIELD_LENGTH))
 
 
-class Tap11KeyColumns(Base):
+class Tap11KeyColumns(Tap11Base):
     __tablename__ = "key_columns"
-    key_id = Column(String, nullable=False, primary_key=True)
-    from_column = Column(String, nullable=False, primary_key=True)
-    target_column = Column(String, nullable=False, primary_key=True)
+    key_id = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
+    from_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
+    target_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
 
 
-class TapVisitor:
-    def __init__(self, engine: Engine, catalog_name=None, schema_name=None):
+class TapLoadingVisitor:
+    def __init__(self, engine: Engine, catalog_name=None, schema_name=None, mock=False):
         self.graph_index = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
-        self.session: Session = sessionmaker(engine)()
+        self.engine = engine
+        self.mock = mock
 
     def visit_schema(self, schema_obj):
         schema = Tap11Schemas()
@@ -79,14 +87,30 @@ class TapVisitor:
         schema.description = schema_obj.get("description")
         schema.utype = schema_obj.get("votable:utype")
         schema.schema_index = int(schema_obj.get("tap:schema_index",0))
-        self.session.add(schema)
-        for table_obj in schema_obj["tables"]:
-            table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
-            self.session.add(table)
-            self.session.add_all(columns)
-            self.session.add_all(keys)
-            self.session.add_all(key_columns)
-        self.session.commit()
+
+        if not self.mock:
+            session: Session = sessionmaker(self.engine)()
+            session.add(schema)
+            for table_obj in schema_obj["tables"]:
+                table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
+                session.add(table)
+                session.add_all(columns)
+                session.add_all(keys)
+                session.add_all(key_columns)
+            session.commit()
+        else:
+            # Only if we are mocking (dry run)
+            conn = self.engine
+            conn.execute(_insert(Tap11Schemas, schema))
+            for table_obj in schema_obj["tables"]:
+                table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
+                conn.execute(_insert(Tap11Tables, table))
+                for column in columns:
+                    conn.execute(_insert(Tap11Columns, column))
+                for key in keys:
+                    conn.execute(_insert(Tap11Keys, key))
+                for key_column in key_columns:
+                    conn.execute(_insert(Tap11KeyColumns, key_column))
 
     def visit_table(self, table_obj, schema_obj):
         table_id = table_obj["@id"]
@@ -118,12 +142,14 @@ class TapVisitor:
     def visit_column(self, column_obj, table_obj):
         column_id = column_obj["@id"]
         table_name = self._table_name(table_obj["name"])
-        felis_datatype = column_obj["datatype"]
 
         column = Tap11Columns()
         column.table_name = table_name
         column.column_name = column_obj["name"]
-        column.datatype = column_obj.get("votable:datatype", felis_datatype)
+
+        felis_datatype = column_obj["datatype"]
+        ivoa_datatype = column_obj.get("votable:datatype", VOTABLE_MAP[felis_datatype])
+        column.datatype = column_obj.get("votable:datatype", ivoa_datatype)
 
         arraysize = None
         if felis_datatype in LENGTH_TYPES:
@@ -226,14 +252,6 @@ class TapVisitor:
         return ".".join([self._schema_name(), table_name])
 
 
-def test():
-    import yaml
-    obj = yaml.load(open("test.yml"))
-
-    metadata = Base.metadata
-
-    engine = create_engine("sqlite:///test.db")
-    metadata.create_all(engine)
-
-    tv = TapVisitor(engine)
-    tv.visit_schema(obj)
+def _insert(table, value):
+    value = {i.name: getattr(value, i.name) for i in table.__table__.columns}
+    return insert(table, values=value)
