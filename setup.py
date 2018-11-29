@@ -26,7 +26,7 @@ setup(
     install_requires=requires,
     entry_points={
         'console_scripts': [
-            'felis = felis:cli',
+            'felis = felis.cli:cli',
         ],
     },
     extras_require={'docs': doc_requires}
