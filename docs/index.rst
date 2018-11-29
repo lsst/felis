@@ -206,7 +206,7 @@ default context of the following:
        "postgres": "http://posgresql.org/",
        "oracle": "http://oracle.com/database/",
        "sqlite": "http://sqlite.org/",
-       "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/"
+       "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/",
        "ivoa": "http://ivoa.net/rdf/",
        "votable": "http://ivoa.net/rdf/VOTable/",
        "tap": "http://ivoa.net/documents/TAP/"

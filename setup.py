@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 requires = [
     'sqlalchemy>1.1',
@@ -16,7 +16,7 @@ setup(
     name='felis',
     use_scm_version={'version_scheme': 'post-release'},
     setup_requires=['setuptools_scm'],
-    packages=['felis'],
+    packages=find_packages(),
     url='https://github.com/lsst-dm/felis',
     license='GPL',
     author='Brian Van Klaveren',
