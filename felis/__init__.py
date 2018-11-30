@@ -25,3 +25,26 @@ try:
 except DistributionNotFound:
     # package is not installed
     __version__ = "source"
+
+DEFAULT_CONTEXT = {
+    "@vocab": "http://lsst.org/felis/",
+    "mysql": "http://mysql.com/",
+    "postgres": "http://posgresql.org/",
+    "oracle": "http://oracle.com/database/",
+    "sqlite": "http://sqlite.org/",
+    "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/",
+    "ivoa": "http://ivoa.net/rdf/",
+    "votable": "http://ivoa.net/rdf/VOTable/",
+    "tap": "http://ivoa.net/documents/TAP/"
+}
+
+DEFAULT_FRAME = {
+    "@context": DEFAULT_CONTEXT,
+    "@type": "felis:Schema",
+    "tables": {
+        "@container": "@list",
+        "columns": {
+            "@container": "@list"
+        }
+    }
+}
