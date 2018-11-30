@@ -153,10 +153,8 @@ def _dump(obj):
 
 def _normalize(schema_obj):
     framed = jsonld.frame(schema_obj, DEFAULT_FRAME)
-    compacted = jsonld.compact(framed, DEFAULT_CONTEXT)
+    compacted = jsonld.compact(framed, DEFAULT_CONTEXT, options=dict(graph=True))
     graph = compacted["@graph"]
-    if not isinstance(graph, list):
-        graph = [graph]
     graph = [ReorderingVisitor(add_type=True).visit_schema(schema_obj) for schema_obj in graph]
     compacted["@graph"] = graph if len(graph) > 1 else graph[0]
     return compacted
