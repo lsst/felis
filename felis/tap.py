@@ -117,7 +117,7 @@ class TapLoadingVisitor:
         table = Tap11Tables()
         table.schema_name = self._schema_name()
         table.table_name = self._table_name(table_obj["name"])
-        table.table_type = "TABLE"
+        table.table_type = "table"
         table.utype = table_obj.get("votable:utype")
         table.description = table_obj.get("description")
         table.table_index = int(schema_obj.get("tap:table_index", 0))
