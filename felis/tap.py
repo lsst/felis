@@ -253,5 +253,18 @@ class TapLoadingVisitor:
 
 
 def _insert(table, value):
-    value = {i.name: getattr(value, i.name) for i in table.__table__.columns}
-    return insert(table, values=value)
+    """
+    Return a SQLAlchemy insert statement based on
+    :param table: The table we are inserting to
+    :param value: An object representing the object we are inserting
+    to the table
+    :return: A SQLAlchemy insert statement
+    """
+    values_dict = {}
+    for i in table.__table__.columns:
+        name = i.name
+        column_value = getattr(value, i.name)
+        if type(column_value) == str:
+            column_value = column_value.replace("'", "''")
+        values_dict[name] = column_value
+    return insert(table, values=values_dict)
