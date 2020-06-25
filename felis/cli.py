@@ -20,6 +20,7 @@
 import json
 
 import click
+import logging
 import yaml
 from pyld import jsonld
 from sqlalchemy import create_engine
@@ -29,6 +30,8 @@ from .tap import TapLoadingVisitor, Tap11Base
 from .utils import ReorderingVisitor
 from . import __version__, DEFAULT_CONTEXT, DEFAULT_FRAME
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("felis")
 
 @click.group()
 @click.version_option(__version__)

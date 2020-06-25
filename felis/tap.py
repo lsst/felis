@@ -1,14 +1,16 @@
 from typing import List
 
+import logging
+
 from sqlalchemy import Column, String, Integer
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.expression import insert
-from .felistypes import LENGTH_TYPES, VOTABLE_MAP
+from .felistypes import LENGTH_TYPES, VOTABLE_MAP, DATETIME_TYPES
 
 Tap11Base = declarative_base()
-
+logger = logging.getLogger("felis")
 
 IDENTIFIER_LENGTH = 128
 SMALL_FIELD_LENGTH = 32
@@ -152,8 +154,13 @@ class TapLoadingVisitor:
         column.datatype = column_obj.get("votable:datatype", ivoa_datatype)
 
         arraysize = None
-        if felis_datatype in LENGTH_TYPES:
+        if felis_datatype in LENGTH_TYPES or felis_datatype in DATETIME_TYPES:
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
+            if arraysize is None:
+                logger.warning(f"arraysize for {column_id} is None for type {felis_datatype}. "
+                               "Using length \"*\". "
+                               "Consider setting `votable:arraysize` or `length`.")
+                arraysize = "*"
         column.arraysize = arraysize
 
         column.xtype = column_obj.get("votable:xtype")
