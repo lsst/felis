@@ -99,12 +99,12 @@ VOTABLE_MAP = dict(
     long="long",
     float="float",
     double="double",
-    char="char[]",
-    string="char[]",
-    unicode="unicodeChar[]",
-    text="unicodeChar[]",
-    binary="unsignedByte[]",
-    timestamp="string"
+    char="char",  # arraysize must be nonzero
+    string="char",  # arraysize must be nonzero
+    unicode="unicodeChar",  # arraysize must be nonzero
+    text="unicodeChar",  # arraysize must be nonzero
+    binary="unsignedByte",  # arraysize must be nonzero
+    timestamp="char"  # arraysize must be nonzero
 )
 
 TYPE_NAMES = NAME_MAP.keys()

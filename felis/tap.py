@@ -1,14 +1,16 @@
 from typing import List
 
+import logging
+
 from sqlalchemy import Column, String, Integer
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.expression import insert
-from .felistypes import LENGTH_TYPES, VOTABLE_MAP
+from .felistypes import LENGTH_TYPES, VOTABLE_MAP, DATETIME_TYPES
 
 Tap11Base = declarative_base()
-
+logger = logging.getLogger("felis")
 
 IDENTIFIER_LENGTH = 128
 SMALL_FIELD_LENGTH = 32
@@ -117,7 +119,7 @@ class TapLoadingVisitor:
         table = Tap11Tables()
         table.schema_name = self._schema_name()
         table.table_name = self._table_name(table_obj["name"])
-        table.table_type = "TABLE"
+        table.table_type = "table"
         table.utype = table_obj.get("votable:utype")
         table.description = table_obj.get("description")
         table.table_index = int(schema_obj.get("tap:table_index", 0))
@@ -152,8 +154,13 @@ class TapLoadingVisitor:
         column.datatype = column_obj.get("votable:datatype", ivoa_datatype)
 
         arraysize = None
-        if felis_datatype in LENGTH_TYPES:
+        if felis_datatype in LENGTH_TYPES or felis_datatype in DATETIME_TYPES:
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
+            if arraysize is None:
+                logger.warning(f"arraysize for {column_id} is None for type {felis_datatype}. "
+                               "Using length \"*\". "
+                               "Consider setting `votable:arraysize` or `length`.")
+                arraysize = "*"
         column.arraysize = arraysize
 
         column.xtype = column_obj.get("votable:xtype")
@@ -187,7 +194,10 @@ class TapLoadingVisitor:
         return None
 
     def visit_constraint(self, constraint_obj, table):
-        constraint_type = constraint_obj["@type"]
+        constraint_type = constraint_obj.get("@type")
+        if not constraint_type:
+            maybe_id = constraint_obj.get("@id", "(Not Specified)")
+            raise ValueError(f"Constraint has no @type: {maybe_id}")
         key = None
         key_columns = []
         if constraint_type == "ForeignKey":
@@ -253,5 +263,18 @@ class TapLoadingVisitor:
 
 
 def _insert(table, value):
-    value = {i.name: getattr(value, i.name) for i in table.__table__.columns}
-    return insert(table, values=value)
+    """
+    Return a SQLAlchemy insert statement based on
+    :param table: The table we are inserting to
+    :param value: An object representing the object we are inserting
+    to the table
+    :return: A SQLAlchemy insert statement
+    """
+    values_dict = {}
+    for i in table.__table__.columns:
+        name = i.name
+        column_value = getattr(value, i.name)
+        if type(column_value) == str:
+            column_value = column_value.replace("'", "''")
+        values_dict[name] = column_value
+    return insert(table, values=values_dict)

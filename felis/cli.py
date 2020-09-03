@@ -20,6 +20,7 @@
 import json
 
 import click
+import logging
 import yaml
 from pyld import jsonld
 from sqlalchemy import create_engine
@@ -29,6 +30,8 @@ from .tap import TapLoadingVisitor, Tap11Base
 from .utils import ReorderingVisitor
 from . import __version__, DEFAULT_CONTEXT, DEFAULT_FRAME
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("felis")
 
 @click.group()
 @click.version_option(__version__)
@@ -46,7 +49,7 @@ def cli():
 def create_all(engine_url, schema_name, dry_run, file):
     """Create schema objects from the Felis FILE."""
 
-    schema_obj = yaml.load(file)
+    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
     visitor = Visitor(schema_name=schema_name)
     schema = visitor.visit_schema(schema_obj)
 
@@ -86,7 +89,7 @@ def load_tap(engine_url, schema_name, catalog_name, dry_run, file):
     """Load TAP metadata from a Felis FILE.
     This command loads the associated TAP metadata from a Felis FILE
     to the TAP_SCHEMA tables."""
-    schema_obj = yaml.load(file)
+    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
 
     if not dry_run:
         engine = create_engine(engine_url)
@@ -110,7 +113,7 @@ def load_tap(engine_url, schema_name, catalog_name, dry_run, file):
 @click.argument('file', type=click.File())
 def normalize(file):
     """Normalize a Felis FILE."""
-    schema_obj = yaml.load(file)
+    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
     schema_obj["@type"] = "felis:Schema"
     # Force Context and Schema Type
     schema_obj["@context"] = DEFAULT_CONTEXT
@@ -125,7 +128,7 @@ def merge(files):
     """Merge a set of Feils FILES"""
     graph = []
     for file in files:
-        schema_obj = yaml.load(file)
+        schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
         schema_obj["@type"] = "felis:Schema"
         # Force Context and Schema Type
         schema_obj["@context"] = DEFAULT_CONTEXT

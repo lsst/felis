@@ -491,15 +491,15 @@ Datatypes
 +---------+--------------+----------------+----------------+
 | double  | double       | double         |                |
 +---------+--------------+----------------+----------------+
-| char    | string       | char[]         | `3 <#note3>`__ |
+| char    | string       | char           | `3 <#note3>`__ |
 +---------+--------------+----------------+----------------+
-| string  | string       | char[]         | `3 <#note3>`__ |
+| string  | string       | char           | `3 <#note3>`__ |
 +---------+--------------+----------------+----------------+
-| unicode | string       | unicodeChar[]  | `3 <#note3>`__ |
+| unicode | string       | unicodeChar    | `3 <#note3>`__ |
 +---------+--------------+----------------+----------------+
-| text    | string       | unicodeChar[]  |                |
+| text    | string       | unicodeChar    | `3 <#note3>`__ |
 +---------+--------------+----------------+----------------+
-| binary  | base64Binary | unsignedByte[] | `6 <#note6>`__ |
+| binary  | base64Binary | unsignedByte   | `6 <#note6>`__ |
 +---------+--------------+----------------+----------------+
 
 **Notes:**

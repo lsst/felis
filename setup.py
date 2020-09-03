@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 requires = [
     'sqlalchemy>1.1',
     'pyyaml',
-    'click'
+    'click',
+    'pyld',
 ]
 
 doc_requires = [
