@@ -194,7 +194,10 @@ class TapLoadingVisitor:
         return None
 
     def visit_constraint(self, constraint_obj, table):
-        constraint_type = constraint_obj["@type"]
+        constraint_type = constraint_obj.get("@type")
+        if not constraint_type:
+            maybe_id = constraint_obj.get("@id", "(Not Specified)")
+            raise ValueError(f"Constraint has no @type: {maybe_id}")
         key = None
         key_columns = []
         if constraint_type == "ForeignKey":
