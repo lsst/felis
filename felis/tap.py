@@ -145,10 +145,8 @@ class TapLoadingVisitor(VisitorBase):
         return table, columns, all_keys, all_key_columns
 
     def check_column(self, column_obj, table_obj):
-        self.assert_id(column_obj)
-        self.assert_name(column_obj)
+        super().check_column(column_obj, table_obj)
         _id = column_obj["@id"]
-        self.assert_datatype(column_obj)
         datatype_name = column_obj.get("datatype")
         if datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES:
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
@@ -156,7 +154,6 @@ class TapLoadingVisitor(VisitorBase):
                 logger.warning(f"arraysize for {_id} is None for type {datatype_name}. "
                                "Using length \"*\". "
                                "Consider setting `votable:arraysize` or `length`.")
-        self.check_visited(_id)
 
     def visit_column(self, column_obj, table_obj):
         self.check_column(column_obj, table_obj)
