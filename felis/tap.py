@@ -148,12 +148,21 @@ class TapLoadingVisitor(VisitorBase):
         super().check_column(column_obj, table_obj)
         _id = column_obj["@id"]
         datatype_name = column_obj.get("datatype")
-        if datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES:
+        if datatype_name in LENGTH_TYPES:
+            # It is expected that both arraysize and length are fine for length types.
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
             if arraysize is None:
-                logger.warning(f"arraysize for {_id} is None for type {datatype_name}. "
+                logger.warning(f"votable:arraysize and length for {_id} are None for type {datatype_name}. "
                                "Using length \"*\". "
                                "Consider setting `votable:arraysize` or `length`.")
+        if datatype_name in DATETIME_TYPES:
+            # datetime types really should have a votable:arraysize, because they are converted
+            # to strings and the `length` is loosely to the string size
+            if "votable:arraysize" not in column_obj:
+                logger.warning(f"votable:arraysize for {_id} is None for type {datatype_name}. "
+                               f"Using length \"*\". "
+                               "Consider setting `votable:arraysize` to an appropriate size for "
+                               "materialized datetime/timestamp strings.")
 
     def visit_column(self, column_obj, table_obj):
         self.check_column(column_obj, table_obj)
@@ -169,9 +178,11 @@ class TapLoadingVisitor(VisitorBase):
         column.datatype = column_obj.get("votable:datatype", ivoa_datatype)
 
         arraysize = None
-        if felis_datatype in LENGTH_TYPES or felis_datatype in DATETIME_TYPES:
+        if felis_datatype in LENGTH_TYPES:
             # prefer votable:arraysize to length, fall back to `*`
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length", "*"))
+        if felis_datatype in DATETIME_TYPES:
+            arraysize = column_obj.get("votable:arraysize", "*")
         column.arraysize = arraysize
 
         column.xtype = column_obj.get("votable:xtype")
