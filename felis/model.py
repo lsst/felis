@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import logging
 import re
 
 from sqlalchemy import MetaData, Column, Numeric, ForeignKeyConstraint, \
@@ -25,7 +26,9 @@ from sqlalchemy.dialects import mysql, oracle, postgresql, sqlite
 from sqlalchemy.schema import Table
 
 from .db import sqltypes
-from .felistypes import TYPE_NAMES, LENGTH_TYPES
+from .felistypes import TYPE_NAMES, LENGTH_TYPES, DATETIME_TYPES
+
+logger = logging.getLogger("felis")
 
 MYSQL = "mysql"
 ORACLE = "oracle"
@@ -59,13 +62,82 @@ class Schema:
     pass
 
 
-class Visitor:
+class VisitorBase:
+    """
+    Base class for visitors. Includes the graph_index and functions for
+    validating objects.
+    """
+    def __init__(self):
+        super().__init__()
+        self.graph_index = {}
+
+    def assert_id(self, obj):
+        _id = obj.get("@id")
+        if not _id:
+            raise ValueError(f"No @id defined for object {_id}")
+
+    def assert_name(self, obj):
+        _id = obj.get("@id")
+        if "name" not in obj:
+            raise ValueError(f"No name for table object {_id}")
+
+    def assert_datatype(self, obj):
+        datatype_name = obj.get("datatype")
+        _id = obj["@id"]
+        if not datatype_name:
+            raise ValueError(f"No datatype defined for id {_id}")
+        if datatype_name not in TYPE_NAMES:
+            raise ValueError(f"Incorrect Type Name for id {_id}: {datatype_name}")
+
+    def check_visited(self, _id):
+        if _id in self.graph_index:
+            logger.warning(f"Duplication of @id {_id}")
+
+    def check_table(self, table_obj, schema_obj):
+        self.assert_id(table_obj)
+        self.assert_name(table_obj)
+        _id = table_obj["@id"]
+        self.check_visited(_id)
+
+    def check_column(self, column_obj, table_obj):
+        self.assert_id(column_obj)
+        self.assert_name(column_obj)
+        _id = column_obj["@id"]
+        self.assert_datatype(column_obj)
+        datatype_name = column_obj.get("datatype")
+        if datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES:
+            # This is not a warning, because it's usually fine
+            logger.info(f"No length defined for {_id} for type {datatype_name}")
+
+    def check_primary_key(self, primary_key_obj, table):
+        pass
+
+    def check_constraint(self, constraint_obj, table):
+        self.assert_id(constraint_obj)
+        _id = constraint_obj["@id"]
+        constraint_type = constraint_obj.get("@type")
+        if not constraint_type:
+            raise ValueError(f"Constraint has no @type: {_id}")
+        if constraint_type not in ["ForeignKey", "Check", "Unique"]:
+            raise ValueError(f"Not a valid constraint type: {constraint_type}")
+        self.check_visited(_id)
+
+    def check_index(self, index_obj, table):
+        self.assert_id(index_obj)
+        _id = index_obj["@id"]
+        self.assert_name(index_obj)
+        if "columns" in index_obj and "expressions" in index_obj:
+            raise ValueError(f"Defining columns and expressions is not valid for index {_id}")
+        self.check_visited(_id)
+
+
+class Visitor(VisitorBase):
     def __init__(self, schema_name=None):
         """
         A Visitor which populates a SQLAlchemy metadata object.
         :param schema_name: Override the schema name
         """
-        self.graph_index = {}
+        super(Visitor, self).__init__()
         self.metadata = MetaData()
         self.schema_name = schema_name
 
@@ -78,6 +150,7 @@ class Visitor:
         return schema
 
     def visit_table(self, table_obj, schema_obj):
+        self.check_table(table_obj, schema_obj)
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
 
         name = table_obj["name"]
@@ -110,15 +183,13 @@ class Visitor:
             # FIXME: Hack because there's no table.add_index
             index._set_parent(table)
             table.indexes.add(index)
-
         self.graph_index[table_id] = table
 
     def visit_column(self, column_obj, table_obj):
+        self.check_column(column_obj, table_obj)
         column_name = column_obj["name"]
-        column_id = column_obj.get("@id")
+        column_id = column_obj["@id"]
         datatype_name = column_obj["datatype"]
-        if datatype_name not in TYPE_NAMES:
-            raise ValueError(f"Incorrect Type Name: {datatype_name}")
         column_description = column_obj.get("description")
         column_default = column_obj.get("value")
         column_length = column_obj.get("length")
@@ -152,10 +223,13 @@ class Visitor:
             nullable=column_nullable,
             server_default=column_default
         )
+        if column_id in self.graph_index:
+            logger.warning(f"Duplication of @id {column_id}")
         self.graph_index[column_id] = column
         return column
 
     def visit_primary_key(self, primary_key_obj, table):
+        self.check_primary_key(primary_key_obj, table)
         if primary_key_obj:
             if not isinstance(primary_key_obj, list):
                 primary_key_obj = [primary_key_obj]
@@ -166,8 +240,9 @@ class Visitor:
         return None
 
     def visit_constraint(self, constraint_obj, table):
+        self.check_constraint(constraint_obj, table)
         constraint_type = constraint_obj["@type"]
-        constraint_id = constraint_obj.get("@id")
+        constraint_id = constraint_obj["@id"]
 
         constraint_args = {}
         # The following are not used on every constraint
@@ -190,12 +265,11 @@ class Visitor:
             constraint = CheckConstraint(expression, **constraint_args)
         elif constraint_type == "Unique":
             constraint = UniqueConstraint(*columns, **constraint_args)
-        else:
-            raise ValueError("Not a valid constraint type")
         self.graph_index[constraint_id] = constraint
         return constraint
 
     def visit_index(self, index_obj, table):
+        self.check_index(index_obj, table)
         name = index_obj["name"]
         description = index_obj.get("description")
         columns = [

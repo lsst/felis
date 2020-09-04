@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.expression import insert
 from .felistypes import LENGTH_TYPES, VOTABLE_MAP, DATETIME_TYPES
 
+from .model import VisitorBase
+
 Tap11Base = declarative_base()
 logger = logging.getLogger("felis")
 
@@ -72,7 +74,7 @@ class Tap11KeyColumns(Tap11Base):
     target_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
 
 
-class TapLoadingVisitor:
+class TapLoadingVisitor(VisitorBase):
     def __init__(self, engine: Engine, catalog_name=None, schema_name=None, mock=False):
         self.graph_index = {}
         self.catalog_name = catalog_name
@@ -115,6 +117,7 @@ class TapLoadingVisitor:
                     conn.execute(_insert(Tap11KeyColumns, key_column))
 
     def visit_table(self, table_obj, schema_obj):
+        self.check_table(table_obj, schema_obj)
         table_id = table_obj["@id"]
         table = Tap11Tables()
         table.schema_name = self._schema_name()
@@ -141,7 +144,22 @@ class TapLoadingVisitor:
         self.graph_index[table_id] = table
         return table, columns, all_keys, all_key_columns
 
+    def check_column(self, column_obj, table_obj):
+        self.assert_id(column_obj)
+        self.assert_name(column_obj)
+        _id = column_obj["@id"]
+        self.assert_datatype(column_obj)
+        datatype_name = column_obj.get("datatype")
+        if datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES:
+            arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
+            if arraysize is None:
+                logger.warning(f"arraysize for {_id} is None for type {datatype_name}. "
+                               "Using length \"*\". "
+                               "Consider setting `votable:arraysize` or `length`.")
+        self.check_visited(_id)
+
     def visit_column(self, column_obj, table_obj):
+        self.check_column(column_obj, table_obj)
         column_id = column_obj["@id"]
         table_name = self._table_name(table_obj["name"])
 
@@ -155,12 +173,8 @@ class TapLoadingVisitor:
 
         arraysize = None
         if felis_datatype in LENGTH_TYPES or felis_datatype in DATETIME_TYPES:
-            arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
-            if arraysize is None:
-                logger.warning(f"arraysize for {column_id} is None for type {felis_datatype}. "
-                               "Using length \"*\". "
-                               "Consider setting `votable:arraysize` or `length`.")
-                arraysize = "*"
+            # prefer votable:arraysize to length, fall back to `*`
+            arraysize = column_obj.get("votable:arraysize", column_obj.get("length", "*"))
         column.arraysize = arraysize
 
         column.xtype = column_obj.get("votable:xtype")
@@ -194,10 +208,8 @@ class TapLoadingVisitor:
         return None
 
     def visit_constraint(self, constraint_obj, table):
-        constraint_type = constraint_obj.get("@type")
-        if not constraint_type:
-            maybe_id = constraint_obj.get("@id", "(Not Specified)")
-            raise ValueError(f"Constraint has no @type: {maybe_id}")
+        self.check_constraint(constraint_obj, table)
+        constraint_type = constraint_obj["@type"]
         key = None
         key_columns = []
         if constraint_type == "ForeignKey":
@@ -243,6 +255,7 @@ class TapLoadingVisitor:
         return key, key_columns
 
     def visit_index(self, index_obj, table):
+        self.check_index(index_obj, table)
         columns = [
             self.graph_index[c_id] for c_id in index_obj.get("columns", [])
         ]
