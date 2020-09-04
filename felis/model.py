@@ -110,6 +110,7 @@ class VisitorBase:
         if datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES:
             # This is not a warning, because it's usually fine
             logger.info(f"No length defined for {_id} for type {datatype_name}")
+        self.check_visited(_id)
 
     def check_primary_key(self, primary_key_obj, table):
         pass
