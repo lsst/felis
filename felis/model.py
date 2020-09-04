@@ -74,7 +74,9 @@ class VisitorBase:
     def assert_id(self, obj):
         _id = obj.get("@id")
         if not _id:
-            raise ValueError(f"No @id defined for object {_id}")
+            name = obj.get("name", "")
+            maybe_string = f"(check object with name: {name})" if name else ""
+            raise ValueError(f"No @id defined for object {maybe_string}")
 
     def assert_name(self, obj):
         _id = obj.get("@id")
@@ -112,7 +114,7 @@ class VisitorBase:
     def check_primary_key(self, primary_key_obj, table):
         pass
 
-    def check_constraint(self, constraint_obj, table):
+    def check_constraint(self, constraint_obj, table_obj):
         self.assert_id(constraint_obj)
         _id = constraint_obj["@id"]
         constraint_type = constraint_obj.get("@type")
@@ -122,7 +124,7 @@ class VisitorBase:
             raise ValueError(f"Not a valid constraint type: {constraint_type}")
         self.check_visited(_id)
 
-    def check_index(self, index_obj, table):
+    def check_index(self, index_obj, table_obj):
         self.assert_id(index_obj)
         _id = index_obj["@id"]
         self.assert_name(index_obj)
@@ -130,6 +132,37 @@ class VisitorBase:
             raise ValueError(f"Defining columns and expressions is not valid for index {_id}")
         self.check_visited(_id)
 
+    def visit_schema(self, schema_obj):
+        self.assert_id(schema_obj)
+        self.graph_index[schema_obj["@id"]] = schema_obj
+        for table_obj in schema_obj["tables"]:
+            self.visit_table(table_obj, schema_obj)
+
+    def visit_table(self, table_obj, schema_obj):
+        self.check_table(table_obj, schema_obj)
+        self.graph_index[table_obj["@id"]] = table_obj
+        for column_obj in table_obj["columns"]:
+            self.visit_column(column_obj, table_obj)
+        self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
+        for constraint_obj in table_obj.get("constraints", []):
+            self.visit_constraint(constraint_obj, table_obj)
+        for index_obj in table_obj.get("indexes", []):
+            self.visit_index(index_obj, table_obj)
+
+    def visit_column(self, column_obj, table_obj):
+        self.check_column(column_obj, table_obj)
+        self.graph_index[column_obj["@id"]] = column_obj
+
+    def visit_primary_key(self, primary_key_obj, table_obj):
+        self.check_primary_key(primary_key_obj, table_obj)
+
+    def visit_constraint(self, constraint_obj, table_obj):
+        self.check_constraint(constraint_obj, table_obj)
+        self.graph_index[constraint_obj["@id"]] = constraint_obj
+
+    def visit_index(self, index_obj, table_obj):
+        self.check_index(index_obj, table_obj)
+        self.graph_index[index_obj["@id"]] = index_obj
 
 class Visitor(VisitorBase):
     def __init__(self, schema_name=None):
@@ -228,8 +261,8 @@ class Visitor(VisitorBase):
         self.graph_index[column_id] = column
         return column
 
-    def visit_primary_key(self, primary_key_obj, table):
-        self.check_primary_key(primary_key_obj, table)
+    def visit_primary_key(self, primary_key_obj, table_obj):
+        self.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:
             if not isinstance(primary_key_obj, list):
                 primary_key_obj = [primary_key_obj]
@@ -239,8 +272,8 @@ class Visitor(VisitorBase):
             return PrimaryKeyConstraint(*columns)
         return None
 
-    def visit_constraint(self, constraint_obj, table):
-        self.check_constraint(constraint_obj, table)
+    def visit_constraint(self, constraint_obj, table_obj):
+        self.check_constraint(constraint_obj, table_obj)
         constraint_type = constraint_obj["@type"]
         constraint_id = constraint_obj["@id"]
 
@@ -268,8 +301,8 @@ class Visitor(VisitorBase):
         self.graph_index[constraint_id] = constraint
         return constraint
 
-    def visit_index(self, index_obj, table):
-        self.check_index(index_obj, table)
+    def visit_index(self, index_obj, table_obj):
+        self.check_index(index_obj, table_obj)
         name = index_obj["name"]
         description = index_obj.get("description")
         columns = [

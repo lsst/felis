@@ -25,7 +25,7 @@ import yaml
 from pyld import jsonld
 from sqlalchemy import create_engine
 
-from .model import Visitor
+from .model import Visitor, VisitorBase
 from .tap import TapLoadingVisitor, Tap11Base
 from .utils import ReorderingVisitor
 from . import __version__, DEFAULT_CONTEXT, DEFAULT_FRAME
@@ -107,6 +107,21 @@ def load_tap(engine_url, schema_name, catalog_name, dry_run, file):
     tap_visitor = TapLoadingVisitor(engine, catalog_name=catalog_name, schema_name=schema_name,
                                     mock=dry_run)
     tap_visitor.visit_schema(schema_obj)
+
+@cli.command("basic-check")
+@click.argument('file', type=click.File())
+def basic_check(file):
+    """Perform a basic check on a felis FILE.
+    This performs a very check to ensure required fields are
+    populated and basic semantics are okay. It does not ensure semantics
+    are valid for other commands like create-all or load-tap.
+    """
+    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
+    schema_obj["@type"] = "felis:Schema"
+    # Force Context and Schema Type
+    schema_obj["@context"] = DEFAULT_CONTEXT
+    check_visitor = VisitorBase()
+    check_visitor.visit_schema(schema_obj)
 
 
 @cli.command("normalize")

@@ -195,7 +195,7 @@ class TapLoadingVisitor(VisitorBase):
         self.graph_index[column_id] = column
         return column
 
-    def visit_primary_key(self, primary_key_obj, table):
+    def visit_primary_key(self, primary_key_obj, table_obj):
         if primary_key_obj:
             if not isinstance(primary_key_obj, list):
                 primary_key_obj = [primary_key_obj]
@@ -207,8 +207,8 @@ class TapLoadingVisitor(VisitorBase):
                 columns[0].indexed = 1
         return None
 
-    def visit_constraint(self, constraint_obj, table):
-        self.check_constraint(constraint_obj, table)
+    def visit_constraint(self, constraint_obj, table_obj):
+        self.check_constraint(constraint_obj, table_obj)
         constraint_type = constraint_obj["@type"]
         key = None
         key_columns = []
@@ -254,8 +254,8 @@ class TapLoadingVisitor(VisitorBase):
                 key_columns.append(key_column)
         return key, key_columns
 
-    def visit_index(self, index_obj, table):
-        self.check_index(index_obj, table)
+    def visit_index(self, index_obj, table_obj):
+        self.check_index(index_obj, table_obj)
         columns = [
             self.graph_index[c_id] for c_id in index_obj.get("columns", [])
         ]
