@@ -125,7 +125,7 @@ class TapLoadingVisitor(VisitorBase):
         table.table_type = "table"
         table.utype = table_obj.get("votable:utype")
         table.description = table_obj.get("description")
-        table.table_index = int(schema_obj.get("tap:table_index", 0))
+        table.table_index = int(table_obj.get("tap:table_index", 0))
 
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
         self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
