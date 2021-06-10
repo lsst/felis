@@ -35,16 +35,20 @@ DEFAULT_CONTEXT = {
     "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/",
     "ivoa": "http://ivoa.net/rdf/",
     "votable": "http://ivoa.net/rdf/VOTable/",
-    "tap": "http://ivoa.net/documents/TAP/"
+    "tap": "http://ivoa.net/documents/TAP/",
+    "tables": {
+        "@container": "@list",
+        "@type": "@id",
+        "@id": "felis:Table"
+    },
+    "columns": {
+        "@container": "@list",
+        "@type": "@id",
+        "@id": "felis:Column"
+    }
 }
 
 DEFAULT_FRAME = {
     "@context": DEFAULT_CONTEXT,
     "@type": "felis:Schema",
-    "tables": {
-        "@container": "@list",
-        "columns": {
-            "@container": "@list"
-        }
-    }
 }

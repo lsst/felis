@@ -197,15 +197,22 @@ def merge(files):
     graph = []
     for file in files:
         schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-        schema_obj["@type"] = "felis:Schema"
-        # Force Context and Schema Type
+        if "@graph" not in schema_obj:
+            schema_obj["@type"] = "felis:Schema"
         schema_obj["@context"] = DEFAULT_CONTEXT
-        expanded = jsonld.expand(schema_obj)
-        graph.extend(expanded)
-
-    merged = {"@context": DEFAULT_CONTEXT, "@graph": graph}
+        flattened = jsonld.flatten(schema_obj)
+        graph.extend(flattened)
+    updated_map = {}
+    for item in graph:
+        _id = item["@id"]
+        item_to_update = updated_map.get(_id, item)
+        if item_to_update and item_to_update != item:
+            logger.debug(f"Overwriting {_id}")
+        item_to_update.update(item)
+        updated_map[_id] = item_to_update
+    merged = {"@context": DEFAULT_CONTEXT, "@graph": list(updated_map.values())}
     normalized = _normalize(merged)
-    _dump(normalized)
+    _dump(normalized["@graph"])
 
 
 def _dump(obj):
