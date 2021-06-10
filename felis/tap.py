@@ -21,24 +21,26 @@ QUALIFIED_TABLE_LENGTH = 3 * IDENTIFIER_LENGTH + 2
 
 def init_tables(
     tap_schema_name=None,
+    tap_tables_postfix=None,
     tap_schemas_table=None,
     tap_tables_table=None,
     tap_columns_table=None,
     tap_keys_table=None,
     tap_key_columns_table=None,
 ):
+    postfix = tap_tables_postfix or ""
     if tap_schema_name:
         Tap11Base.metadata.schema = tap_schema_name
 
     class Tap11Schemas(Tap11Base):
-        __tablename__ = tap_schemas_table or "schemas"
+        __tablename__ = (tap_schemas_table or "schemas") + postfix
         schema_name = Column(String(IDENTIFIER_LENGTH), primary_key=True, nullable=False)
         utype = Column(String(SIMPLE_FIELD_LENGTH))
         description = Column(String(TEXT_FIELD_LENGTH))
         schema_index = Column(Integer)
 
     class Tap11Tables(Tap11Base):
-        __tablename__ = tap_tables_table or "tables"
+        __tablename__ = (tap_tables_table or "tables") + postfix
         schema_name = Column(String(IDENTIFIER_LENGTH), nullable=False)
         table_name = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False, primary_key=True)
         table_type = Column(String(SMALL_FIELD_LENGTH), nullable=False)
@@ -47,7 +49,7 @@ def init_tables(
         table_index = Column(Integer)
 
     class Tap11Columns(Tap11Base):
-        __tablename__ = tap_columns_table or "columns"
+        __tablename__ = (tap_columns_table or "columns") + postfix
         table_name = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False, primary_key=True)
         column_name = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
         datatype = Column(String(SIMPLE_FIELD_LENGTH), nullable=False)
@@ -65,7 +67,7 @@ def init_tables(
         column_index = Column(Integer)
 
     class Tap11Keys(Tap11Base):
-        __tablename__ = tap_keys_table or "keys"
+        __tablename__ = (tap_keys_table or "keys") + postfix
         key_id = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
         from_table = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False)
         target_table = Column(String(QUALIFIED_TABLE_LENGTH), nullable=False)
@@ -73,7 +75,7 @@ def init_tables(
         utype = Column(String(SIMPLE_FIELD_LENGTH))
 
     class Tap11KeyColumns(Tap11Base):
-        __tablename__ = tap_key_columns_table or "key_columns"
+        __tablename__ = (tap_key_columns_table or "key_columns") + postfix
         key_id = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
         from_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
         target_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)

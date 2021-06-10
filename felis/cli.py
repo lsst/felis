@@ -101,6 +101,7 @@ def init_tap(
 @click.option("--catalog-name", help="Catalog Name for Schema")
 @click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
 @click.option("--tap-schema-name", help="Alt Schema Name for TAP_SCHEMA")
+@click.option("--tap-tables-postfix", help="Postfix for TAP table names")
 @click.option("--tap-schemas-table", help="Alt Table Name for TAP_SCHEMA.schemas")
 @click.option("--tap-tables-table", help="Alt Table Name for TAP_SCHEMA.tables")
 @click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
@@ -113,6 +114,7 @@ def load_tap(
     catalog_name,
     dry_run,
     tap_schema_name,
+    tap_tables_postfix,
     tap_schemas_table,
     tap_tables_table,
     tap_columns_table,
@@ -133,7 +135,7 @@ def load_tap(
         # After the engine is created, update the executor with the dialect
         _insert_dump.dialect = engine.dialect
     tap_tables = init_tables(
-        tap_schema_name, tap_schemas_table, tap_tables_table, tap_columns_table, tap_keys_table, tap_key_columns_table
+        tap_schema_name, tap_tables_postfix, tap_schemas_table, tap_tables_table, tap_columns_table, tap_keys_table, tap_key_columns_table
     )
 
     if engine_url == "sqlite://" and not dry_run:
