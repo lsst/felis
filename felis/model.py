@@ -107,7 +107,8 @@ class VisitorBase:
         _id = column_obj["@id"]
         self.assert_datatype(column_obj)
         datatype_name = column_obj.get("datatype")
-        if datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES:
+        length = column_obj.get("length")
+        if not length and (datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES):
             # This is not a warning, because it's usually fine
             logger.info(f"No length defined for {_id} for type {datatype_name}")
         self.check_visited(_id)
