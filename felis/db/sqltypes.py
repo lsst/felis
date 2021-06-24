@@ -123,51 +123,51 @@ binary_map = {
 
 
 def boolean(**kwargs):
-    return _vary(types.BOOLEAN(), boolean_map, kwargs)
+    return _vary(types.BOOLEAN(), boolean_map.copy(), kwargs)
 
 
 def byte(**kwargs):
-    return _vary(TINYINT(), byte_map, kwargs)
+    return _vary(TINYINT(), byte_map.copy(), kwargs)
 
 
 def short(**kwargs):
-    return _vary(types.SMALLINT(), short_map, kwargs)
+    return _vary(types.SMALLINT(), short_map.copy(), kwargs)
 
 
 def int(**kwargs):
-    return _vary(types.INTEGER(), int_map, kwargs)
+    return _vary(types.INTEGER(), int_map.copy(), kwargs)
 
 
 def long(**kwargs):
-    return _vary(types.BIGINT(), long_map, kwargs)
+    return _vary(types.BIGINT(), long_map.copy(), kwargs)
 
 
 def float(**kwargs):
-    return _vary(types.FLOAT(), float_map, kwargs)
+    return _vary(types.FLOAT(), float_map.copy(), kwargs)
 
 
 def double(**kwargs):
-    return _vary(DOUBLE(), double_map, kwargs)
+    return _vary(DOUBLE(), double_map.copy(), kwargs)
 
 
 def char(length, **kwargs):
-    return _vary(types.CHAR(length), char_map, kwargs, length)
+    return _vary(types.CHAR(length), char_map.copy(), kwargs, length)
 
 
 def string(length, **kwargs):
-    return _vary(types.VARCHAR(length), string_map, kwargs, length)
+    return _vary(types.VARCHAR(length), string_map.copy(), kwargs, length)
 
 
 def unicode(length, **kwargs):
-    return _vary(types.NVARCHAR(length), unicode_map, kwargs, length)
+    return _vary(types.NVARCHAR(length), unicode_map.copy(), kwargs, length)
 
 
 def text(length, **kwargs):
-    return _vary(types.CLOB(length), text_map, kwargs, length)
+    return _vary(types.CLOB(length), text_map.copy(), kwargs, length)
 
 
 def binary(length, **kwargs):
-    return _vary(types.BLOB(length), binary_map, kwargs, length)
+    return _vary(types.BLOB(length), binary_map.copy(), kwargs, length)
 
 
 def timestamp(**kwargs):
