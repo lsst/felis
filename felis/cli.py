@@ -17,7 +17,7 @@
 # You should have received a copy of the LSST License Statement and
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
-import json
+import sys
 
 import click
 import logging
@@ -125,7 +125,26 @@ def load_tap(
     """Load TAP metadata from a Felis FILE.
     This command loads the associated TAP metadata from a Felis FILE
     to the TAP_SCHEMA tables."""
-    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
+    top_level_object = yaml.load(file, Loader=yaml.SafeLoader)
+    schema_obj: dict
+    if isinstance(top_level_object, dict):
+        schema_obj = top_level_object
+        if "@graph" not in schema_obj:
+            schema_obj["@type"] = "felis:Schema"
+        schema_obj["@context"] = DEFAULT_CONTEXT
+    elif isinstance(top_level_object, list):
+        schema_obj = {
+            "@context": DEFAULT_CONTEXT,
+            "@graph": top_level_object
+        }
+    else:
+        logger.error("Schema object not of recognizable type")
+        sys.exit(1)
+
+    normalized = _normalize(schema_obj)
+    if len(normalized["@graph"]) > 1 and (schema_name or catalog_name):
+        logger.error("--schema-name and --catalog-name incompatible with multiple schemas")
+        sys.exit(1)
 
     if not dry_run:
         engine = create_engine(engine_url)
@@ -142,11 +161,40 @@ def load_tap(
         # In Memory SQLite - Mostly used to test
         Tap11Base.metadata.create_all(engine)
 
-    tap_visitor = TapLoadingVisitor(
-        engine, catalog_name=catalog_name, schema_name=schema_name, mock=dry_run, tap_tables=tap_tables
-    )
-    tap_visitor.visit_schema(schema_obj)
+    for schema in normalized["@graph"]:
+        tap_visitor = TapLoadingVisitor(
+            engine, catalog_name=catalog_name, schema_name=schema_name, mock=dry_run, tap_tables=tap_tables
+        )
+        if isinstance(normalized["@graph"], dict):
+            normalized["@graph"] = [normalized["@graph"]]
+        tap_visitor.visit_schema(schema)
+        seen_one_schema = True
 
+
+@cli.command("modify-tap")
+@click.option("--start-schema-at", type=int, help="Rewrite index for tap:schema_index")
+@click.argument("files", nargs=-1, type=click.File())
+def modify_tap(start_schema_at, files):
+    """Modify TAP information in Felis schema FILES.
+    This command has some utilities to aid in rewriting felis FILES
+    in specific ways. It will write out a merged version of these files.
+    """
+    count = 0
+    graph = []
+    for file in files:
+        schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
+        if "@graph" not in schema_obj:
+            schema_obj["@type"] = "felis:Schema"
+        schema_obj["@context"] = DEFAULT_CONTEXT
+        schema_index = schema_obj.get("tap:schema_index")
+        if not schema_index or (schema_index and schema_index > start_schema_at):
+            schema_index = start_schema_at + count
+            count += 1
+        schema_obj["tap:schema_index"] = schema_index
+        graph.extend(jsonld.flatten(schema_obj))
+    merged = {"@context": DEFAULT_CONTEXT, "@graph": graph}
+    normalized = _normalize(merged)
+    _dump(normalized)
 
 @cli.command("basic-check")
 @click.argument("file", type=click.File())
@@ -202,8 +250,7 @@ def merge(files):
         if "@graph" not in schema_obj:
             schema_obj["@type"] = "felis:Schema"
         schema_obj["@context"] = DEFAULT_CONTEXT
-        flattened = jsonld.flatten(schema_obj)
-        graph.extend(flattened)
+        graph.extend(jsonld.flatten(schema_obj))
     updated_map = {}
     for item in graph:
         _id = item["@id"]
@@ -214,7 +261,7 @@ def merge(files):
         updated_map[_id] = item_to_update
     merged = {"@context": DEFAULT_CONTEXT, "@graph": list(updated_map.values())}
     normalized = _normalize(merged)
-    _dump(normalized["@graph"])
+    _dump(normalized)
 
 
 def _dump(obj):
