@@ -1,0 +1,8 @@
+---
+"@graph":
+  - "@id": "#Geometry_Point.ra"
+    ivoa:ucd: pos.eq.ra;meta.main
+    fits:tunit: deg
+  - "@id": "#Geometry_Point.dec"
+    ivoa:ucd: pos.eq.dec;meta.main
+    fits:tunit: deg
