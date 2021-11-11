@@ -1,6 +1,7 @@
 ---
 name: Geometry
 "@id": "#Geometry"
+tap:schema_index: 9
 tables:
 - name: Point
   "@id": "#Geometry_Point"
@@ -11,6 +12,7 @@ tables:
     - name: dec
       "@id": "#Geometry_Point.dec"
       datatype: float
+      mysql:datatype: REAL
 - name: Line
   "@id": "#Geometry_Line"
   columns:
