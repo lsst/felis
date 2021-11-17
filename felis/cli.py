@@ -146,6 +146,10 @@ def load_tap(
         logger.error("--schema-name and --catalog-name incompatible with multiple schemas")
         sys.exit(1)
 
+    # Force normalized["@graph"] to a list, which is what happens when there's multiple schemas
+    if isinstance(normalized["@graph"], dict):
+        normalized["@graph"] = [normalized["@graph"]]
+
     if not dry_run:
         engine = create_engine(engine_url)
     else:
@@ -165,8 +169,6 @@ def load_tap(
         tap_visitor = TapLoadingVisitor(
             engine, catalog_name=catalog_name, schema_name=schema_name, mock=dry_run, tap_tables=tap_tables
         )
-        if isinstance(normalized["@graph"], dict):
-            normalized["@graph"] = [normalized["@graph"]]
         tap_visitor.visit_schema(schema)
         seen_one_schema = True
 
