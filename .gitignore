@@ -123,3 +123,4 @@ gen### SCons template
 .sconsign.dblite
 
 python/felis/version.py
+bin/
