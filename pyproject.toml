@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools", "lsst-versions"]
+build-backend = "setuptools.build_meta"
+
+[tool.towncrier]
+    package = "felis"
+    package_dir = "python"
+    filename = "docs/felis/CHANGES.rst"
+    directory = "docs/changes"
+    title_format = "felis {version} {project_date}"
+    issue_format = "`{issue} <https://jira.lsstcorp.org/browse/{issue}>`_"
+
+
+    [[tool.towncrier.type]]
+        directory = "feature"
+        name = "New Features"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "api"
+        name = "API Changes"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "bugfix"
+        name = "Bug Fixes"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "perf"
+        name = "Performance Enhancement"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "misc"
+        name = "Other Changes and Additions"
+        showcontent = true
+
+    [[tool.towncrier.type]]
+        directory = "removal"
+        name = "An API Removal or Deprecation"
+        showcontent = false
+
+[tool.black]
+line-length = 110
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 110
+
+[tool.lsst_versions]
+write_to = "python/felis/version.py"

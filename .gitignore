@@ -122,3 +122,4 @@ gen### SCons template
 # for projects that use SCons for building: http://http://www.scons.org/
 .sconsign.dblite
 
+python/felis/version.py
