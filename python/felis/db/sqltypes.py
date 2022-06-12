@@ -17,10 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy import SmallInteger, Float
-from sqlalchemy import types
+from sqlalchemy import Float, SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql
+from sqlalchemy.ext.compiler import compiles
 
 MYSQL = "mysql"
 ORACLE = "oracle"
@@ -31,12 +30,13 @@ SQLITE = "sqlite"
 class TINYINT(SmallInteger):
     """The non-standard TINYINT type."""
 
-    __visit_name__ = 'TINYINT'
+    __visit_name__ = "TINYINT"
 
 
 class DOUBLE(Float):
     """The non-standard DOUBLE type."""
-    __visit_name__ = 'DOUBLE'
+
+    __visit_name__ = "DOUBLE"
 
 
 @compiles(TINYINT)
@@ -49,11 +49,7 @@ def compile_double(type_, compiler, **kw):
     return "DOUBLE"
 
 
-boolean_map = {
-    MYSQL: mysql.BIT(1),
-    ORACLE: oracle.NUMBER(1),
-    POSTGRES: postgresql.BOOLEAN()
-}
+boolean_map = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
 
 byte_map = {
     MYSQL: mysql.TINYINT(),

@@ -19,7 +19,6 @@
 
 
 class ReorderingVisitor:
-
     def __init__(self, add_type=False):
         """
         A visitor that reorders and optionall adds the "@type"
@@ -34,14 +33,13 @@ class ReorderingVisitor:
         schema_obj["tables"] = tables
         if self.add_type:
             schema_obj["@type"] = schema_obj.get("@type", "Schema")
-        return _new_order(schema_obj, ["@context", "name", "@id", "@type", "description",
-                                       "tables"])
+        return _new_order(schema_obj, ["@context", "name", "@id", "@type", "description", "tables"])
 
     def visit_table(self, table_obj, schema_obj):
 
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
         primary_key = self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
-        constraints = [self.visit_constraint(c, table_obj) for c in table_obj.get("constraints",[])]
+        constraints = [self.visit_constraint(c, table_obj) for c in table_obj.get("constraints", [])]
         indexes = [self.visit_index(i, table_obj) for i in table_obj.get("indexes", [])]
         table_obj["columns"] = columns
         if primary_key:
@@ -52,13 +50,15 @@ class ReorderingVisitor:
             table_obj["indexes"] = indexes
         if self.add_type:
             table_obj["@type"] = table_obj.get("@type", "Table")
-        return _new_order(table_obj, ["name", "@id", "@type", "description",
-                                      "columns", "primaryKey", "constraints", "indexes"])
+        return _new_order(
+            table_obj,
+            ["name", "@id", "@type", "description", "columns", "primaryKey", "constraints", "indexes"],
+        )
 
     def visit_column(self, column_obj, table_obj):
         if self.add_type:
             column_obj["@type"] = column_obj.get("@type", "Column")
-        return _new_order(column_obj, ["name", "@id", "@type",  "description", "datatype"])
+        return _new_order(column_obj, ["name", "@id", "@type", "description", "datatype"])
 
     def visit_primary_key(self, primary_key_obj, table):
         # FIXME: Handle Primary Keys

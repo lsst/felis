@@ -1,12 +1,12 @@
 import logging
 
-from sqlalchemy import Column, String, Integer, Table
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.expression import insert
-from .felistypes import LENGTH_TYPES, VOTABLE_MAP, DATETIME_TYPES
 
+from .felistypes import DATETIME_TYPES, LENGTH_TYPES, VOTABLE_MAP
 from .model import VisitorBase
 
 Tap11Base = declarative_base()
@@ -81,7 +81,11 @@ def init_tables(
         target_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
 
     return dict(
-        schemas=Tap11Schemas, tables=Tap11Tables, columns=Tap11Columns, keys=Tap11Keys, key_columns=Tap11KeyColumns
+        schemas=Tap11Schemas,
+        tables=Tap11Tables,
+        columns=Tap11Columns,
+        keys=Tap11Keys,
+        key_columns=Tap11KeyColumns,
     )
 
 
@@ -161,7 +165,8 @@ class TapLoadingVisitor(VisitorBase):
         _id = column_obj["@id"]
         datatype_name = column_obj.get("datatype")
         if datatype_name in LENGTH_TYPES:
-            # It is expected that both arraysize and length are fine for length types.
+            # It is expected that both arraysize and length are fine for
+            # length types.
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
             if arraysize is None:
                 logger.warning(
@@ -170,8 +175,9 @@ class TapLoadingVisitor(VisitorBase):
                     "Consider setting `votable:arraysize` or `length`."
                 )
         if datatype_name in DATETIME_TYPES:
-            # datetime types really should have a votable:arraysize, because they are converted
-            # to strings and the `length` is loosely to the string size
+            # datetime types really should have a votable:arraysize, because
+            # they are converted to strings and the `length` is loosely to the
+            # string size
             if "votable:arraysize" not in column_obj:
                 logger.warning(
                     f"votable:arraysize for {_id} is None for type {datatype_name}. "
@@ -283,9 +289,9 @@ class TapLoadingVisitor(VisitorBase):
     def _schema_name(self, schema_name=None):
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
-        if self.catalog_name:
-            return ".".join([self.catalog_name, self.schema_name])
-        return self.schema_name
+        if self.catalog_name and _schema_name:
+            return ".".join([self.catalog_name, _schema_name])
+        return _schema_name
 
     def _table_name(self, table_name):
         return ".".join([self._schema_name(), table_name])

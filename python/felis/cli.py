@@ -17,18 +17,18 @@
 # You should have received a copy of the LSST License Statement and
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
+import logging
 import sys
 
 import click
-import logging
 import yaml
 from pyld import jsonld
 from sqlalchemy import create_engine
 
+from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .model import Visitor, VisitorBase
-from .tap import TapLoadingVisitor, Tap11Base, init_tables
+from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
-from . import __version__, DEFAULT_CONTEXT, DEFAULT_FRAME
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("felis")
@@ -90,7 +90,12 @@ def init_tap(
     engine URL."""
     engine = create_engine(engine_url, echo=True)
     init_tables(
-        tap_schema_name, tap_schemas_table, tap_tables_table, tap_columns_table, tap_keys_table, tap_key_columns_table
+        tap_schema_name,
+        tap_schemas_table,
+        tap_tables_table,
+        tap_columns_table,
+        tap_keys_table,
+        tap_key_columns_table,
     )
     Tap11Base.metadata.create_all(engine)
 
@@ -133,10 +138,7 @@ def load_tap(
             schema_obj["@type"] = "felis:Schema"
         schema_obj["@context"] = DEFAULT_CONTEXT
     elif isinstance(top_level_object, list):
-        schema_obj = {
-            "@context": DEFAULT_CONTEXT,
-            "@graph": top_level_object
-        }
+        schema_obj = {"@context": DEFAULT_CONTEXT, "@graph": top_level_object}
     else:
         logger.error("Schema object not of recognizable type")
         sys.exit(1)
@@ -146,7 +148,8 @@ def load_tap(
         logger.error("--schema-name and --catalog-name incompatible with multiple schemas")
         sys.exit(1)
 
-    # Force normalized["@graph"] to a list, which is what happens when there's multiple schemas
+    # Force normalized["@graph"] to a list, which is what happens when there's
+    # multiple schemas
     if isinstance(normalized["@graph"], dict):
         normalized["@graph"] = [normalized["@graph"]]
 
@@ -158,7 +161,13 @@ def load_tap(
         # After the engine is created, update the executor with the dialect
         _insert_dump.dialect = engine.dialect
     tap_tables = init_tables(
-        tap_schema_name, tap_tables_postfix, tap_schemas_table, tap_tables_table, tap_columns_table, tap_keys_table, tap_key_columns_table
+        tap_schema_name,
+        tap_tables_postfix,
+        tap_schemas_table,
+        tap_tables_table,
+        tap_columns_table,
+        tap_keys_table,
+        tap_key_columns_table,
     )
 
     if engine_url == "sqlite://" and not dry_run:
@@ -170,7 +179,6 @@ def load_tap(
             engine, catalog_name=catalog_name, schema_name=schema_name, mock=dry_run, tap_tables=tap_tables
         )
         tap_visitor.visit_schema(schema)
-        seen_one_schema = True
 
 
 @cli.command("modify-tap")
@@ -197,6 +205,7 @@ def modify_tap(start_schema_at, files):
     merged = {"@context": DEFAULT_CONTEXT, "@graph": graph}
     normalized = _normalize(merged)
     _dump(normalized)
+
 
 @cli.command("basic-check")
 @click.argument("file", type=click.File())

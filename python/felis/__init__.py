@@ -18,13 +18,7 @@
 # the GNU General Public License along with this program.  If not,
 # see <http://www.lsstcorp.org/LegalNotices/>.
 
-from pkg_resources import get_distribution, DistributionNotFound
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    # package is not installed
-    __version__ = "source"
+from .version import *
 
 DEFAULT_CONTEXT = {
     "@vocab": "http://lsst.org/felis/",
@@ -36,16 +30,8 @@ DEFAULT_CONTEXT = {
     "ivoa": "http://ivoa.net/rdf/",
     "votable": "http://ivoa.net/rdf/VOTable/",
     "tap": "http://ivoa.net/documents/TAP/",
-    "tables": {
-        "@container": "@list",
-        "@type": "@id",
-        "@id": "felis:Table"
-    },
-    "columns": {
-        "@container": "@list",
-        "@type": "@id",
-        "@id": "felis:Column"
-    }
+    "tables": {"@container": "@list", "@type": "@id", "@id": "felis:Table"},
+    "columns": {"@container": "@list", "@type": "@id", "@id": "felis:Column"},
 }
 
 DEFAULT_FRAME = {

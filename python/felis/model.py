@@ -20,13 +20,21 @@
 import logging
 import re
 
-from sqlalchemy import MetaData, Column, Numeric, ForeignKeyConstraint, \
-    CheckConstraint, UniqueConstraint, PrimaryKeyConstraint, Index
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    ForeignKeyConstraint,
+    Index,
+    MetaData,
+    Numeric,
+    PrimaryKeyConstraint,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects import mysql, oracle, postgresql, sqlite
 from sqlalchemy.schema import Table
 
 from .db import sqltypes
-from .felistypes import TYPE_NAMES, LENGTH_TYPES, DATETIME_TYPES
+from .felistypes import DATETIME_TYPES, LENGTH_TYPES, TYPE_NAMES
 
 logger = logging.getLogger("felis")
 
@@ -38,24 +46,19 @@ SQLITE = "sqlite"
 TABLE_OPTS = {
     "mysql:engine": "mysql_engine",
     "mysql:charset": "mysql_charset",
-    "oracle:compress": "oracle_compress"
+    "oracle:compress": "oracle_compress",
 }
 
 COLUMN_VARIANT_OVERRIDE = {
     "mysql:datatype": "mysql",
     "oracle:datatype": "oracle",
     "postgresql:datatype": "postgresql",
-    "sqlite:datatype": "sqlite"
+    "sqlite:datatype": "sqlite",
 }
 
-DIALECT_MODULES = {
-    MYSQL: mysql,
-    ORACLE: oracle,
-    SQLITE: sqlite,
-    POSTGRES: postgresql
-}
+DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
 
-length_regex = re.compile(r'\((.+)\)')
+length_regex = re.compile(r"\((.+)\)")
 
 
 class Schema:
@@ -67,6 +70,7 @@ class VisitorBase:
     Base class for visitors. Includes the graph_index and functions for
     validating objects.
     """
+
     def __init__(self):
         super().__init__()
         self.graph_index = {}
@@ -166,6 +170,7 @@ class VisitorBase:
         self.check_index(index_obj, table_obj)
         self.graph_index[index_obj["@id"]] = index_obj
 
+
 class Visitor(VisitorBase):
     def __init__(self, schema_name=None):
         """
@@ -193,13 +198,7 @@ class Visitor(VisitorBase):
         description = table_obj.get("description")
         schema_name = self.schema_name or schema_obj["name"]
 
-        table = Table(
-            name,
-            self.metadata,
-            *columns,
-            schema=schema_name,
-            comment=description
-        )
+        table = Table(name, self.metadata, *columns, schema=schema_name, comment=description)
 
         primary_key = self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
         if primary_key:
@@ -256,7 +255,7 @@ class Visitor(VisitorBase):
             comment=column_description,
             autoincrement=column_autoincrement,
             nullable=column_nullable,
-            server_default=column_default
+            server_default=column_default,
         )
         if column_id in self.graph_index:
             logger.warning(f"Duplication of @id {column_id}")
@@ -268,9 +267,7 @@ class Visitor(VisitorBase):
         if primary_key_obj:
             if not isinstance(primary_key_obj, list):
                 primary_key_obj = [primary_key_obj]
-            columns = [
-                self.graph_index[c_id] for c_id in primary_key_obj
-            ]
+            columns = [self.graph_index[c_id] for c_id in primary_key_obj]
             return PrimaryKeyConstraint(*columns)
         return None
 
@@ -287,13 +284,9 @@ class Visitor(VisitorBase):
         _set_if("deferrable", constraint_obj.get("deferrable"), constraint_args)
         _set_if("initially", constraint_obj.get("initially"), constraint_args)
 
-        columns = [
-            self.graph_index[c_id] for c_id in constraint_obj.get("columns", [])
-        ]
+        columns = [self.graph_index[c_id] for c_id in constraint_obj.get("columns", [])]
         if constraint_type == "ForeignKey":
-            refcolumns = [
-                self.graph_index[c_id] for c_id in constraint_obj.get("referencedColumns", [])
-            ]
+            refcolumns = [self.graph_index[c_id] for c_id in constraint_obj.get("referencedColumns", [])]
             constraint = ForeignKeyConstraint(columns, refcolumns, **constraint_args)
         elif constraint_type == "Check":
             expression = constraint_obj["expression"]
@@ -307,9 +300,7 @@ class Visitor(VisitorBase):
         self.check_index(index_obj, table_obj)
         name = index_obj["name"]
         description = index_obj.get("description")
-        columns = [
-            self.graph_index[c_id] for c_id in index_obj.get("columns", [])
-        ]
+        columns = [self.graph_index[c_id] for c_id in index_obj.get("columns", [])]
         expressions = index_obj.get("expressions", [])
         return Index(name, *columns, *expressions, info=description)
 
