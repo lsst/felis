@@ -1,5 +1,6 @@
 ---
 name: sdqa
+"@id": "#sdqa"
 description: The SDQA Schema
 tables:
   - name: sdqa_ImageStatus
@@ -117,6 +118,13 @@ tables:
       columns:
       - "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
       - "#sdqa_Rating_ForAmpVisit.ampVisitId"
+    - name: FK_sdqa_Rating_ForAmpVisit_sdqa_Metric
+      "@id": "#FK_sdqa_Rating_ForAmpVisit_sdqa_Metric"
+      "@type": ForeignKey
+      columns:
+      - "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
+      referencedColumns:
+      - "#sdqa_Metric.sdqa_metricId"
     indexes:
     - name: IDX_sdqaRatingForAmpVisit_metricId
       "@id": "#IDX_sdqaRatingForAmpVisit_metricId"

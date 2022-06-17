@@ -220,6 +220,7 @@ class Visitor(VisitorBase):
             index._set_parent(table)
             table.indexes.add(index)
         self.graph_index[table_id] = table
+        return table
 
     def visit_column(self, column_obj, table_obj):
         self.check_column(column_obj, table_obj)
