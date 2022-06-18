@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import json
 import logging
 import sys
 
@@ -32,7 +33,6 @@ from .model import Visitor, VisitorBase
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("felis")
 
 
@@ -40,7 +40,7 @@ logger = logging.getLogger("felis")
 @click.version_option(__version__)
 def cli():
     """Felis Command Line Tools"""
-    ...
+    logging.basicConfig(level=logging.INFO)
 
 
 @cli.command("create-all")
@@ -251,7 +251,7 @@ def normalize(file):
 @cli.command("merge")
 @click.argument("files", nargs=-1, type=click.File())
 def merge(files):
-    """Merge a set of Feils FILES.
+    """Merge a set of Felis FILES.
 
     This will expand out the felis FILES so that it is easy to
     override values (using @Id), then normalize to a single
@@ -277,6 +277,31 @@ def merge(files):
     _dump(normalized)
 
 
+@cli.command("dump-json")
+@click.option("-x", "--expanded", is_flag=True, help="Extended schema before dumping.")
+@click.option("-f", "--framed", is_flag=True, help="Frame schema before dumping.")
+@click.option("-c", "--compacted", is_flag=True, help="Compact schema before dumping.")
+@click.option("-g", "--graph", is_flag=True, help="Pass graph option to compact.")
+@click.argument("file", type=click.File())
+def dump_json(file, expanded=False, compacted=False, framed=False, graph=False):
+    """Dump JSON representation using various JSON-LD options."""
+    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
+    schema_obj["@type"] = "felis:Schema"
+    # Force Context and Schema Type
+    schema_obj["@context"] = DEFAULT_CONTEXT
+
+    if expanded:
+        schema_obj = jsonld.expand(schema_obj)
+    if framed:
+        schema_obj = jsonld.frame(schema_obj, DEFAULT_FRAME)
+    if compacted:
+        options = {}
+        if graph:
+            options["graph"] = True
+        schema_obj = jsonld.compact(schema_obj, DEFAULT_CONTEXT, options=options)
+    _dump_json(schema_obj)
+
+
 def _dump(obj):
     class OrderedDumper(yaml.Dumper):
         pass
@@ -286,6 +311,10 @@ def _dump(obj):
 
     OrderedDumper.add_representer(dict, _dict_representer)
     print(yaml.dump(obj, Dumper=OrderedDumper, default_flow_style=False))
+
+
+def _dump_json(obj):
+    json.dump(obj, sys.stdout, indent=4)
 
 
 def _normalize(schema_obj):
