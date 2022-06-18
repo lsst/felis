@@ -33,6 +33,9 @@ DEFAULT_CONTEXT = {
     "tap": "http://ivoa.net/documents/TAP/",
     "tables": {"@container": "@list", "@type": "@id", "@id": "felis:Table"},
     "columns": {"@container": "@list", "@type": "@id", "@id": "felis:Column"},
+    "constraints": {"@container": "@list", "@type": "@id"},
+    "indexes": {"@container": "@list", "@type": "@id", "@id": "felis:Index"},
+    "referencedColumns": {"@container": "@list", "@type": "@id"},
 }
 
 DEFAULT_FRAME = {

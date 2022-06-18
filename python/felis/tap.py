@@ -39,6 +39,8 @@ SIMPLE_FIELD_LENGTH = 128
 TEXT_FIELD_LENGTH = 2048
 QUALIFIED_TABLE_LENGTH = 3 * IDENTIFIER_LENGTH + 2
 
+_init_table_once = False
+
 
 def init_tables(
     tap_schema_name=None,
@@ -50,6 +52,16 @@ def init_tables(
     tap_key_columns_table=None,
 ):
     postfix = tap_tables_postfix or ""
+
+    # Dirty hack to enable this method to be called more than once, replaces
+    # MetaData instance with a fresh copy if called more than once.
+    # TODO: probably replace ORM stuff with core sqlalchemy functions.
+    global _init_table_once
+    if not _init_table_once:
+        _init_table_once = True
+    else:
+        Tap11Base.metadata = MetaData()
+
     if tap_schema_name:
         Tap11Base.metadata.schema = tap_schema_name
 
@@ -120,7 +132,7 @@ class TapLoadingVisitor(VisitorBase):
         self.tables = tap_tables or init_tables()
 
     def visit_schema(self, schema_obj):
-        schema = self.tables["schemas"]
+        schema = self.tables["schemas"]()
         # Override with default
         self.schema_name = self.schema_name or schema_obj["name"]
 
@@ -271,14 +283,14 @@ class TapLoadingVisitor(VisitorBase):
 
             table_name = None
             for column in columns:
-                if not column.table_name:
+                if not table_name:
                     table_name = column.table_name
                 if table_name != column.table_name:
                     raise ValueError("Inconsisent use of table names")
 
             table_name = None
             for column in refcolumns:
-                if not column.table_name:
+                if not table_name:
                     table_name = column.table_name
                 if table_name != column.table_name:
                     raise ValueError("Inconsisent use of table names")
