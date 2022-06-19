@@ -2,26 +2,26 @@
 name: Location
 "@id": "#Location"
 tables:
-- name: Address
-  "@id": "#Location.Address"
-  columns:
-  - name: id
-    "@id": "#Location.Address.id"
-    description: Primary Key
-    datatype: long
-  - name: street_address_1
-    "@id": "#Location.Address.street_address_1"
-    description: Primary Address Line
-    datatype: string
-    length: 128
-  - name: street_address_2
-    "@id": "#Location.Address.street_address_2"
-    description: Secondary Address Line
-    datatype: string
-    length: 128
-  - name: postal_code
-    "@id": "#Location.Address.postal_code"
-    description: Postal Code (ZIP code in USA)
-    datatype: string
-    length: 16
-  primaryKey: "#Location.Address.id"
+  - name: Address
+    "@id": "#Location.Address"
+    columns:
+      - name: id
+        "@id": "#Location.Address.id"
+        description: Primary Key
+        datatype: long
+      - name: street_address_1
+        "@id": "#Location.Address.street_address_1"
+        description: Primary Address Line
+        datatype: string
+        length: 128
+      - name: street_address_2
+        "@id": "#Location.Address.street_address_2"
+        description: Secondary Address Line
+        datatype: string
+        length: 128
+      - name: postal_code
+        "@id": "#Location.Address.postal_code"
+        description: Postal Code (ZIP code in USA)
+        datatype: string
+        length: 16
+    primaryKey: "#Location.Address.id"

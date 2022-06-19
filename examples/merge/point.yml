@@ -2,27 +2,27 @@
 name: Geometry
 "@id": "#Geometry"
 tables:
-- name: Point
-  "@id": "#Geometry_Point"
-  columns:
-    - name: ra
-      "@id": "#Geometry_Point.ra"
-      datatype: float
-    - name: dec
-      "@id": "#Geometry_Point.dec"
-      datatype: float
-- name: Line
-  "@id": "#Geometry_Line"
-  columns:
-    - name: ra0
-      "@id": "#Geometry_Line.ra0"
-      datatype: float
-    - name: dec0
-      "@id": "#Geometry_Line.dec0"
-      datatype: float
-    - name: ra1
-      "@id": "#Geometry_Line.ra1"
-      datatype: float
-    - name: dec1
-      "@id": "#Geometry_Line.dec1"
-      datatype: float
+  - name: Point
+    "@id": "#Geometry_Point"
+    columns:
+      - name: ra
+        "@id": "#Geometry_Point.ra"
+        datatype: float
+      - name: dec
+        "@id": "#Geometry_Point.dec"
+        datatype: float
+  - name: Line
+    "@id": "#Geometry_Line"
+    columns:
+      - name: ra0
+        "@id": "#Geometry_Line.ra0"
+        datatype: float
+      - name: dec0
+        "@id": "#Geometry_Line.dec0"
+        datatype: float
+      - name: ra1
+        "@id": "#Geometry_Line.ra1"
+        datatype: float
+      - name: dec1
+        "@id": "#Geometry_Line.dec1"
+        datatype: float
