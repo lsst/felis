@@ -22,7 +22,7 @@
 import os
 import unittest
 from collections.abc import MutableMapping
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -36,7 +36,7 @@ TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 class VisitorTestCase(unittest.TestCase):
     """Tests for ReorderingVisitor class."""
 
-    schema_obj: Optional[MutableMapping[str, Any]] = None
+    schema_obj: MutableMapping[str, Any] = {}
 
     def setUp(self) -> None:
         """Load data from test file."""

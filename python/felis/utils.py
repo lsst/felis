@@ -19,16 +19,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from collections.abc import Mapping, MutableMapping
+from typing import Any, Iterable
+
+_Mapping = Mapping[str, Any]
+_MutableMapping = MutableMapping[str, Any]
+
 
 class ReorderingVisitor:
-    def __init__(self, add_type=False):
+    def __init__(self, add_type: bool = False):
         """
         A visitor that reorders and optionall adds the "@type"
         :param add_type: If true, add the "@type" if it doesn't exist
         """
         self.add_type = add_type
 
-    def visit_schema(self, schema_obj):
+    def visit_schema(self, schema_obj: _MutableMapping) -> _Mapping:
         """The input MUST be a normalized representation"""
         # Override with default
         tables = [self.visit_table(table_obj, schema_obj) for table_obj in schema_obj["tables"]]
@@ -37,7 +43,7 @@ class ReorderingVisitor:
             schema_obj["@type"] = schema_obj.get("@type", "Schema")
         return _new_order(schema_obj, ["@context", "name", "@id", "@type", "description", "tables"])
 
-    def visit_table(self, table_obj, schema_obj):
+    def visit_table(self, table_obj: _MutableMapping, schema_obj: _Mapping) -> _Mapping:
 
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
         primary_key = self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
@@ -57,27 +63,27 @@ class ReorderingVisitor:
             ["name", "@id", "@type", "description", "columns", "primaryKey", "constraints", "indexes"],
         )
 
-    def visit_column(self, column_obj, table_obj):
+    def visit_column(self, column_obj: _MutableMapping, table_obj: _Mapping) -> _Mapping:
         if self.add_type:
             column_obj["@type"] = column_obj.get("@type", "Column")
         return _new_order(column_obj, ["name", "@id", "@type", "description", "datatype"])
 
-    def visit_primary_key(self, primary_key_obj, table):
+    def visit_primary_key(self, primary_key_obj: _MutableMapping, table: _Mapping) -> _Mapping:
         # FIXME: Handle Primary Keys
         return primary_key_obj
 
-    def visit_constraint(self, constraint_obj, table):
+    def visit_constraint(self, constraint_obj: _MutableMapping, table: _Mapping) -> _Mapping:
         # Type MUST be present... we can skip
         return _new_order(constraint_obj, ["name", "@id", "@type", "description"])
 
-    def visit_index(self, index_obj, table):
+    def visit_index(self, index_obj: _MutableMapping, table: _Mapping) -> _Mapping:
         if self.add_type:
             index_obj["@type"] = index_obj.get("@type", "Index")
         return _new_order(index_obj, ["name", "@id", "@type", "description"])
 
 
-def _new_order(obj, order):
-    reordered_object = {}
+def _new_order(obj: _Mapping, order: Iterable[str]) -> _Mapping:
+    reordered_object: _MutableMapping = {}
     for name in order:
         if name in obj:
             reordered_object[name] = obj[name]

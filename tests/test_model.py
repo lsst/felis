@@ -84,7 +84,7 @@ def replace_key(
 class VisitorTestCase(unittest.TestCase):
     """Tests for both VisitorBase and Visitor classes."""
 
-    schema_obj: Optional[MutableMapping[str, Any]] = None
+    schema_obj: MutableMapping[str, Any] = {}
 
     def setUp(self) -> None:
         """Load data from test file."""
@@ -124,8 +124,8 @@ class VisitorTestCase(unittest.TestCase):
         self.assertCountEqual([table.name for table in schema.tables], table_names)
 
         # Checks tables in graph index.
-        for table in table_names:
-            self.assertIs(schema.graph_index[f"#{table}"], tables[f"sdqa.{table}"])
+        for table_name in table_names:
+            self.assertIs(schema.graph_index[f"#{table_name}"], tables[f"sdqa.{table_name}"])
 
         # Details of sdqa_ImageStatus table.
         table = tables["sdqa.sdqa_ImageStatus"]
@@ -146,7 +146,7 @@ class VisitorTestCase(unittest.TestCase):
             self.assertIsInstance(column.type, sqlalchemy.types.Variant)
         # It defines a unique constraint.
         unique = _get_unique_constraint(table)
-        self.assertIsNotNone(unique)
+        assert unique is not None, "Constraint must be defined"
         self.assertEqual(unique.name, "UQ_sdqaMetric_metricName")
         self.assertCountEqual(unique.columns, [table.columns["metricName"]])
 

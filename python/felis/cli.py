@@ -19,9 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import io
 import json
 import logging
 import sys
+from collections.abc import Iterable, Mapping, MutableMapping
+from typing import Any
 
 import click
 import yaml
@@ -38,7 +41,7 @@ logger = logging.getLogger("felis")
 
 @click.group()
 @click.version_option(__version__)
-def cli():
+def cli() -> None:
     """Felis Command Line Tools"""
     logging.basicConfig(level=logging.INFO)
 
@@ -48,7 +51,7 @@ def cli():
 @click.option("--schema-name", help="Alternate Schema Name for Felis File")
 @click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
 @click.argument("file", type=click.File())
-def create_all(engine_url, schema_name, dry_run, file):
+def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIOBase) -> None:
     """Create schema objects from the Felis FILE."""
 
     schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
@@ -56,10 +59,6 @@ def create_all(engine_url, schema_name, dry_run, file):
     schema = visitor.visit_schema(schema_obj)
 
     metadata = schema.metadata
-
-    def metadata_dump(sql, *multiparams, **params):
-        # print or write to log or file etc
-        print(sql.compile(dialect=engine.dialect))
 
     if not dry_run:
         engine = create_engine(engine_url)
@@ -79,14 +78,14 @@ def create_all(engine_url, schema_name, dry_run, file):
 @click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
 @click.argument("engine-url")
 def init_tap(
-    engine_url,
-    tap_schema_name,
-    tap_schemas_table,
-    tap_tables_table,
-    tap_columns_table,
-    tap_keys_table,
-    tap_key_columns_table,
-):
+    engine_url: str,
+    tap_schema_name: str,
+    tap_schemas_table: str,
+    tap_tables_table: str,
+    tap_columns_table: str,
+    tap_keys_table: str,
+    tap_key_columns_table: str,
+) -> None:
     """Initialize TAP 1.1 TAP_SCHEMA objects.
     Please verify the schema/catalog you are executing this in in your
     engine URL."""
@@ -116,19 +115,19 @@ def init_tap(
 @click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
 @click.argument("file", type=click.File())
 def load_tap(
-    engine_url,
-    schema_name,
-    catalog_name,
-    dry_run,
-    tap_schema_name,
-    tap_tables_postfix,
-    tap_schemas_table,
-    tap_tables_table,
-    tap_columns_table,
-    tap_keys_table,
-    tap_key_columns_table,
-    file,
-):
+    engine_url: str,
+    schema_name: str,
+    catalog_name: str,
+    dry_run: bool,
+    tap_schema_name: str,
+    tap_tables_postfix: str,
+    tap_schemas_table: str,
+    tap_tables_table: str,
+    tap_columns_table: str,
+    tap_keys_table: str,
+    tap_key_columns_table: str,
+    file: io.TextIOBase,
+) -> None:
     """Load TAP metadata from a Felis FILE.
     This command loads the associated TAP metadata from a Felis FILE
     to the TAP_SCHEMA tables."""
@@ -186,7 +185,7 @@ def load_tap(
 @cli.command("modify-tap")
 @click.option("--start-schema-at", type=int, help="Rewrite index for tap:schema_index")
 @click.argument("files", nargs=-1, type=click.File())
-def modify_tap(start_schema_at, files):
+def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
     """Modify TAP information in Felis schema FILES.
     This command has some utilities to aid in rewriting felis FILES
     in specific ways. It will write out a merged version of these files.
@@ -211,7 +210,7 @@ def modify_tap(start_schema_at, files):
 
 @cli.command("basic-check")
 @click.argument("file", type=click.File())
-def basic_check(file):
+def basic_check(file: io.TextIOBase) -> None:
     """Perform a basic check on a felis FILE.
     This performs a very check to ensure required fields are
     populated and basic semantics are okay. It does not ensure semantics
@@ -227,7 +226,7 @@ def basic_check(file):
 
 @cli.command("normalize")
 @click.argument("file", type=click.File())
-def normalize(file):
+def normalize(file: io.TextIOBase) -> None:
     """Normalize a Felis FILE.
     Takes a felis schema FILE, expands it (resolving the full URLs),
     then compacts it, and finally produces output in the canonical
@@ -250,7 +249,7 @@ def normalize(file):
 
 @cli.command("merge")
 @click.argument("files", nargs=-1, type=click.File())
-def merge(files):
+def merge(files: Iterable[io.TextIOBase]) -> None:
     """Merge a set of Felis FILES.
 
     This will expand out the felis FILES so that it is easy to
@@ -264,7 +263,7 @@ def merge(files):
             schema_obj["@type"] = "felis:Schema"
         schema_obj["@context"] = DEFAULT_CONTEXT
         graph.extend(jsonld.flatten(schema_obj))
-    updated_map = {}
+    updated_map: MutableMapping[str, Any] = {}
     for item in graph:
         _id = item["@id"]
         item_to_update = updated_map.get(_id, item)
@@ -283,7 +282,13 @@ def merge(files):
 @click.option("-c", "--compacted", is_flag=True, help="Compact schema before dumping.")
 @click.option("-g", "--graph", is_flag=True, help="Pass graph option to compact.")
 @click.argument("file", type=click.File())
-def dump_json(file, expanded=False, compacted=False, framed=False, graph=False):
+def dump_json(
+    file: io.TextIOBase,
+    expanded: bool = False,
+    compacted: bool = False,
+    framed: bool = False,
+    graph: bool = False,
+) -> None:
     """Dump JSON representation using various JSON-LD options."""
     schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
     schema_obj["@type"] = "felis:Schema"
@@ -299,25 +304,21 @@ def dump_json(file, expanded=False, compacted=False, framed=False, graph=False):
         if graph:
             options["graph"] = True
         schema_obj = jsonld.compact(schema_obj, DEFAULT_CONTEXT, options=options)
-    _dump_json(schema_obj)
+    json.dump(schema_obj, sys.stdout, indent=4)
 
 
-def _dump(obj):
+def _dump(obj: Mapping[str, Any]) -> None:
     class OrderedDumper(yaml.Dumper):
         pass
 
-    def _dict_representer(dumper, data):
+    def _dict_representer(dumper: yaml.Dumper, data: Any) -> Any:
         return dumper.represent_mapping(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, data.items())
 
     OrderedDumper.add_representer(dict, _dict_representer)
     print(yaml.dump(obj, Dumper=OrderedDumper, default_flow_style=False))
 
 
-def _dump_json(obj):
-    json.dump(obj, sys.stdout, indent=4)
-
-
-def _normalize(schema_obj):
+def _normalize(schema_obj: Mapping[str, Any]) -> MutableMapping[str, Any]:
     framed = jsonld.frame(schema_obj, DEFAULT_FRAME)
     compacted = jsonld.compact(framed, DEFAULT_CONTEXT, options=dict(graph=True))
     graph = compacted["@graph"]
@@ -329,7 +330,9 @@ def _normalize(schema_obj):
 class InsertDump:
     """An Insert Dumper for SQL statements"""
 
-    def dump(self, sql, *multiparams, **params):
+    dialect: Any = None
+
+    def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
         compiled = sql.compile(dialect=self.dialect)
         sql_str = str(compiled) + ";"
         params_list = [compiled.params]
