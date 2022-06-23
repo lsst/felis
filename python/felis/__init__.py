@@ -1,8 +1,10 @@
-# LSST Data Management System
-# Copyright 2018 AURA/LSST.
+# This file is part of felis.
 #
-# This product includes software developed by the
-# LSST Project (http://www.lsst.org/).
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,17 +16,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the LSST License Statement and
-# the GNU General Public License along with this program.  If not,
-# see <http://www.lsstcorp.org/LegalNotices/>.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from pkg_resources import get_distribution, DistributionNotFound
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    # package is not installed
-    __version__ = "source"
+from .version import *
 
 DEFAULT_CONTEXT = {
     "@vocab": "http://lsst.org/felis/",
@@ -36,16 +31,11 @@ DEFAULT_CONTEXT = {
     "ivoa": "http://ivoa.net/rdf/",
     "votable": "http://ivoa.net/rdf/VOTable/",
     "tap": "http://ivoa.net/documents/TAP/",
-    "tables": {
-        "@container": "@list",
-        "@type": "@id",
-        "@id": "felis:Table"
-    },
-    "columns": {
-        "@container": "@list",
-        "@type": "@id",
-        "@id": "felis:Column"
-    }
+    "tables": {"@container": "@list", "@type": "@id", "@id": "felis:Table"},
+    "columns": {"@container": "@list", "@type": "@id", "@id": "felis:Column"},
+    "constraints": {"@container": "@list", "@type": "@id"},
+    "indexes": {"@container": "@list", "@type": "@id", "@id": "felis:Index"},
+    "referencedColumns": {"@container": "@list", "@type": "@id"},
 }
 
 DEFAULT_FRAME = {

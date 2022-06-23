@@ -1,15 +1,42 @@
-import logging
+# This file is part of felis.
+#
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from sqlalchemy import Column, String, Integer, Table
+import logging
+from collections.abc import Iterable, Mapping, MutableMapping
+from typing import Any, Optional, Union
+
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.sql.expression import insert
-from .felistypes import LENGTH_TYPES, VOTABLE_MAP, DATETIME_TYPES
+from sqlalchemy.orm import DeclarativeMeta, Session, sessionmaker
+from sqlalchemy.schema import MetaData
+from sqlalchemy.sql.expression import Insert, insert
 
+from .felistypes import DATETIME_TYPES, LENGTH_TYPES, VOTABLE_MAP
 from .model import VisitorBase
 
-Tap11Base = declarative_base()
+_Mapping = Mapping[str, Any]
+_MutableMapping = MutableMapping[str, Any]
+
+Tap11Base: DeclarativeMeta = declarative_base()
 logger = logging.getLogger("felis")
 
 IDENTIFIER_LENGTH = 128
@@ -18,17 +45,29 @@ SIMPLE_FIELD_LENGTH = 128
 TEXT_FIELD_LENGTH = 2048
 QUALIFIED_TABLE_LENGTH = 3 * IDENTIFIER_LENGTH + 2
 
+_init_table_once = False
+
 
 def init_tables(
-    tap_schema_name=None,
-    tap_tables_postfix=None,
-    tap_schemas_table=None,
-    tap_tables_table=None,
-    tap_columns_table=None,
-    tap_keys_table=None,
-    tap_key_columns_table=None,
-):
+    tap_schema_name: Optional[str] = None,
+    tap_tables_postfix: Optional[str] = None,
+    tap_schemas_table: Optional[str] = None,
+    tap_tables_table: Optional[str] = None,
+    tap_columns_table: Optional[str] = None,
+    tap_keys_table: Optional[str] = None,
+    tap_key_columns_table: Optional[str] = None,
+) -> MutableMapping[str, Any]:
     postfix = tap_tables_postfix or ""
+
+    # Dirty hack to enable this method to be called more than once, replaces
+    # MetaData instance with a fresh copy if called more than once.
+    # TODO: probably replace ORM stuff with core sqlalchemy functions.
+    global _init_table_once
+    if not _init_table_once:
+        _init_table_once = True
+    else:
+        Tap11Base.metadata = MetaData()
+
     if tap_schema_name:
         Tap11Base.metadata.schema = tap_schema_name
 
@@ -81,12 +120,23 @@ def init_tables(
         target_column = Column(String(IDENTIFIER_LENGTH), nullable=False, primary_key=True)
 
     return dict(
-        schemas=Tap11Schemas, tables=Tap11Tables, columns=Tap11Columns, keys=Tap11Keys, key_columns=Tap11KeyColumns
+        schemas=Tap11Schemas,
+        tables=Tap11Tables,
+        columns=Tap11Columns,
+        keys=Tap11Keys,
+        key_columns=Tap11KeyColumns,
     )
 
 
 class TapLoadingVisitor(VisitorBase):
-    def __init__(self, engine: Engine, catalog_name=None, schema_name=None, mock=False, tap_tables=None):
+    def __init__(
+        self,
+        engine: Engine,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        mock: bool = False,
+        tap_tables: Optional[MutableMapping[str, Any]] = None,
+    ):
         self.graph_index = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
@@ -94,8 +144,8 @@ class TapLoadingVisitor(VisitorBase):
         self.mock = mock
         self.tables = tap_tables or init_tables()
 
-    def visit_schema(self, schema_obj):
-        schema = self.tables["schemas"]
+    def visit_schema(self, schema_obj: _Mapping) -> None:
+        schema = self.tables["schemas"]()
         # Override with default
         self.schema_name = self.schema_name or schema_obj["name"]
 
@@ -128,7 +178,7 @@ class TapLoadingVisitor(VisitorBase):
                 for key_column in key_columns:
                     conn.execute(_insert(self.tables["key_columns"], key_column))
 
-    def visit_table(self, table_obj, schema_obj):
+    def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> tuple:
         self.check_table(table_obj, schema_obj)
         table_id = table_obj["@id"]
         table = self.tables["tables"]()
@@ -156,12 +206,13 @@ class TapLoadingVisitor(VisitorBase):
         self.graph_index[table_id] = table
         return table, columns, all_keys, all_key_columns
 
-    def check_column(self, column_obj, table_obj):
+    def check_column(self, column_obj: _Mapping, table_obj: _Mapping) -> None:
         super().check_column(column_obj, table_obj)
         _id = column_obj["@id"]
         datatype_name = column_obj.get("datatype")
         if datatype_name in LENGTH_TYPES:
-            # It is expected that both arraysize and length are fine for length types.
+            # It is expected that both arraysize and length are fine for
+            # length types.
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
             if arraysize is None:
                 logger.warning(
@@ -170,8 +221,9 @@ class TapLoadingVisitor(VisitorBase):
                     "Consider setting `votable:arraysize` or `length`."
                 )
         if datatype_name in DATETIME_TYPES:
-            # datetime types really should have a votable:arraysize, because they are converted
-            # to strings and the `length` is loosely to the string size
+            # datetime types really should have a votable:arraysize, because
+            # they are converted to strings and the `length` is loosely to the
+            # string size
             if "votable:arraysize" not in column_obj:
                 logger.warning(
                     f"votable:arraysize for {_id} is None for type {datatype_name}. "
@@ -180,7 +232,7 @@ class TapLoadingVisitor(VisitorBase):
                     "materialized datetime/timestamp strings."
                 )
 
-    def visit_column(self, column_obj, table_obj):
+    def visit_column(self, column_obj: _Mapping, table_obj: _Mapping) -> Tap11Base:
         self.check_column(column_obj, table_obj)
         column_id = column_obj["@id"]
         table_name = self._table_name(table_obj["name"])
@@ -219,9 +271,9 @@ class TapLoadingVisitor(VisitorBase):
         self.graph_index[column_id] = column
         return column
 
-    def visit_primary_key(self, primary_key_obj, table_obj):
+    def visit_primary_key(self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping) -> None:
         if primary_key_obj:
-            if not isinstance(primary_key_obj, list):
+            if isinstance(primary_key_obj, str):
                 primary_key_obj = [primary_key_obj]
             columns = [self.graph_index[c_id] for c_id in primary_key_obj]
             # if just one column and it's indexed, update the object
@@ -229,7 +281,7 @@ class TapLoadingVisitor(VisitorBase):
                 columns[0].indexed = 1
         return None
 
-    def visit_constraint(self, constraint_obj, table_obj):
+    def visit_constraint(self, constraint_obj: _Mapping, table_obj: _Mapping) -> tuple:
         self.check_constraint(constraint_obj, table_obj)
         constraint_type = constraint_obj["@type"]
         key = None
@@ -244,14 +296,14 @@ class TapLoadingVisitor(VisitorBase):
 
             table_name = None
             for column in columns:
-                if not column.table_name:
+                if not table_name:
                     table_name = column.table_name
                 if table_name != column.table_name:
                     raise ValueError("Inconsisent use of table names")
 
             table_name = None
             for column in refcolumns:
-                if not column.table_name:
+                if not table_name:
                     table_name = column.table_name
                 if table_name != column.table_name:
                     raise ValueError("Inconsisent use of table names")
@@ -272,7 +324,7 @@ class TapLoadingVisitor(VisitorBase):
                 key_columns.append(key_column)
         return key, key_columns
 
-    def visit_index(self, index_obj, table_obj):
+    def visit_index(self, index_obj: _Mapping, table_obj: _Mapping) -> None:
         self.check_index(index_obj, table_obj)
         columns = [self.graph_index[c_id] for c_id in index_obj.get("columns", [])]
         # if just one column and it's indexed, update the object
@@ -280,18 +332,21 @@ class TapLoadingVisitor(VisitorBase):
             columns[0].indexed = 1
         return None
 
-    def _schema_name(self, schema_name=None):
+    def _schema_name(self, schema_name: Optional[str] = None) -> Optional[str]:
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
-        if self.catalog_name:
-            return ".".join([self.catalog_name, self.schema_name])
-        return self.schema_name
+        if self.catalog_name and _schema_name:
+            return ".".join([self.catalog_name, _schema_name])
+        return _schema_name
 
-    def _table_name(self, table_name):
-        return ".".join([self._schema_name(), table_name])
+    def _table_name(self, table_name: str) -> str:
+        schema_name = self._schema_name()
+        if schema_name:
+            return ".".join([schema_name, table_name])
+        return table_name
 
 
-def _insert(table, value):
+def _insert(table: Tap11Base, value: Any) -> Insert:
     """
     Return a SQLAlchemy insert statement based on
     :param table: The table we are inserting to

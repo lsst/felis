@@ -1,0 +1,12 @@
+---
+"@graph":
+  - "@id": "#sdqa_Threshold.createdDate"
+    length: 6
+  - "@id": "#sdqa_Threshold"
+    indexes:
+      - name: IDX_sdqaThreshold_metricId
+        "@id": "#IDX_sdqaThreshold_metricId"
+        columns: ["#sdqa_Threshold.sdqa_metricId"]
+      - name: IDX_sdqaThreshold_createdDate
+        "@id": "#IDX_sdqaThreshold_createdDate"
+        columns: ["#sdqa_Threshold.createdDate"]

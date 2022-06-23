@@ -1,3 +1,5 @@
+# This file is part of felis.
+#
 # Developed for the LSST Data Management System.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
@@ -15,12 +17,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy import SmallInteger, Float
-from sqlalchemy import types
+import builtins
+from collections.abc import Mapping, MutableMapping
+from typing import Any
+
+from sqlalchemy import Float, SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql
+from sqlalchemy.ext.compiler import compiles
 
 MYSQL = "mysql"
 ORACLE = "oracle"
@@ -31,29 +36,26 @@ SQLITE = "sqlite"
 class TINYINT(SmallInteger):
     """The non-standard TINYINT type."""
 
-    __visit_name__ = 'TINYINT'
+    __visit_name__ = "TINYINT"
 
 
 class DOUBLE(Float):
     """The non-standard DOUBLE type."""
-    __visit_name__ = 'DOUBLE'
+
+    __visit_name__ = "DOUBLE"
 
 
 @compiles(TINYINT)
-def compile_tinyint(type_, compiler, **kw):
+def compile_tinyint(type_: Any, compiler: Any, **kw: Any) -> str:
     return "TINYINT"
 
 
 @compiles(DOUBLE)
-def compile_double(type_, compiler, **kw):
+def compile_double(type_: Any, compiler: Any, **kw: Any) -> str:
     return "DOUBLE"
 
 
-boolean_map = {
-    MYSQL: mysql.BIT(1),
-    ORACLE: oracle.NUMBER(1),
-    POSTGRES: postgresql.BOOLEAN()
-}
+boolean_map = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
 
 byte_map = {
     MYSQL: mysql.TINYINT(),
@@ -122,59 +124,64 @@ binary_map = {
 }
 
 
-def boolean(**kwargs):
+def boolean(**kwargs: Any) -> types.TypeEngine:
     return _vary(types.BOOLEAN(), boolean_map.copy(), kwargs)
 
 
-def byte(**kwargs):
+def byte(**kwargs: Any) -> types.TypeEngine:
     return _vary(TINYINT(), byte_map.copy(), kwargs)
 
 
-def short(**kwargs):
+def short(**kwargs: Any) -> types.TypeEngine:
     return _vary(types.SMALLINT(), short_map.copy(), kwargs)
 
 
-def int(**kwargs):
+def int(**kwargs: Any) -> types.TypeEngine:
     return _vary(types.INTEGER(), int_map.copy(), kwargs)
 
 
-def long(**kwargs):
+def long(**kwargs: Any) -> types.TypeEngine:
     return _vary(types.BIGINT(), long_map.copy(), kwargs)
 
 
-def float(**kwargs):
+def float(**kwargs: Any) -> types.TypeEngine:
     return _vary(types.FLOAT(), float_map.copy(), kwargs)
 
 
-def double(**kwargs):
+def double(**kwargs: Any) -> types.TypeEngine:
     return _vary(DOUBLE(), double_map.copy(), kwargs)
 
 
-def char(length, **kwargs):
+def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.CHAR(length), char_map.copy(), kwargs, length)
 
 
-def string(length, **kwargs):
+def string(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.VARCHAR(length), string_map.copy(), kwargs, length)
 
 
-def unicode(length, **kwargs):
+def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.NVARCHAR(length), unicode_map.copy(), kwargs, length)
 
 
-def text(length, **kwargs):
+def text(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.CLOB(length), text_map.copy(), kwargs, length)
 
 
-def binary(length, **kwargs):
+def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.BLOB(length), binary_map.copy(), kwargs, length)
 
 
-def timestamp(**kwargs):
+def timestamp(**kwargs: Any) -> types.TypeEngine:
     return types.TIMESTAMP()
 
 
-def _vary(type_, variant_map, overrides, *args):
+def _vary(
+    type_: types.TypeEngine,
+    variant_map: MutableMapping[str, types.TypeEngine],
+    overrides: Mapping[str, types.TypeEngine],
+    *args: Any,
+) -> types.TypeEngine:
     for dialect, variant in overrides.items():
         variant_map[dialect] = variant
     for dialect, variant in variant_map.items():

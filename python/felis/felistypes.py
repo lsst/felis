@@ -1,3 +1,5 @@
+# This file is part of felis.
+#
 # Developed for the LSST Data Management System.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
@@ -15,7 +17,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 class FelisType:
@@ -87,7 +89,7 @@ NAME_MAP = dict(
     unicode=Unicode,
     text=Text,
     binary=Binary,
-    timestamp=Timestamp
+    timestamp=Timestamp,
 )
 
 
@@ -104,28 +106,13 @@ VOTABLE_MAP = dict(
     unicode="unicodeChar",  # arraysize must be nonzero
     text="unicodeChar",  # arraysize must be nonzero
     binary="unsignedByte",  # arraysize must be nonzero
-    timestamp="char"  # arraysize must be nonzero
+    timestamp="char",  # arraysize must be nonzero
 )
 
 TYPE_NAMES = NAME_MAP.keys()
 
-NUMERIC_TYPES = {
-    "byte",
-    "short",
-    "int",
-    "long",
-    "float",
-    "double"
-}
+NUMERIC_TYPES = {"byte", "short", "int", "long", "float", "double"}
 
-LENGTH_TYPES = {
-    "char",
-    "string",
-    "unicode",
-    "text",
-    "binary"
-}
+LENGTH_TYPES = {"char", "string", "unicode", "text", "binary"}
 
-DATETIME_TYPES = {
-    "timestamp"
-}
+DATETIME_TYPES = {"timestamp"}

@@ -1,3 +1,5 @@
+# This file is part of felis.
+#
 # Developed for the LSST Data Management System.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
@@ -15,18 +17,33 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
 import re
+from collections.abc import Iterable, Mapping, MutableMapping
+from typing import Any, NamedTuple, Optional, Union
 
-from sqlalchemy import MetaData, Column, Numeric, ForeignKeyConstraint, \
-    CheckConstraint, UniqueConstraint, PrimaryKeyConstraint, Index
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Constraint,
+    ForeignKeyConstraint,
+    Index,
+    MetaData,
+    Numeric,
+    PrimaryKeyConstraint,
+    UniqueConstraint,
+    types,
+)
 from sqlalchemy.dialects import mysql, oracle, postgresql, sqlite
 from sqlalchemy.schema import Table
 
 from .db import sqltypes
-from .felistypes import TYPE_NAMES, LENGTH_TYPES, DATETIME_TYPES
+from .felistypes import DATETIME_TYPES, LENGTH_TYPES, TYPE_NAMES
+
+_Mapping = Mapping[str, Any]
+_MutableMapping = MutableMapping[str, Any]
 
 logger = logging.getLogger("felis")
 
@@ -38,28 +55,27 @@ SQLITE = "sqlite"
 TABLE_OPTS = {
     "mysql:engine": "mysql_engine",
     "mysql:charset": "mysql_charset",
-    "oracle:compress": "oracle_compress"
+    "oracle:compress": "oracle_compress",
 }
 
 COLUMN_VARIANT_OVERRIDE = {
     "mysql:datatype": "mysql",
     "oracle:datatype": "oracle",
     "postgresql:datatype": "postgresql",
-    "sqlite:datatype": "sqlite"
+    "sqlite:datatype": "sqlite",
 }
 
-DIALECT_MODULES = {
-    MYSQL: mysql,
-    ORACLE: oracle,
-    SQLITE: sqlite,
-    POSTGRES: postgresql
-}
+DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
 
-length_regex = re.compile(r'\((.+)\)')
+length_regex = re.compile(r"\((.+)\)")
 
 
-class Schema:
-    pass
+class Schema(NamedTuple):
+
+    name: Optional[str]
+    tables: list[Table]
+    metadata: MetaData
+    graph_index: dict[str, Any]
 
 
 class VisitorBase:
@@ -67,23 +83,24 @@ class VisitorBase:
     Base class for visitors. Includes the graph_index and functions for
     validating objects.
     """
-    def __init__(self):
-        super().__init__()
-        self.graph_index = {}
 
-    def assert_id(self, obj):
+    def __init__(self) -> None:
+        super().__init__()
+        self.graph_index: dict[str, Any] = {}
+
+    def assert_id(self, obj: _Mapping) -> None:
         _id = obj.get("@id")
         if not _id:
             name = obj.get("name", "")
             maybe_string = f"(check object with name: {name})" if name else ""
             raise ValueError(f"No @id defined for object {maybe_string}")
 
-    def assert_name(self, obj):
+    def assert_name(self, obj: _Mapping) -> None:
         _id = obj.get("@id")
         if "name" not in obj:
             raise ValueError(f"No name for table object {_id}")
 
-    def assert_datatype(self, obj):
+    def assert_datatype(self, obj: _Mapping) -> None:
         datatype_name = obj.get("datatype")
         _id = obj["@id"]
         if not datatype_name:
@@ -91,17 +108,17 @@ class VisitorBase:
         if datatype_name not in TYPE_NAMES:
             raise ValueError(f"Incorrect Type Name for id {_id}: {datatype_name}")
 
-    def check_visited(self, _id):
+    def check_visited(self, _id: str) -> None:
         if _id in self.graph_index:
             logger.warning(f"Duplication of @id {_id}")
 
-    def check_table(self, table_obj, schema_obj):
+    def check_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> None:
         self.assert_id(table_obj)
         self.assert_name(table_obj)
         _id = table_obj["@id"]
         self.check_visited(_id)
 
-    def check_column(self, column_obj, table_obj):
+    def check_column(self, column_obj: _Mapping, table_obj: _Mapping) -> None:
         self.assert_id(column_obj)
         self.assert_name(column_obj)
         _id = column_obj["@id"]
@@ -113,10 +130,10 @@ class VisitorBase:
             logger.info(f"No length defined for {_id} for type {datatype_name}")
         self.check_visited(_id)
 
-    def check_primary_key(self, primary_key_obj, table):
+    def check_primary_key(self, primary_key_obj: Union[str, Iterable[str]], table: _Mapping) -> None:
         pass
 
-    def check_constraint(self, constraint_obj, table_obj):
+    def check_constraint(self, constraint_obj: _Mapping, table_obj: _Mapping) -> None:
         self.assert_id(constraint_obj)
         _id = constraint_obj["@id"]
         constraint_type = constraint_obj.get("@type")
@@ -126,7 +143,7 @@ class VisitorBase:
             raise ValueError(f"Not a valid constraint type: {constraint_type}")
         self.check_visited(_id)
 
-    def check_index(self, index_obj, table_obj):
+    def check_index(self, index_obj: _Mapping, table_obj: _Mapping) -> None:
         self.assert_id(index_obj)
         _id = index_obj["@id"]
         self.assert_name(index_obj)
@@ -134,13 +151,13 @@ class VisitorBase:
             raise ValueError(f"Defining columns and expressions is not valid for index {_id}")
         self.check_visited(_id)
 
-    def visit_schema(self, schema_obj):
+    def visit_schema(self, schema_obj: _Mapping) -> Any:
         self.assert_id(schema_obj)
         self.graph_index[schema_obj["@id"]] = schema_obj
         for table_obj in schema_obj["tables"]:
             self.visit_table(table_obj, schema_obj)
 
-    def visit_table(self, table_obj, schema_obj):
+    def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> Any:
         self.check_table(table_obj, schema_obj)
         self.graph_index[table_obj["@id"]] = table_obj
         for column_obj in table_obj["columns"]:
@@ -151,23 +168,24 @@ class VisitorBase:
         for index_obj in table_obj.get("indexes", []):
             self.visit_index(index_obj, table_obj)
 
-    def visit_column(self, column_obj, table_obj):
+    def visit_column(self, column_obj: _Mapping, table_obj: _Mapping) -> Any:
         self.check_column(column_obj, table_obj)
         self.graph_index[column_obj["@id"]] = column_obj
 
-    def visit_primary_key(self, primary_key_obj, table_obj):
+    def visit_primary_key(self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping) -> Any:
         self.check_primary_key(primary_key_obj, table_obj)
 
-    def visit_constraint(self, constraint_obj, table_obj):
+    def visit_constraint(self, constraint_obj: _Mapping, table_obj: _Mapping) -> Any:
         self.check_constraint(constraint_obj, table_obj)
         self.graph_index[constraint_obj["@id"]] = constraint_obj
 
-    def visit_index(self, index_obj, table_obj):
+    def visit_index(self, index_obj: _Mapping, table_obj: _Mapping) -> Any:
         self.check_index(index_obj, table_obj)
         self.graph_index[index_obj["@id"]] = index_obj
 
+
 class Visitor(VisitorBase):
-    def __init__(self, schema_name=None):
+    def __init__(self, schema_name: Optional[str] = None):
         """
         A Visitor which populates a SQLAlchemy metadata object.
         :param schema_name: Override the schema name
@@ -176,15 +194,16 @@ class Visitor(VisitorBase):
         self.metadata = MetaData()
         self.schema_name = schema_name
 
-    def visit_schema(self, schema_obj):
-        schema = Schema()
-        schema.name = self.schema_name or schema_obj["name"]
-        schema.tables = [self.visit_table(t, schema_obj) for t in schema_obj["tables"]]
-        schema.metadata = self.metadata
-        schema.graph_index = self.graph_index
+    def visit_schema(self, schema_obj: _Mapping) -> Schema:
+        schema = Schema(
+            name=self.schema_name or schema_obj["name"],
+            tables=[self.visit_table(t, schema_obj) for t in schema_obj["tables"]],
+            metadata=self.metadata,
+            graph_index=self.graph_index,
+        )
         return schema
 
-    def visit_table(self, table_obj, schema_obj):
+    def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> Table:
         self.check_table(table_obj, schema_obj)
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
 
@@ -193,19 +212,9 @@ class Visitor(VisitorBase):
         description = table_obj.get("description")
         schema_name = self.schema_name or schema_obj["name"]
 
-        table = Table(
-            name,
-            self.metadata,
-            *columns,
-            schema=schema_name,
-            comment=description
-        )
+        table = Table(name, self.metadata, *columns, schema=schema_name, comment=description)
 
         primary_key = self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
-        if primary_key:
-            table.append_constraint(primary_key)
-
-        primary_key = self.visit_primary_key(table_obj.get("primaryKey"), table)
         if primary_key:
             table.append_constraint(primary_key)
 
@@ -219,8 +228,9 @@ class Visitor(VisitorBase):
             index._set_parent(table)
             table.indexes.add(index)
         self.graph_index[table_id] = table
+        return table
 
-    def visit_column(self, column_obj, table_obj):
+    def visit_column(self, column_obj: _Mapping, table_obj: _Mapping) -> Column:
         self.check_column(column_obj, table_obj)
         column_name = column_obj["name"]
         column_id = column_obj["@id"]
@@ -256,30 +266,30 @@ class Visitor(VisitorBase):
             comment=column_description,
             autoincrement=column_autoincrement,
             nullable=column_nullable,
-            server_default=column_default
+            server_default=column_default,
         )
         if column_id in self.graph_index:
             logger.warning(f"Duplication of @id {column_id}")
         self.graph_index[column_id] = column
         return column
 
-    def visit_primary_key(self, primary_key_obj, table_obj):
+    def visit_primary_key(
+        self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping
+    ) -> Optional[PrimaryKeyConstraint]:
         self.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:
-            if not isinstance(primary_key_obj, list):
+            if isinstance(primary_key_obj, str):
                 primary_key_obj = [primary_key_obj]
-            columns = [
-                self.graph_index[c_id] for c_id in primary_key_obj
-            ]
+            columns = [self.graph_index[c_id] for c_id in primary_key_obj]
             return PrimaryKeyConstraint(*columns)
         return None
 
-    def visit_constraint(self, constraint_obj, table_obj):
+    def visit_constraint(self, constraint_obj: _Mapping, table_obj: _Mapping) -> Constraint:
         self.check_constraint(constraint_obj, table_obj)
         constraint_type = constraint_obj["@type"]
         constraint_id = constraint_obj["@id"]
 
-        constraint_args = {}
+        constraint_args: _MutableMapping = {}
         # The following are not used on every constraint
         _set_if("name", constraint_obj.get("name"), constraint_args)
         _set_if("info", constraint_obj.get("description"), constraint_args)
@@ -287,39 +297,36 @@ class Visitor(VisitorBase):
         _set_if("deferrable", constraint_obj.get("deferrable"), constraint_args)
         _set_if("initially", constraint_obj.get("initially"), constraint_args)
 
-        columns = [
-            self.graph_index[c_id] for c_id in constraint_obj.get("columns", [])
-        ]
+        columns = [self.graph_index[c_id] for c_id in constraint_obj.get("columns", [])]
+        constraint: Constraint
         if constraint_type == "ForeignKey":
-            refcolumns = [
-                self.graph_index[c_id] for c_id in constraint_obj.get("referencedColumns", [])
-            ]
+            refcolumns = [self.graph_index[c_id] for c_id in constraint_obj.get("referencedColumns", [])]
             constraint = ForeignKeyConstraint(columns, refcolumns, **constraint_args)
         elif constraint_type == "Check":
             expression = constraint_obj["expression"]
             constraint = CheckConstraint(expression, **constraint_args)
         elif constraint_type == "Unique":
             constraint = UniqueConstraint(*columns, **constraint_args)
+        else:
+            raise ValueError(f"Unexpected constraint type: {constraint_type}")
         self.graph_index[constraint_id] = constraint
         return constraint
 
-    def visit_index(self, index_obj, table_obj):
+    def visit_index(self, index_obj: _Mapping, table_obj: _Mapping) -> Index:
         self.check_index(index_obj, table_obj)
         name = index_obj["name"]
         description = index_obj.get("description")
-        columns = [
-            self.graph_index[c_id] for c_id in index_obj.get("columns", [])
-        ]
+        columns = [self.graph_index[c_id] for c_id in index_obj.get("columns", [])]
         expressions = index_obj.get("expressions", [])
         return Index(name, *columns, *expressions, info=description)
 
 
-def _set_if(key, value, mapping):
+def _set_if(key: str, value: Any, mapping: _MutableMapping) -> None:
     if value is not None:
         mapping[key] = value
 
 
-def _process_variant_override(dialect_name, variant_override_str):
+def _process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
     """Simple Data Type Override"""
     match = length_regex.search(variant_override_str)
     dialect = DIALECT_MODULES[dialect_name]
