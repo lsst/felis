@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
+__all__ = ["Tap11Base", "TapLoadingVisitor", "init_tables"]
+
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping
 from typing import Any, Optional, Union
@@ -30,11 +34,11 @@ from sqlalchemy.orm import DeclarativeMeta, Session, sessionmaker
 from sqlalchemy.schema import MetaData
 from sqlalchemy.sql.expression import Insert, insert
 
+from .check import FelisValidator
 from .felistypes import DATETIME_TYPES, LENGTH_TYPES, VOTABLE_MAP
-from .model import VisitorBase
+from .visitor import Visitor
 
 _Mapping = Mapping[str, Any]
-_MutableMapping = MutableMapping[str, Any]
 
 Tap11Base: DeclarativeMeta = declarative_base()
 logger = logging.getLogger("felis")
@@ -128,7 +132,7 @@ def init_tables(
     )
 
 
-class TapLoadingVisitor(VisitorBase):
+class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
     def __init__(
         self,
         engine: Engine,
@@ -137,14 +141,16 @@ class TapLoadingVisitor(VisitorBase):
         mock: bool = False,
         tap_tables: Optional[MutableMapping[str, Any]] = None,
     ):
-        self.graph_index = {}
+        self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
         self.engine = engine
         self.mock = mock
         self.tables = tap_tables or init_tables()
+        self.checker = FelisValidator()
 
     def visit_schema(self, schema_obj: _Mapping) -> None:
+        self.checker.check_schema(schema_obj)
         schema = self.tables["schemas"]()
         # Override with default
         self.schema_name = self.schema_name or schema_obj["name"]
@@ -179,7 +185,7 @@ class TapLoadingVisitor(VisitorBase):
                     conn.execute(_insert(self.tables["key_columns"], key_column))
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> tuple:
-        self.check_table(table_obj, schema_obj)
+        self.checker.check_table(table_obj, schema_obj)
         table_id = table_obj["@id"]
         table = self.tables["tables"]()
         table.schema_name = self._schema_name()
@@ -207,7 +213,7 @@ class TapLoadingVisitor(VisitorBase):
         return table, columns, all_keys, all_key_columns
 
     def check_column(self, column_obj: _Mapping, table_obj: _Mapping) -> None:
-        super().check_column(column_obj, table_obj)
+        self.checker.check_column(column_obj, table_obj)
         _id = column_obj["@id"]
         datatype_name = column_obj.get("datatype")
         if datatype_name in LENGTH_TYPES:
@@ -272,6 +278,7 @@ class TapLoadingVisitor(VisitorBase):
         return column
 
     def visit_primary_key(self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping) -> None:
+        self.checker.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:
             if isinstance(primary_key_obj, str):
                 primary_key_obj = [primary_key_obj]
@@ -282,7 +289,7 @@ class TapLoadingVisitor(VisitorBase):
         return None
 
     def visit_constraint(self, constraint_obj: _Mapping, table_obj: _Mapping) -> tuple:
-        self.check_constraint(constraint_obj, table_obj)
+        self.checker.check_constraint(constraint_obj, table_obj)
         constraint_type = constraint_obj["@type"]
         key = None
         key_columns = []
@@ -325,7 +332,7 @@ class TapLoadingVisitor(VisitorBase):
         return key, key_columns
 
     def visit_index(self, index_obj: _Mapping, table_obj: _Mapping) -> None:
-        self.check_index(index_obj, table_obj)
+        self.checker.check_index(index_obj, table_obj)
         columns = [self.graph_index[c_id] for c_id in index_obj.get("columns", [])]
         # if just one column and it's indexed, update the object
         if len(columns) == 1:
