@@ -45,7 +45,7 @@ from sqlalchemy.schema import Table
 
 from .check import FelisValidator
 from .db import sqltypes
-from .felistypes import LENGTH_TYPES
+from .types import FelisType
 from .visitor import Visitor
 
 _Mapping = Mapping[str, Any]
@@ -155,9 +155,10 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
                 variant = _process_variant_override(dialect, column_obj[column_opt])
                 kwargs[dialect] = variant
 
+        felis_type = FelisType.felis_type(datatype_name)
         datatype_fun = getattr(sqltypes, datatype_name)
 
-        if datatype_fun.__name__ in LENGTH_TYPES:
+        if felis_type.is_sized:
             datatype = datatype_fun(column_length, **kwargs)
         else:
             datatype = datatype_fun(**kwargs)

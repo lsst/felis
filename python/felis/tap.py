@@ -35,7 +35,7 @@ from sqlalchemy.schema import MetaData
 from sqlalchemy.sql.expression import Insert, insert
 
 from .check import FelisValidator
-from .felistypes import DATETIME_TYPES, LENGTH_TYPES, VOTABLE_MAP
+from .types import FelisType
 from .visitor import Visitor
 
 _Mapping = Mapping[str, Any]
@@ -215,8 +215,10 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
     def check_column(self, column_obj: _Mapping, table_obj: _Mapping) -> None:
         self.checker.check_column(column_obj, table_obj)
         _id = column_obj["@id"]
-        datatype_name = column_obj.get("datatype")
-        if datatype_name in LENGTH_TYPES:
+        # Guaranteed to exist at this point, for mypy use "" as default
+        datatype_name = column_obj.get("datatype", "")
+        felis_type = FelisType.felis_type(datatype_name)
+        if felis_type.is_sized:
             # It is expected that both arraysize and length are fine for
             # length types.
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length"))
@@ -226,7 +228,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
                     'Using length "*". '
                     "Consider setting `votable:arraysize` or `length`."
                 )
-        if datatype_name in DATETIME_TYPES:
+        if felis_type.is_timestamp:
             # datetime types really should have a votable:arraysize, because
             # they are converted to strings and the `length` is loosely to the
             # string size
@@ -248,14 +250,14 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
         column.column_name = column_obj["name"]
 
         felis_datatype = column_obj["datatype"]
-        ivoa_datatype = column_obj.get("votable:datatype", VOTABLE_MAP[felis_datatype])
-        column.datatype = column_obj.get("votable:datatype", ivoa_datatype)
+        felis_type = FelisType.felis_type(felis_datatype)
+        column.datatype = column_obj.get("votable:datatype", felis_type.votable_name)
 
         arraysize = None
-        if felis_datatype in LENGTH_TYPES:
+        if felis_type.is_sized:
             # prefer votable:arraysize to length, fall back to `*`
             arraysize = column_obj.get("votable:arraysize", column_obj.get("length", "*"))
-        if felis_datatype in DATETIME_TYPES:
+        if felis_type.is_timestamp:
             arraysize = column_obj.get("votable:arraysize", "*")
         column.arraysize = arraysize
 

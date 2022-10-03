@@ -27,7 +27,7 @@ import logging
 from collections.abc import Iterable, Mapping, MutableSet
 from typing import Any
 
-from .felistypes import DATETIME_TYPES, LENGTH_TYPES, TYPE_NAMES
+from .types import FelisType
 from .visitor import Visitor
 
 _Mapping = Mapping[str, Any]
@@ -102,7 +102,8 @@ class FelisValidator:
         self._assert_name(column_obj)
         datatype_name = self._assert_datatype(column_obj)
         length = column_obj.get("length")
-        if not length and (datatype_name in LENGTH_TYPES or datatype_name in DATETIME_TYPES):
+        felis_type = FelisType.felis_type(datatype_name)
+        if not length and (felis_type.is_sized or felis_type.is_timestamp):
             # This is not a warning, because it's usually fine
             logger.info(f"No length defined for {_id} for type {datatype_name}")
         self._check_visited(_id)
@@ -232,8 +233,10 @@ class FelisValidator:
         _id = obj["@id"]
         if not datatype_name:
             raise ValueError(f"No datatype defined for id {_id}")
-        if datatype_name not in TYPE_NAMES:
-            raise ValueError(f"Incorrect Type Name for id {_id}: {datatype_name}")
+        try:
+            FelisType.felis_type(datatype_name)
+        except TypeError:
+            raise ValueError(f"Incorrect Type Name for id {_id}: {datatype_name}") from None
         return datatype_name
 
     def _check_visited(self, _id: str) -> None:
