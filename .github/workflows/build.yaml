@@ -35,7 +35,7 @@ jobs:
 
       # We have two cores so we can speed up the testing with xdist
       - name: Install xdist, openfiles and flake8 for pytest
-        run: pip install pytest-xdist pytest-openfiles pytest-flake8 pytest-cov
+        run: pip install "flake8<5" pytest-xdist pytest-openfiles pytest-flake8 pytest-cov
 
       - name: Build and install
         run: pip install -v .
