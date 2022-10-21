@@ -23,39 +23,15 @@ import contextlib
 import copy
 import os
 import unittest
-from collections.abc import Iterator, Mapping, MutableMapping
-from typing import Any, Optional
+from collections.abc import Iterator, MutableMapping
+from typing import Any
 
-import sqlalchemy
 import yaml
 
-from felis import DEFAULT_FRAME
-from felis.model import Visitor, VisitorBase
+from felis import DEFAULT_FRAME, CheckingVisitor
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
-
-
-def _get_unique_constraint(table: sqlalchemy.schema.Table) -> Optional[sqlalchemy.schema.UniqueConstraint]:
-    """Return a unique constraint for a table, raise if table has more than
-    one unique constraint.
-    """
-    uniques = [
-        constraint
-        for constraint in table.constraints
-        if isinstance(constraint, sqlalchemy.schema.UniqueConstraint)
-    ]
-    if len(uniques) > 1:
-        raise TypeError(f"More than one constraint defined for table {table}")
-    elif not uniques:
-        return None
-    else:
-        return uniques[0]
-
-
-def _get_indices(table: sqlalchemy.schema.Table) -> Mapping[str, sqlalchemy.schema.Index]:
-    """Return mapping of table indices indexed by index name."""
-    return {index.name: index for index in table.indexes}
 
 
 @contextlib.contextmanager
@@ -82,7 +58,7 @@ def replace_key(
 
 
 class VisitorTestCase(unittest.TestCase):
-    """Tests for both VisitorBase and Visitor classes."""
+    """Tests for CheckingVisitor class."""
 
     schema_obj: MutableMapping[str, Any] = {}
 
@@ -93,103 +69,9 @@ class VisitorTestCase(unittest.TestCase):
             self.schema_obj.update(DEFAULT_FRAME)
 
     def test_check(self) -> None:
-        """Check YAML consistency using VisitorBase visitor."""
-        visitor = VisitorBase()
+        """Check YAML consistency using CheckingVisitor visitor."""
+        visitor = CheckingVisitor()
         visitor.visit_schema(self.schema_obj)
-
-    def test_make_metadata(self) -> None:
-        """Generate sqlalchemy metadata using Visitor class"""
-        visitor = Visitor()
-        schema = visitor.visit_schema(self.schema_obj)
-        self.assertIsNotNone(schema)
-        self.assertEqual(schema.name, "sdqa")
-        self.assertIsNotNone(schema.tables)
-        self.assertIsNotNone(schema.graph_index)
-        self.assertIsNotNone(schema.metadata)
-
-        table_names = [
-            "sdqa_ImageStatus",
-            "sdqa_Metric",
-            "sdqa_Rating_ForAmpVisit",
-            "sdqa_Rating_CcdVisit",
-            "sdqa_Threshold",
-        ]
-
-        # Look at metadata tables.
-        self.assertIsNone(schema.metadata.schema)
-        tables = schema.metadata.tables
-        self.assertCountEqual(tables.keys(), [f"sdqa.{table}" for table in table_names])
-
-        # Check schema.tables attribute.
-        self.assertCountEqual([table.name for table in schema.tables], table_names)
-
-        # Checks tables in graph index.
-        for table_name in table_names:
-            self.assertIs(schema.graph_index[f"#{table_name}"], tables[f"sdqa.{table_name}"])
-
-        # Details of sdqa_ImageStatus table.
-        table = tables["sdqa.sdqa_ImageStatus"]
-        self.assertCountEqual(table.columns.keys(), ["sdqa_imageStatusId", "statusName", "definition"])
-        self.assertTrue(table.columns["sdqa_imageStatusId"].primary_key)
-        self.assertFalse(table.indexes)
-        for column in table.columns.values():
-            self.assertIsInstance(column.type, sqlalchemy.types.Variant)
-
-        # Details of sdqa_Metric table.
-        table = tables["sdqa.sdqa_Metric"]
-        self.assertCountEqual(
-            table.columns.keys(), ["sdqa_metricId", "metricName", "physicalUnits", "dataType", "definition"]
-        )
-        self.assertTrue(table.columns["sdqa_metricId"].primary_key)
-        self.assertFalse(table.indexes)
-        for column in table.columns.values():
-            self.assertIsInstance(column.type, sqlalchemy.types.Variant)
-        # It defines a unique constraint.
-        unique = _get_unique_constraint(table)
-        assert unique is not None, "Constraint must be defined"
-        self.assertEqual(unique.name, "UQ_sdqaMetric_metricName")
-        self.assertCountEqual(unique.columns, [table.columns["metricName"]])
-
-        # Details of sdqa_Rating_ForAmpVisit table.
-        table = tables["sdqa.sdqa_Rating_ForAmpVisit"]
-        self.assertCountEqual(
-            table.columns.keys(),
-            [
-                "sdqa_ratingId",
-                "sdqa_metricId",
-                "sdqa_thresholdId",
-                "ampVisitId",
-                "metricValue",
-                "metricSigma",
-            ],
-        )
-        self.assertTrue(table.columns["sdqa_ratingId"].primary_key)
-        for column in table.columns.values():
-            self.assertIsInstance(column.type, sqlalchemy.types.Variant)
-        unique = _get_unique_constraint(table)
-        self.assertIsNotNone(unique)
-        self.assertEqual(unique.name, "UQ_sdqaRatingForAmpVisit_metricId_ampVisitId")
-        self.assertCountEqual(unique.columns, [table.columns["sdqa_metricId"], table.columns["ampVisitId"]])
-        # It has a bunch of indices.
-        indices = _get_indices(table)
-        self.assertCountEqual(
-            indices.keys(),
-            [
-                "IDX_sdqaRatingForAmpVisit_metricId",
-                "IDX_sdqaRatingForAmpVisit_thresholdId",
-                "IDX_sdqaRatingForAmpVisit_ampVisitId",
-            ],
-        )
-        self.assertCountEqual(
-            indices["IDX_sdqaRatingForAmpVisit_metricId"].columns,
-            [schema.graph_index["#sdqa_Rating_ForAmpVisit.sdqa_metricId"]],
-        )
-        # And a foreign key referencing sdqa_Metric table.
-        self.assertEqual(len(table.foreign_key_constraints), 1)
-        fk = list(table.foreign_key_constraints)[0]
-        self.assertEqual(fk.name, "FK_sdqa_Rating_ForAmpVisit_sdqa_Metric")
-        self.assertCountEqual(fk.columns, [table.columns["sdqa_metricId"]])
-        self.assertIs(fk.referred_table, tables["sdqa.sdqa_Metric"])
 
     def test_error_schema(self) -> None:
         """Check for errors at schema level."""
@@ -199,12 +81,12 @@ class VisitorTestCase(unittest.TestCase):
         # Missing @id
         with remove_key(schema, "@id"):
             with self.assertRaisesRegex(ValueError, "No @id defined for object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Delete tables.
         with remove_key(schema, "tables"):
             with self.assertRaisesRegex(KeyError, "'tables'"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
     def test_error_table(self) -> None:
         """Check for errors at table level."""
@@ -215,23 +97,23 @@ class VisitorTestCase(unittest.TestCase):
         # Missing @id
         with remove_key(table, "@id"):
             with self.assertRaisesRegex(ValueError, "No @id defined for object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Missing name.
         with remove_key(table, "name"):
             with self.assertRaisesRegex(ValueError, "No name for table object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Missing columns.
         with remove_key(table, "columns"):
             with self.assertRaisesRegex(KeyError, "'columns'"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Duplicate table @id causes warning.
         table2 = schema["tables"][1]
         with replace_key(table, "@id", "#duplicateID"), replace_key(table2, "@id", "#duplicateID"):
             with self.assertLogs(logger="felis", level="WARNING") as cm:
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
         self.assertEqual(cm.output, ["WARNING:felis:Duplication of @id #duplicateID"])
 
     def test_error_column(self) -> None:
@@ -243,28 +125,28 @@ class VisitorTestCase(unittest.TestCase):
         # Missing @id
         with remove_key(column, "@id"):
             with self.assertRaisesRegex(ValueError, "No @id defined for object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Missing name.
         with remove_key(column, "name"):
             with self.assertRaisesRegex(ValueError, "No name for table object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Missing datatype.
         with remove_key(column, "datatype"):
             with self.assertRaisesRegex(ValueError, "No datatype defined"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Incorrect datatype.
         with replace_key(column, "datatype", "nibble"):
             with self.assertRaisesRegex(ValueError, "Incorrect Type Name"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Duplicate @id causes warning.
         table2 = schema["tables"][1]
         with replace_key(column, "@id", "#duplicateID"), replace_key(table2, "@id", "#duplicateID"):
             with self.assertLogs(logger="felis", level="WARNING") as cm:
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
         self.assertEqual(cm.output, ["WARNING:felis:Duplication of @id #duplicateID"])
 
     def test_error_index(self) -> None:
@@ -277,7 +159,7 @@ class VisitorTestCase(unittest.TestCase):
         index = {"name": "IDX_index", "columns": [table["columns"][0]["@id"]]}
         with replace_key(table, "indexes", [index]):
             with self.assertRaisesRegex(ValueError, "No @id defined for object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Missing name.
         index = {
@@ -286,7 +168,7 @@ class VisitorTestCase(unittest.TestCase):
         }
         with replace_key(table, "indexes", [index]):
             with self.assertRaisesRegex(ValueError, "No name for table object"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Both columns and expressions specified.
         index = {
@@ -297,7 +179,7 @@ class VisitorTestCase(unittest.TestCase):
         }
         with replace_key(table, "indexes", [index]):
             with self.assertRaisesRegex(ValueError, "Defining columns and expressions is not valid"):
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
 
         # Duplicate @id causes warning.
         index = {
@@ -308,7 +190,7 @@ class VisitorTestCase(unittest.TestCase):
         table2 = schema["tables"][1]
         with replace_key(table, "indexes", [index]), replace_key(table2, "@id", "#duplicateID"):
             with self.assertLogs(logger="felis", level="WARNING") as cm:
-                VisitorBase().visit_schema(schema)
+                CheckingVisitor().visit_schema(schema)
         self.assertEqual(cm.output, ["WARNING:felis:Duplication of @id #duplicateID"])
 
 

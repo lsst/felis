@@ -19,7 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from . import types
+from .check import *
 from .version import *
+from .visitor import *
 
 DEFAULT_CONTEXT = {
     "@vocab": "http://lsst.org/felis/",

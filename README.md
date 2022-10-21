@@ -40,7 +40,7 @@ describing the fundamentally relational objects that make up a database.
 
 Felis is influenced by work on CSVW, which uses JSON-LD to describe CSV
 files. CSVW is oriented a bit more towards publishing data to the web,
-and that doesn't quite capture the use case of desribing tables,
+and that doesn't quite capture the use case of describing tables,
 especially those which haven't been created yet. Still, for services
 which may return CSV files, a translation to CSVW will be
 straightforward.
@@ -626,7 +626,7 @@ references.
 ## DBMS Extensions
 
 DBMS Extension Annotations may be used to override defaults or provide a
-way to describe non-standard paramters for creating objects in a
+way to describe non-standard parameters for creating objects in a
 database or file.
 
 [The SQLAlchemy documentation on
@@ -639,7 +639,7 @@ user (Oracle), or file (SQLite) has already been created. Tools SHOULD
 take into account the name of the schema defined in a felis description,
 but parameters for creating the schema object are beyond the scope of a
 felis description, because those parameters will likely be
-instance-dependent and may contaian secrets, as in the case of Oracle.
+instance-dependent and may contain secrets, as in the case of Oracle.
 
 ### MySQL
 
@@ -723,7 +723,7 @@ this can probably be automated with a proper vocabulary for Felis.
 
 #### afw.table
 
-A few of the metadata values for tables and columns are storeable on in
+A few of the metadata values for tables and columns are storable on in
 the properties of a schema (table) or field.
 
 #### YAML/JSON

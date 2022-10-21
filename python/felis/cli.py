@@ -32,7 +32,8 @@ from pyld import jsonld
 from sqlalchemy import create_engine
 
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
-from .model import Visitor, VisitorBase
+from .check import CheckingVisitor
+from .sql import SQLVisitor
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
 
@@ -55,7 +56,7 @@ def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIO
     """Create schema objects from the Felis FILE."""
 
     schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-    visitor = Visitor(schema_name=schema_name)
+    visitor = SQLVisitor(schema_name=schema_name)
     schema = visitor.visit_schema(schema_obj)
 
     metadata = schema.metadata
@@ -220,7 +221,7 @@ def basic_check(file: io.TextIOBase) -> None:
     schema_obj["@type"] = "felis:Schema"
     # Force Context and Schema Type
     schema_obj["@context"] = DEFAULT_CONTEXT
-    check_visitor = VisitorBase()
+    check_visitor = CheckingVisitor()
     check_visitor.visit_schema(schema_obj)
 
 
