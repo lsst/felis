@@ -77,7 +77,6 @@ length_regex = re.compile(r"\((.+)\)")
 
 
 class Schema(NamedTuple):
-
     name: Optional[str]
     tables: list[Table]
     metadata: MetaData

@@ -44,7 +44,6 @@ class ReorderingVisitor:
         return _new_order(schema_obj, ["@context", "name", "@id", "@type", "description", "tables"])
 
     def visit_table(self, table_obj: _MutableMapping, schema_obj: _Mapping) -> _Mapping:
-
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
         primary_key = self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
         constraints = [self.visit_constraint(c, table_obj) for c in table_obj.get("constraints", [])]
