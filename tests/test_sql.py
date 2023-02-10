@@ -22,7 +22,7 @@
 import os
 import unittest
 from collections.abc import Mapping, MutableMapping
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import sqlalchemy
 import yaml
@@ -54,7 +54,7 @@ def _get_unique_constraint(table: sqlalchemy.schema.Table) -> Optional[sqlalchem
 
 def _get_indices(table: sqlalchemy.schema.Table) -> Mapping[str, sqlalchemy.schema.Index]:
     """Return mapping of table indices indexed by index name."""
-    return {index.name: index for index in table.indexes}
+    return {cast(str, index.name): index for index in table.indexes}
 
 
 class VisitorTestCase(unittest.TestCase):
@@ -161,6 +161,7 @@ class VisitorTestCase(unittest.TestCase):
             self.assertIsInstance(column.type, (ctype, sqlalchemy.types.Variant))
         unique = _get_unique_constraint(table)
         self.assertIsNotNone(unique)
+        assert unique is not None, "Constraint must be defined"
         self.assertEqual(unique.name, "UQ_sdqaRatingForAmpVisit_metricId_ampVisitId")
         self.assertCountEqual(unique.columns, [table.columns["sdqa_metricId"], table.columns["ampVisitId"]])
         # It has a bunch of indices.

@@ -20,8 +20,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import builtins
-from collections.abc import Mapping, MutableMapping
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Union
 
 from sqlalchemy import Float, SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql
@@ -55,69 +55,71 @@ def compile_double(type_: Any, compiler: Any, **kw: Any) -> str:
     return "DOUBLE"
 
 
-boolean_map = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
+_TypeMap = Mapping[str, Union[types.TypeEngine, type[types.TypeEngine]]]
 
-byte_map = {
+boolean_map: _TypeMap = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
+
+byte_map: _TypeMap = {
     MYSQL: mysql.TINYINT(),
     ORACLE: oracle.NUMBER(3),
     POSTGRES: postgresql.SMALLINT(),
 }
 
-short_map = {
+short_map: _TypeMap = {
     MYSQL: mysql.SMALLINT(),
     ORACLE: oracle.NUMBER(5),
     POSTGRES: postgresql.SMALLINT(),
 }
 
 # Skip Oracle
-int_map = {
+int_map: _TypeMap = {
     MYSQL: mysql.INTEGER(),
     POSTGRES: postgresql.INTEGER(),
 }
 
-long_map = {
+long_map: _TypeMap = {
     MYSQL: mysql.BIGINT(),
     ORACLE: oracle.NUMBER(38, 0),
     POSTGRES: postgresql.BIGINT(),
 }
 
-float_map = {
+float_map: _TypeMap = {
     MYSQL: mysql.FLOAT(),
     ORACLE: oracle.BINARY_FLOAT(),
     POSTGRES: postgresql.FLOAT(),
 }
 
-double_map = {
+double_map: _TypeMap = {
     MYSQL: mysql.DOUBLE(),
     ORACLE: oracle.BINARY_DOUBLE(),
     POSTGRES: postgresql.DOUBLE_PRECISION(),
 }
 
-char_map = {
+char_map: _TypeMap = {
     MYSQL: mysql.CHAR,
     ORACLE: oracle.CHAR,
     POSTGRES: postgresql.CHAR,
 }
 
-string_map = {
+string_map: _TypeMap = {
     MYSQL: mysql.VARCHAR,
     ORACLE: oracle.VARCHAR2,
     POSTGRES: postgresql.VARCHAR,
 }
 
-unicode_map = {
+unicode_map: _TypeMap = {
     MYSQL: mysql.NVARCHAR,
     ORACLE: oracle.NVARCHAR2,
     POSTGRES: postgresql.VARCHAR,
 }
 
-text_map = {
+text_map: _TypeMap = {
     MYSQL: mysql.LONGTEXT,
     ORACLE: oracle.CLOB,
     POSTGRES: postgresql.TEXT,
 }
 
-binary_map = {
+binary_map: _TypeMap = {
     MYSQL: mysql.LONGBLOB,
     ORACLE: oracle.BLOB,
     POSTGRES: postgresql.BYTEA,
@@ -125,51 +127,51 @@ binary_map = {
 
 
 def boolean(**kwargs: Any) -> types.TypeEngine:
-    return _vary(types.BOOLEAN(), boolean_map.copy(), kwargs)
+    return _vary(types.BOOLEAN(), boolean_map, kwargs)
 
 
 def byte(**kwargs: Any) -> types.TypeEngine:
-    return _vary(TINYINT(), byte_map.copy(), kwargs)
+    return _vary(TINYINT(), byte_map, kwargs)
 
 
 def short(**kwargs: Any) -> types.TypeEngine:
-    return _vary(types.SMALLINT(), short_map.copy(), kwargs)
+    return _vary(types.SMALLINT(), short_map, kwargs)
 
 
 def int(**kwargs: Any) -> types.TypeEngine:
-    return _vary(types.INTEGER(), int_map.copy(), kwargs)
+    return _vary(types.INTEGER(), int_map, kwargs)
 
 
 def long(**kwargs: Any) -> types.TypeEngine:
-    return _vary(types.BIGINT(), long_map.copy(), kwargs)
+    return _vary(types.BIGINT(), long_map, kwargs)
 
 
 def float(**kwargs: Any) -> types.TypeEngine:
-    return _vary(types.FLOAT(), float_map.copy(), kwargs)
+    return _vary(types.FLOAT(), float_map, kwargs)
 
 
 def double(**kwargs: Any) -> types.TypeEngine:
-    return _vary(DOUBLE(), double_map.copy(), kwargs)
+    return _vary(DOUBLE(), double_map, kwargs)
 
 
 def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    return _vary(types.CHAR(length), char_map.copy(), kwargs, length)
+    return _vary(types.CHAR(length), char_map, kwargs, length)
 
 
 def string(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    return _vary(types.VARCHAR(length), string_map.copy(), kwargs, length)
+    return _vary(types.VARCHAR(length), string_map, kwargs, length)
 
 
 def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    return _vary(types.NVARCHAR(length), unicode_map.copy(), kwargs, length)
+    return _vary(types.NVARCHAR(length), unicode_map, kwargs, length)
 
 
 def text(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    return _vary(types.CLOB(length), text_map.copy(), kwargs, length)
+    return _vary(types.CLOB(length), text_map, kwargs, length)
 
 
 def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    return _vary(types.BLOB(length), binary_map.copy(), kwargs, length)
+    return _vary(types.BLOB(length), binary_map, kwargs, length)
 
 
 def timestamp(**kwargs: Any) -> types.TypeEngine:
@@ -178,13 +180,13 @@ def timestamp(**kwargs: Any) -> types.TypeEngine:
 
 def _vary(
     type_: types.TypeEngine,
-    variant_map: MutableMapping[str, types.TypeEngine],
-    overrides: Mapping[str, types.TypeEngine],
+    variant_map: _TypeMap,
+    overrides: _TypeMap,
     *args: Any,
 ) -> types.TypeEngine:
-    for dialect, variant in overrides.items():
-        variant_map[dialect] = variant
-    for dialect, variant in variant_map.items():
+    variants: dict[str, Union[types.TypeEngine, type[types.TypeEngine]]] = dict(variant_map)
+    variants.update(overrides)
+    for dialect, variant in variants.items():
         # If this is a class and not an instance, instantiate
         if isinstance(variant, type):
             variant = variant(*args)
