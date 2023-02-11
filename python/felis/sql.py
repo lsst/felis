@@ -77,7 +77,6 @@ length_regex = re.compile(r"\((.+)\)")
 
 
 class Schema(NamedTuple):
-
     name: Optional[str]
     tables: list[Table]
     metadata: MetaData
@@ -126,11 +125,11 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
         if primary_key:
             table.append_constraint(primary_key)
 
-        constraints = [self.visit_constraint(c, table) for c in table_obj.get("constraints", [])]
+        constraints = [self.visit_constraint(c, table_obj) for c in table_obj.get("constraints", [])]
         for constraint in constraints:
             table.append_constraint(constraint)
 
-        indexes = [self.visit_index(i, table) for i in table_obj.get("indexes", [])]
+        indexes = [self.visit_index(i, table_obj) for i in table_obj.get("indexes", [])]
         for index in indexes:
             # FIXME: Hack because there's no table.add_index
             index._set_parent(table)
@@ -170,7 +169,7 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
         column_nullable = column_obj.get("nullable", nullable_default)
         column_autoincrement = column_obj.get("autoincrement", "auto")
 
-        column = Column(
+        column: Column = Column(
             column_name,
             datatype,
             comment=column_description,

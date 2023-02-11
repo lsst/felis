@@ -30,7 +30,7 @@ from typing import Any, Optional, Union
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import DeclarativeMeta, Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import MetaData
 from sqlalchemy.sql.expression import Insert, insert
 
@@ -40,7 +40,7 @@ from .visitor import Visitor
 
 _Mapping = Mapping[str, Any]
 
-Tap11Base: DeclarativeMeta = declarative_base()
+Tap11Base: Any = declarative_base()  # Any to avoid mypy mess with SA 2
 logger = logging.getLogger("felis")
 
 IDENTIFIER_LENGTH = 128
@@ -172,17 +172,17 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
             session.commit()
         else:
             # Only if we are mocking (dry run)
-            conn = self.engine
-            conn.execute(_insert(self.tables["schemas"], schema))
-            for table_obj in schema_obj["tables"]:
-                table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
-                conn.execute(_insert(self.tables["tables"], table))
-                for column in columns:
-                    conn.execute(_insert(self.tables["columns"], column))
-                for key in keys:
-                    conn.execute(_insert(self.tables["keys"], key))
-                for key_column in key_columns:
-                    conn.execute(_insert(self.tables["key_columns"], key_column))
+            with self.engine.begin() as conn:
+                conn.execute(_insert(self.tables["schemas"], schema))
+                for table_obj in schema_obj["tables"]:
+                    table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
+                    conn.execute(_insert(self.tables["tables"], table))
+                    for column in columns:
+                        conn.execute(_insert(self.tables["columns"], column))
+                    for key in keys:
+                        conn.execute(_insert(self.tables["keys"], key))
+                    for key_column in key_columns:
+                        conn.execute(_insert(self.tables["key_columns"], key_column))
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> tuple:
         self.checker.check_table(table_obj, schema_obj)
@@ -370,4 +370,4 @@ def _insert(table: Tap11Base, value: Any) -> Insert:
         if type(column_value) == str:
             column_value = column_value.replace("'", "''")
         values_dict[name] = column_value
-    return insert(table, values=values_dict)
+    return insert(table).values(values_dict)

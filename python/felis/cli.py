@@ -29,7 +29,8 @@ from typing import Any
 import click
 import yaml
 from pyld import jsonld
-from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine, create_engine, create_mock_engine, make_url
+from sqlalchemy.engine.mock import MockConnection
 
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
@@ -61,11 +62,12 @@ def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIO
 
     metadata = schema.metadata
 
+    engine: Engine | MockConnection
     if not dry_run:
         engine = create_engine(engine_url)
     else:
         _insert_dump = InsertDump()
-        engine = create_engine(engine_url, strategy="mock", executor=_insert_dump.dump)
+        engine = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump)
         _insert_dump.dialect = engine.dialect
     metadata.create_all(engine)
 

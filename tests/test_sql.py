@@ -22,12 +22,13 @@
 import os
 import unittest
 from collections.abc import Mapping, MutableMapping
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import sqlalchemy
 import yaml
 
 from felis import DEFAULT_FRAME
+from felis.db import sqltypes
 from felis.sql import SQLVisitor
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -53,7 +54,7 @@ def _get_unique_constraint(table: sqlalchemy.schema.Table) -> Optional[sqlalchem
 
 def _get_indices(table: sqlalchemy.schema.Table) -> Mapping[str, sqlalchemy.schema.Index]:
     """Return mapping of table indices indexed by index name."""
-    return {index.name: index for index in table.indexes}
+    return {cast(str, index.name): index for index in table.indexes}
 
 
 class VisitorTestCase(unittest.TestCase):
@@ -102,8 +103,11 @@ class VisitorTestCase(unittest.TestCase):
         self.assertCountEqual(table.columns.keys(), ["sdqa_imageStatusId", "statusName", "definition"])
         self.assertTrue(table.columns["sdqa_imageStatusId"].primary_key)
         self.assertFalse(table.indexes)
-        for column in table.columns.values():
-            self.assertIsInstance(column.type, sqlalchemy.types.Variant)
+        for column, ctype in zip(
+            table.columns.values(),
+            (sqlalchemy.types.SMALLINT, sqlalchemy.types.VARCHAR, sqlalchemy.types.VARCHAR),
+        ):
+            self.assertIsInstance(column.type, (ctype, sqlalchemy.types.Variant))
 
         # Details of sdqa_Metric table.
         table = tables["sdqa.sdqa_Metric"]
@@ -112,8 +116,17 @@ class VisitorTestCase(unittest.TestCase):
         )
         self.assertTrue(table.columns["sdqa_metricId"].primary_key)
         self.assertFalse(table.indexes)
-        for column in table.columns.values():
-            self.assertIsInstance(column.type, sqlalchemy.types.Variant)
+        for column, ctype in zip(
+            table.columns.values(),
+            (
+                sqlalchemy.types.SMALLINT,
+                sqlalchemy.types.VARCHAR,
+                sqlalchemy.types.VARCHAR,
+                sqlalchemy.types.CHAR,
+                sqlalchemy.types.VARCHAR,
+            ),
+        ):
+            self.assertIsInstance(column.type, (ctype, sqlalchemy.types.Variant))
         # It defines a unique constraint.
         unique = _get_unique_constraint(table)
         assert unique is not None, "Constraint must be defined"
@@ -134,10 +147,21 @@ class VisitorTestCase(unittest.TestCase):
             ],
         )
         self.assertTrue(table.columns["sdqa_ratingId"].primary_key)
-        for column in table.columns.values():
-            self.assertIsInstance(column.type, sqlalchemy.types.Variant)
+        for column, ctype in zip(
+            table.columns.values(),
+            (
+                sqlalchemy.types.BIGINT,
+                sqlalchemy.types.SMALLINT,
+                sqlalchemy.types.SMALLINT,
+                sqlalchemy.types.BIGINT,
+                sqltypes.DOUBLE,
+                sqltypes.DOUBLE,
+            ),
+        ):
+            self.assertIsInstance(column.type, (ctype, sqlalchemy.types.Variant))
         unique = _get_unique_constraint(table)
         self.assertIsNotNone(unique)
+        assert unique is not None, "Constraint must be defined"
         self.assertEqual(unique.name, "UQ_sdqaRatingForAmpVisit_metricId_ampVisitId")
         self.assertCountEqual(unique.columns, [table.columns["sdqa_metricId"], table.columns["ampVisitId"]])
         # It has a bunch of indices.
