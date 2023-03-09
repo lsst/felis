@@ -29,6 +29,7 @@ from typing import Any, Optional, Union
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import MetaData
@@ -135,19 +136,30 @@ def init_tables(
 class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
     def __init__(
         self,
-        engine: Engine,
+        engine: Engine | None,
         catalog_name: Optional[str] = None,
         schema_name: Optional[str] = None,
-        mock: bool = False,
         tap_tables: Optional[MutableMapping[str, Any]] = None,
     ):
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
         self.engine = engine
-        self.mock = mock
+        self._mock_connection: MockConnection | None = None
         self.tables = tap_tables or init_tables()
         self.checker = FelisValidator()
+
+    @classmethod
+    def from_mock_connection(
+        cls,
+        mock_connection: MockConnection,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+        tap_tables: Optional[MutableMapping[str, Any]] = None,
+    ) -> TapLoadingVisitor:
+        visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
+        visitor._mock_connection = mock_connection
+        return visitor
 
     def visit_schema(self, schema_obj: _Mapping) -> None:
         self.checker.check_schema(schema_obj)
@@ -160,7 +172,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
         schema.utype = schema_obj.get("votable:utype")
         schema.schema_index = int(schema_obj.get("tap:schema_index", 0))
 
-        if not self.mock:
+        if self.engine is not None:
             session: Session = sessionmaker(self.engine)()
             session.add(schema)
             for table_obj in schema_obj["tables"]:
@@ -172,17 +184,18 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
             session.commit()
         else:
             # Only if we are mocking (dry run)
-            with self.engine.begin() as conn:
-                conn.execute(_insert(self.tables["schemas"], schema))
-                for table_obj in schema_obj["tables"]:
-                    table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
-                    conn.execute(_insert(self.tables["tables"], table))
-                    for column in columns:
-                        conn.execute(_insert(self.tables["columns"], column))
-                    for key in keys:
-                        conn.execute(_insert(self.tables["keys"], key))
-                    for key_column in key_columns:
-                        conn.execute(_insert(self.tables["key_columns"], key_column))
+            assert self._mock_connection is not None, "Mock connection must not be None"
+            conn = self._mock_connection
+            conn.execute(_insert(self.tables["schemas"], schema))
+            for table_obj in schema_obj["tables"]:
+                table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
+                conn.execute(_insert(self.tables["tables"], table))
+                for column in columns:
+                    conn.execute(_insert(self.tables["columns"], column))
+                for key in keys:
+                    conn.execute(_insert(self.tables["keys"], key))
+                for key_column in key_columns:
+                    conn.execute(_insert(self.tables["key_columns"], key_column))
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> tuple:
         self.checker.check_table(table_obj, schema_obj)
