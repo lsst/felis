@@ -157,13 +157,6 @@ def load_tap(
     if isinstance(normalized["@graph"], dict):
         normalized["@graph"] = [normalized["@graph"]]
 
-    if not dry_run:
-        engine = create_engine(engine_url)
-    else:
-        _insert_dump = InsertDump()
-        engine = create_engine(engine_url, strategy="mock", executor=_insert_dump.dump, paramstyle="pyformat")
-        # After the engine is created, update the executor with the dialect
-        _insert_dump.dialect = engine.dialect
     tap_tables = init_tables(
         tap_schema_name,
         tap_tables_postfix,
@@ -174,15 +167,35 @@ def load_tap(
         tap_key_columns_table,
     )
 
-    if engine_url == "sqlite://" and not dry_run:
-        # In Memory SQLite - Mostly used to test
-        Tap11Base.metadata.create_all(engine)
+    if not dry_run:
+        engine = create_engine(engine_url)
 
-    for schema in normalized["@graph"]:
-        tap_visitor = TapLoadingVisitor(
-            engine, catalog_name=catalog_name, schema_name=schema_name, mock=dry_run, tap_tables=tap_tables
-        )
-        tap_visitor.visit_schema(schema)
+        if engine_url == "sqlite://" and not dry_run:
+            # In Memory SQLite - Mostly used to test
+            Tap11Base.metadata.create_all(engine)
+
+        for schema in normalized["@graph"]:
+            tap_visitor = TapLoadingVisitor(
+                engine,
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                tap_tables=tap_tables,
+            )
+            tap_visitor.visit_schema(schema)
+    else:
+        _insert_dump = InsertDump()
+        conn = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump, paramstyle="pyformat")
+        # After the engine is created, update the executor with the dialect
+        _insert_dump.dialect = conn.dialect
+
+        for schema in normalized["@graph"]:
+            tap_visitor = TapLoadingVisitor.from_mock_connection(
+                conn,
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                tap_tables=tap_tables,
+            )
+            tap_visitor.visit_schema(schema)
 
 
 @cli.command("modify-tap")
