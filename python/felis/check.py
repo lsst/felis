@@ -27,6 +27,9 @@ import logging
 from collections.abc import Iterable, Mapping, MutableSet
 from typing import Any
 
+from astropy import units as u  # type: ignore
+from astropy.io.votable import ucd  # type: ignore
+
 from .types import FelisType
 from .visitor import Visitor
 
@@ -106,6 +109,32 @@ class FelisValidator:
         if not length and (felis_type.is_sized or felis_type.is_timestamp):
             # This is not a warning, because it's usually fine
             logger.info(f"No length defined for {_id} for type {datatype_name}")
+
+        # Check UCDs of columns
+        ivoa_ucd = column_obj.get("ivoa:ucd")
+        if not ucd.check_ucd(ivoa_ucd, check_controlled_vocabulary=True):
+            logger.error(f"invalid ucd for {_id}: {ivoa_ucd}")
+
+        # Check Units of columns
+        fits_unit = column_obj.get("fits:tunit")
+        ivoa_unit = column_obj.get("ivoa:unit")
+
+        # There should only be one type of unit
+        if fits_unit and ivoa_unit:
+            logger.error("two types of units")
+        elif fits_unit:
+            unit = fits_unit
+        elif ivoa_unit:
+            unit = ivoa_unit
+        else:
+            unit = ""
+
+        # Check the unit using astropy
+        try:
+            u.Unit(unit)
+        except ValueError as e:
+            logger.error(f"invalid unit for {_id} " + str(e))
+
         self._check_visited(_id)
 
     def check_primary_key(self, primary_key_obj: str | Iterable[str], table: _Mapping) -> None:
