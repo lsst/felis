@@ -53,8 +53,7 @@ class VisitorTestCase(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_tap(self) -> None:
-        """Test for creating tap schema"""
-
+        """Test for creating tap schema."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
         engine = sqlalchemy.create_engine(url)
         tap_tables = init_tables()

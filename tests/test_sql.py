@@ -69,7 +69,7 @@ class VisitorTestCase(unittest.TestCase):
             self.schema_obj.update(DEFAULT_FRAME)
 
     def test_make_metadata(self) -> None:
-        """Generate sqlalchemy metadata using SQLVisitor class"""
+        """Generate sqlalchemy metadata using SQLVisitor class."""
         visitor = SQLVisitor()
         schema = visitor.visit_schema(self.schema_obj)
         self.assertIsNotNone(schema)

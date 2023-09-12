@@ -62,6 +62,7 @@ def init_tables(
     tap_keys_table: Optional[str] = None,
     tap_key_columns_table: Optional[str] = None,
 ) -> MutableMapping[str, Any]:
+    """Generate definitions for TAP tables."""
     postfix = tap_tables_postfix or ""
 
     # Dirty hack to enable this method to be called more than once, replaces
@@ -134,6 +135,20 @@ def init_tables(
 
 
 class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]):
+    """Felis schema visitor for generating TAP schema.
+
+    Parameters
+    ----------
+    engine : `sqlalchemy.engine.Engine` or `None`
+        SQLAlchemy engine instance.
+    catalog_name : `str` or `None`
+        Name of the database catalog.
+    schema_name : `str` or `None`
+        Name of the database schema.
+    tap_tables : `~collections.abc.Mapping`
+        Optional mapping of table name to its declarative base class.
+    """
+
     def __init__(
         self,
         engine: Engine | None,
@@ -379,12 +394,19 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
 
 
 def _insert(table: Tap11Base, value: Any) -> Insert:
-    """
-    Return a SQLAlchemy insert statement based on
-    :param table: The table we are inserting to
-    :param value: An object representing the object we are inserting
-    to the table
-    :return: A SQLAlchemy insert statement
+    """Return a SQLAlchemy insert statement.
+
+    Parameters
+    ----------
+    table : `Tap11Base`
+        The table we are inserting into.
+    value : `Any`
+        An object representing the object we are inserting to the table.
+
+    Returns
+    -------
+    statement
+        A SQLAlchemy insert statement
     """
     values_dict = {}
     for i in table.__table__.columns:

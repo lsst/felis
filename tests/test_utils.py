@@ -46,7 +46,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_reordering(self) -> None:
         """Check for attribute ordering."""
-
         visitor = ReorderingVisitor()
         schema = visitor.visit_schema(self.schema_obj)
         self.assertEqual(
@@ -61,7 +60,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_add_type(self) -> None:
         """Check for attribute ordering with add_type."""
-
         visitor = ReorderingVisitor(add_type=True)
         schema = visitor.visit_schema(self.schema_obj)
         self.assertEqual(

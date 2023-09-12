@@ -44,7 +44,7 @@ logger = logging.getLogger("felis")
 @click.group()
 @click.version_option(__version__)
 def cli() -> None:
-    """Felis Command Line Tools"""
+    """Felis Command Line Tools."""
     logging.basicConfig(level=logging.INFO)
 
 
@@ -55,7 +55,6 @@ def cli() -> None:
 @click.argument("file", type=click.File())
 def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIOBase) -> None:
     """Create schema objects from the Felis FILE."""
-
     schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
     visitor = SQLVisitor(schema_name=schema_name)
     schema = visitor.visit_schema(schema_obj)
@@ -90,8 +89,10 @@ def init_tap(
     tap_key_columns_table: str,
 ) -> None:
     """Initialize TAP 1.1 TAP_SCHEMA objects.
+
     Please verify the schema/catalog you are executing this in in your
-    engine URL."""
+    engine URL.
+    """
     engine = create_engine(engine_url, echo=True)
     init_tables(
         tap_schema_name,
@@ -132,8 +133,10 @@ def load_tap(
     file: io.TextIOBase,
 ) -> None:
     """Load TAP metadata from a Felis FILE.
+
     This command loads the associated TAP metadata from a Felis FILE
-    to the TAP_SCHEMA tables."""
+    to the TAP_SCHEMA tables.
+    """
     top_level_object = yaml.load(file, Loader=yaml.SafeLoader)
     schema_obj: dict
     if isinstance(top_level_object, dict):
@@ -203,6 +206,7 @@ def load_tap(
 @click.argument("files", nargs=-1, type=click.File())
 def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
     """Modify TAP information in Felis schema FILES.
+
     This command has some utilities to aid in rewriting felis FILES
     in specific ways. It will write out a merged version of these files.
     """
@@ -228,6 +232,7 @@ def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
 @click.argument("file", type=click.File())
 def basic_check(file: io.TextIOBase) -> None:
     """Perform a basic check on a felis FILE.
+
     This performs a very check to ensure required fields are
     populated and basic semantics are okay. It does not ensure semantics
     are valid for other commands like create-all or load-tap.
@@ -244,13 +249,15 @@ def basic_check(file: io.TextIOBase) -> None:
 @click.argument("file", type=click.File())
 def normalize(file: io.TextIOBase) -> None:
     """Normalize a Felis FILE.
+
     Takes a felis schema FILE, expands it (resolving the full URLs),
     then compacts it, and finally produces output in the canonical
     format.
 
     (This is most useful in some debugging scenarios)
 
-    See Also:
+    See Also :
+
         https://json-ld.org/spec/latest/json-ld/#expanded-document-form
         https://json-ld.org/spec/latest/json-ld/#compacted-document-form
     """
@@ -344,7 +351,7 @@ def _normalize(schema_obj: Mapping[str, Any]) -> MutableMapping[str, Any]:
 
 
 class InsertDump:
-    """An Insert Dumper for SQL statements"""
+    """An Insert Dumper for SQL statements."""
 
     dialect: Any = None
 

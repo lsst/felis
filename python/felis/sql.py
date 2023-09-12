@@ -249,7 +249,7 @@ def _set_if(key: str, value: Any, mapping: _MutableMapping) -> None:
 
 
 def _process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
-    """Simple Data Type Override"""
+    """Return variant type for given dialect."""
     match = length_regex.search(variant_override_str)
     dialect = DIALECT_MODULES[dialect_name]
     variant_type_name = variant_override_str.split("(")[0]

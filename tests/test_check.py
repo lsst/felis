@@ -75,7 +75,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_schema(self) -> None:
         """Check for errors at schema level."""
-
         schema = copy.deepcopy(self.schema_obj)
 
         # Missing @id
@@ -90,7 +89,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_table(self) -> None:
         """Check for errors at table level."""
-
         schema = copy.deepcopy(self.schema_obj)
         table = schema["tables"][0]
 
@@ -118,7 +116,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_column(self) -> None:
         """Check for errors at column level."""
-
         schema = copy.deepcopy(self.schema_obj)
         column = schema["tables"][0]["columns"][0]
 
@@ -151,7 +148,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_index(self) -> None:
         """Check for errors at index level."""
-
         schema = copy.deepcopy(self.schema_obj)
         table = schema["tables"][0]
 

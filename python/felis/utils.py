@@ -27,15 +27,19 @@ _MutableMapping = MutableMapping[str, Any]
 
 
 class ReorderingVisitor:
+    """A visitor that reorders and optionally adds the "@type".
+
+    Parameters
+    ----------
+    add_type : `bool`
+        If true, add the "@type" if it doesn't exist.
+    """
+
     def __init__(self, add_type: bool = False):
-        """
-        A visitor that reorders and optionall adds the "@type"
-        :param add_type: If true, add the "@type" if it doesn't exist
-        """
         self.add_type = add_type
 
     def visit_schema(self, schema_obj: _MutableMapping) -> _Mapping:
-        """The input MUST be a normalized representation"""
+        """Process schema, the input MUST be a normalized representation."""
         # Override with default
         tables = [self.visit_table(table_obj, schema_obj) for table_obj in schema_obj["tables"]]
         schema_obj["tables"] = tables

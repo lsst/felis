@@ -184,7 +184,7 @@ class FelisValidator:
 
         self._check_visited(_id)
 
-    def check_primary_key(self, primary_key_obj: str | Iterable[str], table: _Mapping) -> None:
+    def check_primary_key(self, primary_key_obj: str | Iterable[str], table_obj: _Mapping) -> None:
         """Validate contents of Felis primary key object.
 
         Parameters
@@ -320,6 +320,7 @@ class FelisValidator:
         otherwise.
 
         Parameters
+        ----------
         _id : `str`
             Felis object ID.
         """
