@@ -28,6 +28,7 @@ __all__ = [
     "ForeignKeyConstraint",
     "Index",
     "Schema",
+    "SchemaVersion",
     "SimpleVisitor",
     "Table",
     "UniqueConstraint",
@@ -36,7 +37,7 @@ __all__ = [
 import dataclasses
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, List, Optional, Type, Union
+from typing import Any, List, Optional, Type, Union, cast
 
 from .check import FelisValidator
 from .types import FelisType
@@ -212,6 +213,21 @@ class Table:
 
 
 @dataclasses.dataclass
+class SchemaVersion:
+    """Schema versioning description."""
+
+    current: str
+    """Current schema version defined by the document."""
+
+    compatible: Optional[List[str]] = None
+    """Optional list of versions which are compatible with current version."""
+
+    read_compatible: Optional[List[str]] = None
+    """Optional list of versions with which current version is read-compatible.
+    """
+
+
+@dataclasses.dataclass
 class Schema:
     """Complete schema description, collection of tables."""
 
@@ -224,6 +240,9 @@ class Schema:
     tables: List[Table]
     """Collection of table definitions."""
 
+    version: Optional[SchemaVersion] = None
+    """Schema version description."""
+
     description: Optional[str] = None
     """Schema description."""
 
@@ -231,7 +250,7 @@ class Schema:
     """Additional annotations for this table."""
 
 
-class SimpleVisitor(Visitor[Schema, Table, Column, List[Column], Constraint, Index]):
+class SimpleVisitor(Visitor[Schema, Table, Column, List[Column], Constraint, Index, SchemaVersion]):
     """Visitor implementation class that produces a simple in-memory
     representation of Felis schema using classes `Schema`, `Table`, etc. from
     this module.
@@ -251,14 +270,32 @@ class SimpleVisitor(Visitor[Schema, Table, Column, List[Column], Constraint, Ind
         # Docstring is inherited.
         self.checker.check_schema(schema_obj)
 
+        version_obj = schema_obj.get("version")
+
         schema = Schema(
             name=schema_obj["name"],
             id=schema_obj["@id"],
             tables=[self.visit_table(t, schema_obj) for t in schema_obj["tables"]],
+            version=self.visit_schema_version(version_obj, schema_obj) if version_obj is not None else None,
             description=schema_obj.get("description"),
             annotations=_strip_keys(schema_obj, ["name", "@id", "tables", "description"]),
         )
         return schema
+
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> SchemaVersion:
+        # Docstring is inherited.
+        self.checker.check_schema_version(version_obj, schema_obj)
+
+        if isinstance(version_obj, str):
+            return SchemaVersion(current=version_obj)
+        else:
+            return SchemaVersion(
+                current=cast(str, version_obj["current"]),
+                compatible=version_obj.get("compatible"),
+                read_compatible=version_obj.get("read_compatible"),
+            )
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> Table:
         # Docstring is inherited.

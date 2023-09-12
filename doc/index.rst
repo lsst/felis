@@ -276,17 +276,44 @@ tables. The core annotations of a schema are:
    at a higher level. Typically, the name of the schema can be used as the id.
 :``description``: A textual description of this schema
 :``tables``: the list of tables in the schema. A schema MUST have one or more tables.
+:``version``: Optional schema version description.
 
 Schemas MAY in addition have any number of annotations which provide information about the group of
 tables. Annotations on a group of tables may include:
 
 -  DBMS-specific information for a schema, especially for creating a schema.
 -  IVOA metadata about the table
--  Schema versioning information
 -  Column Groupings
 -  Links to other schemas which may be related
 -  Reference URLs
 -  Provenance
+
+Schema versioning
+~~~~~~~~~~~~~~~~~
+
+Database schemas usually evolve over time and client software has to depend on the knowledge of the schema version and possibly compatibility of different schema versions.
+Felis supports specification of versions and their possible relations but does not specify how exactly compatibility checks have to be implemented.
+It is the client responsibility to interpret version numbers and to define compatibility rules.
+
+In simplest form the schema version can be specified as a value for the ``version`` attribute and it must be a string::
+
+    version: "4.2.0"
+
+This example uses semantic version format, but in general any string or number can be specified here.
+
+In the extended form version can be specified using nested attributes:
+
+:``current``: Specifies current version defined by the schema, must be a string.
+:``compatible``: Specifies a list of versions that current schema is fully-compatible with, all items must be strings.
+:``read_compatible``: Specifies a list of versions that current schema is read-compatible with, all items must be strings.
+
+Naturally, compatibility behavior depends on the code that implements reading and writing of the data.
+An example of version specification using the extended format::
+
+    version:
+      current: "v42"
+      compatible: ["v41", "v40"]
+      read_compatible: ["v39", "v38"]
 
 Tables
 ~~~~~~
@@ -586,12 +613,12 @@ recommended default context, this means the ``datatype`` property for a column w
 Processing Metadata
 -------------------
 
-   **This section is under development
+   **This section is under development**
 
 Creating annotated tables
 -------------------------
 
-   **This section is under development
+   **This section is under development**
 
 Metadata Compatibility
 ----------------------
@@ -614,7 +641,7 @@ double. Most of this can probably be automated with a proper vocabulary for Feli
 Formats and Models
 ~~~~~~~~~~~~~~~~~~
 
-**This section is under development
+**This section is under development**
 
 .. _afwtable:
 
@@ -901,4 +928,3 @@ Examples
        columns:
        - "#sdqa_Threshold.sdqa_metricId"
      mysql:engine: MyISAM
-

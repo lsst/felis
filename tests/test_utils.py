@@ -49,7 +49,9 @@ class VisitorTestCase(unittest.TestCase):
 
         visitor = ReorderingVisitor()
         schema = visitor.visit_schema(self.schema_obj)
-        self.assertEqual(list(schema.keys()), ["@context", "name", "@id", "@type", "description", "tables"])
+        self.assertEqual(
+            list(schema.keys()), ["@context", "name", "@id", "@type", "description", "tables", "version"]
+        )
 
         table = schema["tables"][0]
         self.assertEqual(list(table.keys())[:5], ["name", "@id", "description", "columns", "primaryKey"])
@@ -62,7 +64,9 @@ class VisitorTestCase(unittest.TestCase):
 
         visitor = ReorderingVisitor(add_type=True)
         schema = visitor.visit_schema(self.schema_obj)
-        self.assertEqual(list(schema.keys()), ["@context", "name", "@id", "@type", "description", "tables"])
+        self.assertEqual(
+            list(schema.keys()), ["@context", "name", "@id", "@type", "description", "tables", "version"]
+        )
 
         table = schema["tables"][0]
         self.assertEqual(

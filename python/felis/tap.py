@@ -133,7 +133,7 @@ def init_tables(
     )
 
 
-class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
+class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]):
     def __init__(
         self,
         engine: Engine | None,
@@ -163,6 +163,8 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
 
     def visit_schema(self, schema_obj: _Mapping) -> None:
         self.checker.check_schema(schema_obj)
+        if (version_obj := schema_obj.get("version")) is not None:
+            self.visit_schema_version(version_obj, schema_obj)
         schema = self.tables["schemas"]()
         # Override with default
         self.schema_name = self.schema_name or schema_obj["name"]
@@ -196,6 +198,14 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
                     conn.execute(_insert(self.tables["keys"], key))
                 for key_column in key_columns:
                     conn.execute(_insert(self.tables["key_columns"], key_column))
+
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> None:
+        # Docstring is inherited.
+
+        # For now we ignore schema versioning completely, still do some checks.
+        self.checker.check_schema_version(version_obj, schema_obj)
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> tuple:
         self.checker.check_table(table_obj, schema_obj)
@@ -380,7 +390,7 @@ def _insert(table: Tap11Base, value: Any) -> Insert:
     for i in table.__table__.columns:
         name = i.name
         column_value = getattr(value, i.name)
-        if type(column_value) == str:
+        if isinstance(column_value, str):
             column_value = column_value.replace("'", "''")
         values_dict[name] = column_value
     return insert(table).values(values_dict)

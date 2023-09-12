@@ -56,8 +56,16 @@ class VisitorTestCase(unittest.TestCase):
 
         self.assertIsNotNone(schema)
         self.assertEqual(schema.name, "sdqa")
-        self.assertIsNotNone(schema.tables)
 
+        self.assertIsNotNone(schema.version)
+        assert schema.version is not None, "cannot be None"
+        self.assertEqual(schema.version.current, "1.2.3")
+        assert schema.version.compatible is not None, "cannot be None"
+        self.assertEqual(set(schema.version.compatible), {"1.2.0", "1.2.1", "1.2.2"})
+        assert schema.version.read_compatible is not None, "cannot be None"
+        self.assertEqual(set(schema.version.read_compatible), {"1.1.0", "1.1.1"})
+
+        self.assertIsNotNone(schema.tables)
         table_names = [
             "sdqa_ImageStatus",
             "sdqa_Metric",

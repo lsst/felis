@@ -83,7 +83,7 @@ class Schema(NamedTuple):
     graph_index: Mapping[str, Any]
 
 
-class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], Constraint, Index]):
+class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], Constraint, Index, None]):
     """A Felis Visitor which populates a SQLAlchemy metadata object.
 
     Parameters
@@ -101,6 +101,8 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
     def visit_schema(self, schema_obj: _Mapping) -> Schema:
         # Docstring is inherited.
         self.checker.check_schema(schema_obj)
+        if (version_obj := schema_obj.get("version")) is not None:
+            self.visit_schema_version(version_obj, schema_obj)
         schema = Schema(
             name=self.schema_name or schema_obj["name"],
             tables=[self.visit_table(t, schema_obj) for t in schema_obj["tables"]],
@@ -108,6 +110,14 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
             graph_index=self.graph_index,
         )
         return schema
+
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> None:
+        # Docstring is inherited.
+
+        # For now we ignore schema versioning completely, still do some checks.
+        self.checker.check_schema_version(version_obj, schema_obj)
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> Table:
         # Docstring is inherited.

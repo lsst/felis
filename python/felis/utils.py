@@ -41,7 +41,9 @@ class ReorderingVisitor:
         schema_obj["tables"] = tables
         if self.add_type:
             schema_obj["@type"] = schema_obj.get("@type", "Schema")
-        return _new_order(schema_obj, ["@context", "name", "@id", "@type", "description", "tables"])
+        return _new_order(
+            schema_obj, ["@context", "name", "@id", "@type", "description", "tables", "version"]
+        )
 
     def visit_table(self, table_obj: _MutableMapping, schema_obj: _Mapping) -> _Mapping:
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
