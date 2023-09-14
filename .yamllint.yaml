@@ -1,7 +1,11 @@
 extends: default
 
 rules:
-  document-start: disable
+  document-start:
+    present: false
+    ignore: |
+      /tests/
+      /examples/
   line-length:
     max: 132
     allow-non-breakable-words: true
