@@ -7,7 +7,6 @@ repos:
           - "--unsafe"
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        exclude: "README.md"
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 23.9.1
     hooks:
