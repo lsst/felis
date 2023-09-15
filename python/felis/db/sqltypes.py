@@ -21,7 +21,7 @@
 
 import builtins
 from collections.abc import Mapping
-from typing import Any, Union
+from typing import Any
 
 from sqlalchemy import Float, SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql
@@ -57,7 +57,7 @@ def compile_double(type_: Any, compiler: Any, **kw: Any) -> str:
     return "DOUBLE"
 
 
-_TypeMap = Mapping[str, Union[types.TypeEngine, type[types.TypeEngine]]]
+_TypeMap = Mapping[str, types.TypeEngine | type[types.TypeEngine]]
 
 boolean_map: _TypeMap = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
 
@@ -199,7 +199,7 @@ def _vary(
     overrides: _TypeMap,
     *args: Any,
 ) -> types.TypeEngine:
-    variants: dict[str, Union[types.TypeEngine, type[types.TypeEngine]]] = dict(variant_map)
+    variants: dict[str, types.TypeEngine | type[types.TypeEngine]] = dict(variant_map)
     variants.update(overrides)
     for dialect, variant in variants.items():
         # If this is a class and not an instance, instantiate

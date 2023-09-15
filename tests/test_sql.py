@@ -22,7 +22,7 @@
 import os
 import unittest
 from collections.abc import Mapping, MutableMapping
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import sqlalchemy
 import yaml
@@ -35,7 +35,7 @@ TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 
 
-def _get_unique_constraint(table: sqlalchemy.schema.Table) -> Optional[sqlalchemy.schema.UniqueConstraint]:
+def _get_unique_constraint(table: sqlalchemy.schema.Table) -> sqlalchemy.schema.UniqueConstraint | None:
     """Return a unique constraint for a table, raise if table has more than
     one unique constraint.
     """

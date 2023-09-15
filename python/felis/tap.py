@@ -25,7 +25,7 @@ __all__ = ["Tap11Base", "TapLoadingVisitor", "init_tables"]
 
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, Optional, Union
+from typing import Any
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
@@ -54,13 +54,13 @@ _init_table_once = False
 
 
 def init_tables(
-    tap_schema_name: Optional[str] = None,
-    tap_tables_postfix: Optional[str] = None,
-    tap_schemas_table: Optional[str] = None,
-    tap_tables_table: Optional[str] = None,
-    tap_columns_table: Optional[str] = None,
-    tap_keys_table: Optional[str] = None,
-    tap_key_columns_table: Optional[str] = None,
+    tap_schema_name: str | None = None,
+    tap_tables_postfix: str | None = None,
+    tap_schemas_table: str | None = None,
+    tap_tables_table: str | None = None,
+    tap_columns_table: str | None = None,
+    tap_keys_table: str | None = None,
+    tap_key_columns_table: str | None = None,
 ) -> MutableMapping[str, Any]:
     """Generate definitions for TAP tables."""
     postfix = tap_tables_postfix or ""
@@ -152,9 +152,9 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
     def __init__(
         self,
         engine: Engine | None,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        tap_tables: Optional[MutableMapping[str, Any]] = None,
+        catalog_name: str | None = None,
+        schema_name: str | None = None,
+        tap_tables: MutableMapping[str, Any] | None = None,
     ):
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
@@ -168,9 +168,9 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
     def from_mock_connection(
         cls,
         mock_connection: MockConnection,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        tap_tables: Optional[MutableMapping[str, Any]] = None,
+        catalog_name: str | None = None,
+        schema_name: str | None = None,
+        tap_tables: MutableMapping[str, Any] | None = None,
     ) -> TapLoadingVisitor:
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection
@@ -317,7 +317,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
         self.graph_index[column_id] = column
         return column
 
-    def visit_primary_key(self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping) -> None:
+    def visit_primary_key(self, primary_key_obj: str | Iterable[str], table_obj: _Mapping) -> None:
         self.checker.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:
             if isinstance(primary_key_obj, str):
@@ -379,7 +379,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
             columns[0].indexed = 1
         return None
 
-    def _schema_name(self, schema_name: Optional[str] = None) -> Optional[str]:
+    def _schema_name(self, schema_name: str | None = None) -> str | None:
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
         if self.catalog_name and _schema_name:

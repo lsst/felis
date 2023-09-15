@@ -19,8 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from collections.abc import Mapping, MutableMapping
-from typing import Any, Iterable
+from collections.abc import Iterable, Mapping, MutableMapping
+from typing import Any
 
 _Mapping = Mapping[str, Any]
 _MutableMapping = MutableMapping[str, Any]

@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Type
+from typing import Any
 
 
 class FelisType:
@@ -39,7 +39,7 @@ class FelisType:
     is_sized: bool
     is_timestamp: bool
 
-    _types: Dict[str, Type[FelisType]] = {}
+    _types: dict[str, type[FelisType]] = {}
 
     @classmethod
     def __init_subclass__(
@@ -61,7 +61,7 @@ class FelisType:
         cls._types[felis_name] = cls
 
     @classmethod
-    def felis_type(cls, felis_name: str) -> Type[FelisType]:
+    def felis_type(cls, felis_name: str) -> type[FelisType]:
         """Return specific Felis type for a given type name.
 
         Parameters

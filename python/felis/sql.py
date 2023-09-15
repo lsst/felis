@@ -26,7 +26,7 @@ __all__ = ["SQLVisitor"]
 import logging
 import re
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 from sqlalchemy import (
     CheckConstraint,
@@ -77,13 +77,13 @@ length_regex = re.compile(r"\((.+)\)")
 
 
 class Schema(NamedTuple):
-    name: Optional[str]
+    name: str | None
     tables: list[Table]
     metadata: MetaData
     graph_index: Mapping[str, Any]
 
 
-class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], Constraint, Index, None]):
+class SQLVisitor(Visitor[Schema, Table, Column, PrimaryKeyConstraint | None, Constraint, Index, None]):
     """A Felis Visitor which populates a SQLAlchemy metadata object.
 
     Parameters
@@ -92,7 +92,7 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
         Override for the schema name.
     """
 
-    def __init__(self, schema_name: Optional[str] = None):
+    def __init__(self, schema_name: str | None = None):
         self.metadata = MetaData()
         self.schema_name = schema_name
         self.checker = FelisValidator()
@@ -193,8 +193,8 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
         return column
 
     def visit_primary_key(
-        self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping
-    ) -> Optional[PrimaryKeyConstraint]:
+        self, primary_key_obj: str | Iterable[str], table_obj: _Mapping
+    ) -> PrimaryKeyConstraint | None:
         # Docstring is inherited.
         self.checker.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:

@@ -24,7 +24,7 @@ import shutil
 import tempfile
 import unittest
 from collections.abc import MutableMapping
-from typing import Any, Optional
+from typing import Any
 
 from click.testing import CliRunner
 
@@ -38,7 +38,7 @@ TEST_MERGE_YAML = os.path.join(TESTDIR, "data", "test-merge.yml")
 class CliTestCase(unittest.TestCase):
     """Tests for TapLoadingVisitor class."""
 
-    schema_obj: Optional[MutableMapping[str, Any]] = None
+    schema_obj: MutableMapping[str, Any] | None = None
 
     def setUp(self) -> None:
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
