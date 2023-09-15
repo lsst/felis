@@ -28,6 +28,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any, Generic, TypeVar
 
 _Schema = TypeVar("_Schema")
+_SchemaVersion = TypeVar("_SchemaVersion")
 _Table = TypeVar("_Table")
 _Column = TypeVar("_Column")
 _PrimaryKey = TypeVar("_PrimaryKey")
@@ -35,7 +36,7 @@ _Constraint = TypeVar("_Constraint")
 _Index = TypeVar("_Index")
 
 
-class Visitor(ABC, Generic[_Schema, _Table, _Column, _PrimaryKey, _Constraint, _Index]):
+class Visitor(ABC, Generic[_Schema, _Table, _Column, _PrimaryKey, _Constraint, _Index, _SchemaVersion]):
     """Abstract interface for visitor classes working on a Felis tree.
 
     Clients will only normally use `visit_schema` method, other methods
@@ -56,6 +57,26 @@ class Visitor(ABC, Generic[_Schema, _Table, _Column, _PrimaryKey, _Constraint, _
         -------
         schema : `_Schema`
             Returns schema representation, type depends on implementation.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> _SchemaVersion:
+        """Visit schema version object.
+
+        Parameters
+        ----------
+        version_obj : `str` or `Mapping` [ `str`, `Any` ]
+            String of object describing schema version.
+        schema_obj : `Mapping` [ `str`, `Any` ]
+            Felis object (mapping) representing parent schema.
+
+        Returns
+        -------
+        schema_version : `_SchemaVersion`
+            Returns version representation, type depends on implementation.
         """
         raise NotImplementedError()
 

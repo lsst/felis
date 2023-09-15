@@ -28,6 +28,7 @@ __all__ = [
     "ForeignKeyConstraint",
     "Index",
     "Schema",
+    "SchemaVersion",
     "SimpleVisitor",
     "Table",
     "UniqueConstraint",
@@ -36,7 +37,7 @@ __all__ = [
 import dataclasses
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, List, Optional, Type, Union
+from typing import Any, cast
 
 from .check import FelisValidator
 from .types import FelisType
@@ -53,7 +54,7 @@ def _strip_keys(map: _Mapping, keys: Iterable[str]) -> _Mapping:
     return {key: value for key, value in map.items() if key not in keys}
 
 
-def _make_iterable(obj: Union[str, Iterable[str]]) -> Iterable[str]:
+def _make_iterable(obj: str | Iterable[str]) -> Iterable[str]:
     """Make an iterable out of string or list of strings."""
     if isinstance(obj, str):
         yield obj
@@ -71,10 +72,10 @@ class Column:
     id: str
     """Felis ID for this column."""
 
-    datatype: Type[FelisType]
+    datatype: type[FelisType]
     """Column type, one of the types/classes defined in `types`."""
 
-    length: Optional[int] = None
+    length: int | None = None
     """Optional length for string/binary columns"""
 
     nullable: bool = True
@@ -83,16 +84,16 @@ class Column:
     value: Any = None
     """Default value for column, can be `None`."""
 
-    autoincrement: Optional[bool] = None
+    autoincrement: bool | None = None
     """Unspecified value results in `None`."""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Column description."""
 
     annotations: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     """Additional annotations for this column."""
 
-    table: Optional[Table] = None
+    table: Table | None = None
     """Table which defines this column, usually not `None`."""
 
 
@@ -106,17 +107,17 @@ class Index:
     id: str
     """Felis ID for this index."""
 
-    columns: List[Column] = dataclasses.field(default_factory=list)
+    columns: list[Column] = dataclasses.field(default_factory=list)
     """List of columns in index, one of the ``columns`` or ``expressions``
     must be non-empty.
     """
 
-    expressions: List[str] = dataclasses.field(default_factory=list)
+    expressions: list[str] = dataclasses.field(default_factory=list)
     """List of expressions in index, one of the ``columns`` or ``expressions``
     must be non-empty.
     """
 
-    description: Optional[str] = None
+    description: str | None = None
     """Index description."""
 
     annotations: Mapping[str, Any] = dataclasses.field(default_factory=dict)
@@ -129,7 +130,7 @@ class Constraint:
     instances of one of the subclasses.
     """
 
-    name: Optional[str]
+    name: str | None
     """Constraint name."""
 
     id: str
@@ -138,10 +139,10 @@ class Constraint:
     deferrable: bool = False
     """If `True` then this constraint will be declared as deferrable."""
 
-    initially: Optional[str] = None
+    initially: str | None = None
     """Value for ``INITIALLY`` clause, only used of ``deferrable`` is True."""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Constraint description."""
 
     annotations: Mapping[str, Any] = dataclasses.field(default_factory=dict)
@@ -152,7 +153,7 @@ class Constraint:
 class UniqueConstraint(Constraint):
     """Description of unique constraint."""
 
-    columns: List[Column] = dataclasses.field(default_factory=list)
+    columns: list[Column] = dataclasses.field(default_factory=list)
     """List of columns in this constraint, all columns belong to the same table
     as the constraint itself.
     """
@@ -162,12 +163,12 @@ class UniqueConstraint(Constraint):
 class ForeignKeyConstraint(Constraint):
     """Description of foreign key constraint."""
 
-    columns: List[Column] = dataclasses.field(default_factory=list)
+    columns: list[Column] = dataclasses.field(default_factory=list)
     """List of columns in this constraint, all columns belong to the same table
     as the constraint itself.
     """
 
-    referenced_columns: List[Column] = dataclasses.field(default_factory=list)
+    referenced_columns: list[Column] = dataclasses.field(default_factory=list)
     """List of referenced columns, the number of columns must be the same as in
     ``Constraint.columns`` list. All columns must belong to the same table,
     which is different from the table of this constraint.
@@ -192,23 +193,38 @@ class Table:
     id: str
     """Felis ID for this table."""
 
-    columns: List[Column]
+    columns: list[Column]
     """List of Column instances."""
 
-    primary_key: List[Column]
+    primary_key: list[Column]
     """List of Column that constitute a primary key, may be empty."""
 
-    constraints: List[Constraint]
+    constraints: list[Constraint]
     """List of Constraint instances, can be empty."""
 
-    indexes: List[Index]
+    indexes: list[Index]
     """List of Index instances, can be empty."""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Table description."""
 
     annotations: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     """Additional annotations for this table."""
+
+
+@dataclasses.dataclass
+class SchemaVersion:
+    """Schema versioning description."""
+
+    current: str
+    """Current schema version defined by the document."""
+
+    compatible: list[str] | None = None
+    """Optional list of versions which are compatible with current version."""
+
+    read_compatible: list[str] | None = None
+    """Optional list of versions with which current version is read-compatible.
+    """
 
 
 @dataclasses.dataclass
@@ -221,17 +237,20 @@ class Schema:
     id: str
     """Felis ID for this schema."""
 
-    tables: List[Table]
+    tables: list[Table]
     """Collection of table definitions."""
 
-    description: Optional[str] = None
+    version: SchemaVersion | None = None
+    """Schema version description."""
+
+    description: str | None = None
     """Schema description."""
 
     annotations: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     """Additional annotations for this table."""
 
 
-class SimpleVisitor(Visitor[Schema, Table, Column, List[Column], Constraint, Index]):
+class SimpleVisitor(Visitor[Schema, Table, Column, list[Column], Constraint, Index, SchemaVersion]):
     """Visitor implementation class that produces a simple in-memory
     representation of Felis schema using classes `Schema`, `Table`, etc. from
     this module.
@@ -251,14 +270,32 @@ class SimpleVisitor(Visitor[Schema, Table, Column, List[Column], Constraint, Ind
         # Docstring is inherited.
         self.checker.check_schema(schema_obj)
 
+        version_obj = schema_obj.get("version")
+
         schema = Schema(
             name=schema_obj["name"],
             id=schema_obj["@id"],
             tables=[self.visit_table(t, schema_obj) for t in schema_obj["tables"]],
+            version=self.visit_schema_version(version_obj, schema_obj) if version_obj is not None else None,
             description=schema_obj.get("description"),
             annotations=_strip_keys(schema_obj, ["name", "@id", "tables", "description"]),
         )
         return schema
+
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> SchemaVersion:
+        # Docstring is inherited.
+        self.checker.check_schema_version(version_obj, schema_obj)
+
+        if isinstance(version_obj, str):
+            return SchemaVersion(current=version_obj)
+        else:
+            return SchemaVersion(
+                current=cast(str, version_obj["current"]),
+                compatible=version_obj.get("compatible"),
+                read_compatible=version_obj.get("read_compatible"),
+            )
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> Table:
         # Docstring is inherited.
@@ -306,9 +343,7 @@ class SimpleVisitor(Visitor[Schema, Table, Column, List[Column], Constraint, Ind
         self.column_ids[column.id] = column
         return column
 
-    def visit_primary_key(
-        self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping
-    ) -> List[Column]:
+    def visit_primary_key(self, primary_key_obj: str | Iterable[str], table_obj: _Mapping) -> list[Column]:
         # Docstring is inherited.
         self.checker.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:

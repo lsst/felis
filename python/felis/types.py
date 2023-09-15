@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Type
+from typing import Any
 
 
 class FelisType:
@@ -39,7 +39,7 @@ class FelisType:
     is_sized: bool
     is_timestamp: bool
 
-    _types: Dict[str, Type[FelisType]] = {}
+    _types: dict[str, type[FelisType]] = {}
 
     @classmethod
     def __init_subclass__(
@@ -61,7 +61,7 @@ class FelisType:
         cls._types[felis_name] = cls
 
     @classmethod
-    def felis_type(cls, felis_name: str) -> Type[FelisType]:
+    def felis_type(cls, felis_name: str) -> type[FelisType]:
         """Return specific Felis type for a given type name.
 
         Parameters
@@ -86,52 +86,52 @@ class FelisType:
 
 
 class Boolean(FelisType, felis_name="boolean", votable_name="boolean", is_numeric=False):
-    pass
+    """Felis definition of boolean type."""
 
 
 class Byte(FelisType, felis_name="byte", votable_name="unsignedByte", is_numeric=True):
-    pass
+    """Felis definition of byte type."""
 
 
 class Short(FelisType, felis_name="short", votable_name="short", is_numeric=True):
-    pass
+    """Felis definition of short integer type."""
 
 
 class Int(FelisType, felis_name="int", votable_name="int", is_numeric=True):
-    pass
+    """Felis definition of integer type."""
 
 
 class Long(FelisType, felis_name="long", votable_name="long", is_numeric=True):
-    pass
+    """Felis definition of long integer type."""
 
 
 class Float(FelisType, felis_name="float", votable_name="float", is_numeric=True):
-    pass
+    """Felis definition of single precision floating type."""
 
 
 class Double(FelisType, felis_name="double", votable_name="double", is_numeric=True):
-    pass
+    """Felis definition of double precision floating type."""
 
 
 class Char(FelisType, felis_name="char", votable_name="char", is_sized=True):
-    pass
+    """Felis definition of character type."""
 
 
 class String(FelisType, felis_name="string", votable_name="char", is_sized=True):
-    pass
+    """Felis definition of string type."""
 
 
 class Unicode(FelisType, felis_name="unicode", votable_name="unicodeChar", is_sized=True):
-    pass
+    """Felis definition of unicode string type."""
 
 
 class Text(FelisType, felis_name="text", votable_name="unicodeChar", is_sized=True):
-    pass
+    """Felis definition of text type."""
 
 
 class Binary(FelisType, felis_name="binary", votable_name="unsignedByte", is_sized=True):
-    pass
+    """Felis definition of binary type."""
 
 
 class Timestamp(FelisType, felis_name="timestamp", votable_name="char", is_timestamp=True):
-    pass
+    """Felis definition of timestamp type."""

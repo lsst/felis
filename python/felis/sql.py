@@ -26,7 +26,7 @@ __all__ = ["SQLVisitor"]
 import logging
 import re
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 from sqlalchemy import (
     CheckConstraint,
@@ -77,13 +77,13 @@ length_regex = re.compile(r"\((.+)\)")
 
 
 class Schema(NamedTuple):
-    name: Optional[str]
+    name: str | None
     tables: list[Table]
     metadata: MetaData
     graph_index: Mapping[str, Any]
 
 
-class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], Constraint, Index]):
+class SQLVisitor(Visitor[Schema, Table, Column, PrimaryKeyConstraint | None, Constraint, Index, None]):
     """A Felis Visitor which populates a SQLAlchemy metadata object.
 
     Parameters
@@ -92,7 +92,7 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
         Override for the schema name.
     """
 
-    def __init__(self, schema_name: Optional[str] = None):
+    def __init__(self, schema_name: str | None = None):
         self.metadata = MetaData()
         self.schema_name = schema_name
         self.checker = FelisValidator()
@@ -101,6 +101,8 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
     def visit_schema(self, schema_obj: _Mapping) -> Schema:
         # Docstring is inherited.
         self.checker.check_schema(schema_obj)
+        if (version_obj := schema_obj.get("version")) is not None:
+            self.visit_schema_version(version_obj, schema_obj)
         schema = Schema(
             name=self.schema_name or schema_obj["name"],
             tables=[self.visit_table(t, schema_obj) for t in schema_obj["tables"]],
@@ -108,6 +110,14 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
             graph_index=self.graph_index,
         )
         return schema
+
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> None:
+        # Docstring is inherited.
+
+        # For now we ignore schema versioning completely, still do some checks.
+        self.checker.check_schema_version(version_obj, schema_obj)
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> Table:
         # Docstring is inherited.
@@ -183,8 +193,8 @@ class SQLVisitor(Visitor[Schema, Table, Column, Optional[PrimaryKeyConstraint], 
         return column
 
     def visit_primary_key(
-        self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping
-    ) -> Optional[PrimaryKeyConstraint]:
+        self, primary_key_obj: str | Iterable[str], table_obj: _Mapping
+    ) -> PrimaryKeyConstraint | None:
         # Docstring is inherited.
         self.checker.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:
@@ -239,7 +249,7 @@ def _set_if(key: str, value: Any, mapping: _MutableMapping) -> None:
 
 
 def _process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
-    """Simple Data Type Override"""
+    """Return variant type for given dialect."""
     match = length_regex.search(variant_override_str)
     dialect = DIALECT_MODULES[dialect_name]
     variant_type_name = variant_override_str.split("(")[0]

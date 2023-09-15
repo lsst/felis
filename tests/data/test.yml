@@ -2,6 +2,10 @@
 name: sdqa
 "@id": "#sdqa"
 description: The SDQA Schema
+version:
+  current: "1.2.3"
+  compatible: ["1.2.0", "1.2.1", "1.2.2"]
+  read_compatible: ["1.1.0", "1.1.1"]
 tables:
   - name: sdqa_ImageStatus
     '@id': "#sdqa_ImageStatus"

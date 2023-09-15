@@ -25,7 +25,7 @@ __all__ = ["Tap11Base", "TapLoadingVisitor", "init_tables"]
 
 import logging
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, Optional, Union
+from typing import Any
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
@@ -54,14 +54,15 @@ _init_table_once = False
 
 
 def init_tables(
-    tap_schema_name: Optional[str] = None,
-    tap_tables_postfix: Optional[str] = None,
-    tap_schemas_table: Optional[str] = None,
-    tap_tables_table: Optional[str] = None,
-    tap_columns_table: Optional[str] = None,
-    tap_keys_table: Optional[str] = None,
-    tap_key_columns_table: Optional[str] = None,
+    tap_schema_name: str | None = None,
+    tap_tables_postfix: str | None = None,
+    tap_schemas_table: str | None = None,
+    tap_tables_table: str | None = None,
+    tap_columns_table: str | None = None,
+    tap_keys_table: str | None = None,
+    tap_key_columns_table: str | None = None,
 ) -> MutableMapping[str, Any]:
+    """Generate definitions for TAP tables."""
     postfix = tap_tables_postfix or ""
 
     # Dirty hack to enable this method to be called more than once, replaces
@@ -133,13 +134,27 @@ def init_tables(
     )
 
 
-class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
+class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]):
+    """Felis schema visitor for generating TAP schema.
+
+    Parameters
+    ----------
+    engine : `sqlalchemy.engine.Engine` or `None`
+        SQLAlchemy engine instance.
+    catalog_name : `str` or `None`
+        Name of the database catalog.
+    schema_name : `str` or `None`
+        Name of the database schema.
+    tap_tables : `~collections.abc.Mapping`
+        Optional mapping of table name to its declarative base class.
+    """
+
     def __init__(
         self,
         engine: Engine | None,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        tap_tables: Optional[MutableMapping[str, Any]] = None,
+        catalog_name: str | None = None,
+        schema_name: str | None = None,
+        tap_tables: MutableMapping[str, Any] | None = None,
     ):
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
@@ -153,9 +168,9 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
     def from_mock_connection(
         cls,
         mock_connection: MockConnection,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        tap_tables: Optional[MutableMapping[str, Any]] = None,
+        catalog_name: str | None = None,
+        schema_name: str | None = None,
+        tap_tables: MutableMapping[str, Any] | None = None,
     ) -> TapLoadingVisitor:
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection
@@ -163,6 +178,8 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
 
     def visit_schema(self, schema_obj: _Mapping) -> None:
         self.checker.check_schema(schema_obj)
+        if (version_obj := schema_obj.get("version")) is not None:
+            self.visit_schema_version(version_obj, schema_obj)
         schema = self.tables["schemas"]()
         # Override with default
         self.schema_name = self.schema_name or schema_obj["name"]
@@ -196,6 +213,14 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
                     conn.execute(_insert(self.tables["keys"], key))
                 for key_column in key_columns:
                     conn.execute(_insert(self.tables["key_columns"], key_column))
+
+    def visit_schema_version(
+        self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
+    ) -> None:
+        # Docstring is inherited.
+
+        # For now we ignore schema versioning completely, still do some checks.
+        self.checker.check_schema_version(version_obj, schema_obj)
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> tuple:
         self.checker.check_table(table_obj, schema_obj)
@@ -292,7 +317,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
         self.graph_index[column_id] = column
         return column
 
-    def visit_primary_key(self, primary_key_obj: Union[str, Iterable[str]], table_obj: _Mapping) -> None:
+    def visit_primary_key(self, primary_key_obj: str | Iterable[str], table_obj: _Mapping) -> None:
         self.checker.check_primary_key(primary_key_obj, table_obj)
         if primary_key_obj:
             if isinstance(primary_key_obj, str):
@@ -354,7 +379,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
             columns[0].indexed = 1
         return None
 
-    def _schema_name(self, schema_name: Optional[str] = None) -> Optional[str]:
+    def _schema_name(self, schema_name: str | None = None) -> str | None:
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
         if self.catalog_name and _schema_name:
@@ -369,18 +394,25 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None]):
 
 
 def _insert(table: Tap11Base, value: Any) -> Insert:
-    """
-    Return a SQLAlchemy insert statement based on
-    :param table: The table we are inserting to
-    :param value: An object representing the object we are inserting
-    to the table
-    :return: A SQLAlchemy insert statement
+    """Return a SQLAlchemy insert statement.
+
+    Parameters
+    ----------
+    table : `Tap11Base`
+        The table we are inserting into.
+    value : `Any`
+        An object representing the object we are inserting to the table.
+
+    Returns
+    -------
+    statement
+        A SQLAlchemy insert statement
     """
     values_dict = {}
     for i in table.__table__.columns:
         name = i.name
         column_value = getattr(value, i.name)
-        if type(column_value) == str:
+        if isinstance(column_value, str):
             column_value = column_value.replace("'", "''")
         values_dict[name] = column_value
     return insert(table).values(values_dict)

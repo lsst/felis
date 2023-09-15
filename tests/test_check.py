@@ -75,7 +75,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_schema(self) -> None:
         """Check for errors at schema level."""
-
         schema = copy.deepcopy(self.schema_obj)
 
         # Missing @id
@@ -90,7 +89,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_table(self) -> None:
         """Check for errors at table level."""
-
         schema = copy.deepcopy(self.schema_obj)
         table = schema["tables"][0]
 
@@ -118,7 +116,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_column(self) -> None:
         """Check for errors at column level."""
-
         schema = copy.deepcopy(self.schema_obj)
         column = schema["tables"][0]["columns"][0]
 
@@ -151,7 +148,6 @@ class VisitorTestCase(unittest.TestCase):
 
     def test_error_index(self) -> None:
         """Check for errors at index level."""
-
         schema = copy.deepcopy(self.schema_obj)
         table = schema["tables"][0]
 
@@ -192,6 +188,47 @@ class VisitorTestCase(unittest.TestCase):
             with self.assertLogs(logger="felis", level="WARNING") as cm:
                 CheckingVisitor().visit_schema(schema)
         self.assertEqual(cm.output, ["WARNING:felis:Duplication of @id #duplicateID"])
+
+    def test_version_errors(self) -> None:
+        """Test errors in version specification."""
+        schema_obj: dict[str, Any] = {
+            "name": "schema",
+            "@id": "#schema",
+            "tables": [],
+        }
+
+        schema_obj["version"] = 1
+        with self.assertRaisesRegex(TypeError, "version description is not a string or object"):
+            CheckingVisitor().visit_schema(schema_obj)
+
+        schema_obj["version"] = {}
+        with self.assertRaisesRegex(ValueError, "missing 'current' key in schema version"):
+            CheckingVisitor().visit_schema(schema_obj)
+
+        schema_obj["version"] = {"current": 1}
+        with self.assertRaisesRegex(TypeError, "schema version 'current' value is not a string"):
+            CheckingVisitor().visit_schema(schema_obj)
+
+        schema_obj["version"] = {"current": "v1", "extra": "v2"}
+        with self.assertLogs("felis", "ERROR") as cm:
+            CheckingVisitor().visit_schema(schema_obj)
+        self.assertEqual(cm.output, ["ERROR:felis:unexpected keys in schema version description: ['extra']"])
+
+        schema_obj["version"] = {"current": "v1", "compatible": "v2"}
+        with self.assertRaisesRegex(TypeError, "schema version 'compatible' value is not a list"):
+            CheckingVisitor().visit_schema(schema_obj)
+
+        schema_obj["version"] = {"current": "v1", "compatible": ["1", "2", 3]}
+        with self.assertRaisesRegex(TypeError, "items in 'compatible' value are not strings"):
+            CheckingVisitor().visit_schema(schema_obj)
+
+        schema_obj["version"] = {"current": "v1", "read_compatible": "v2"}
+        with self.assertRaisesRegex(TypeError, "schema version 'read_compatible' value is not a list"):
+            CheckingVisitor().visit_schema(schema_obj)
+
+        schema_obj["version"] = {"current": "v1", "read_compatible": ["1", "2", 3]}
+        with self.assertRaisesRegex(TypeError, "items in 'read_compatible' value are not strings"):
+            CheckingVisitor().visit_schema(schema_obj)
 
 
 if __name__ == "__main__":

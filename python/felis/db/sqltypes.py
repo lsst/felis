@@ -21,7 +21,7 @@
 
 import builtins
 from collections.abc import Mapping
-from typing import Any, Union
+from typing import Any
 
 from sqlalchemy import Float, SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql
@@ -47,15 +47,17 @@ class DOUBLE(Float):
 
 @compiles(TINYINT)
 def compile_tinyint(type_: Any, compiler: Any, **kw: Any) -> str:
+    """Return type name for TINYINT."""
     return "TINYINT"
 
 
 @compiles(DOUBLE)
 def compile_double(type_: Any, compiler: Any, **kw: Any) -> str:
+    """Return type name for double precision type."""
     return "DOUBLE"
 
 
-_TypeMap = Mapping[str, Union[types.TypeEngine, type[types.TypeEngine]]]
+_TypeMap = Mapping[str, types.TypeEngine | type[types.TypeEngine]]
 
 boolean_map: _TypeMap = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
 
@@ -127,54 +129,67 @@ binary_map: _TypeMap = {
 
 
 def boolean(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for boolean."""
     return _vary(types.BOOLEAN(), boolean_map, kwargs)
 
 
 def byte(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for byte."""
     return _vary(TINYINT(), byte_map, kwargs)
 
 
 def short(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for short integer."""
     return _vary(types.SMALLINT(), short_map, kwargs)
 
 
 def int(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for integer."""
     return _vary(types.INTEGER(), int_map, kwargs)
 
 
 def long(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for long integer."""
     return _vary(types.BIGINT(), long_map, kwargs)
 
 
 def float(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for single precision float."""
     return _vary(types.FLOAT(), float_map, kwargs)
 
 
 def double(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for double precision float."""
     return _vary(DOUBLE(), double_map, kwargs)
 
 
 def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for character."""
     return _vary(types.CHAR(length), char_map, kwargs, length)
 
 
 def string(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for string."""
     return _vary(types.VARCHAR(length), string_map, kwargs, length)
 
 
 def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for unicode string."""
     return _vary(types.NVARCHAR(length), unicode_map, kwargs, length)
 
 
 def text(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for text."""
     return _vary(types.CLOB(length), text_map, kwargs, length)
 
 
 def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for binary."""
     return _vary(types.BLOB(length), binary_map, kwargs, length)
 
 
 def timestamp(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for timestamp."""
     return types.TIMESTAMP()
 
 
@@ -184,7 +199,7 @@ def _vary(
     overrides: _TypeMap,
     *args: Any,
 ) -> types.TypeEngine:
-    variants: dict[str, Union[types.TypeEngine, type[types.TypeEngine]]] = dict(variant_map)
+    variants: dict[str, types.TypeEngine | type[types.TypeEngine]] = dict(variant_map)
     variants.update(overrides)
     for dialect, variant in variants.items():
         # If this is a class and not an instance, instantiate

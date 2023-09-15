@@ -43,7 +43,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 110
-target-version = ["py310"]
+target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
@@ -51,3 +51,43 @@ line_length = 110
 
 [tool.lsst_versions]
 write_to = "python/felis/version.py"
+
+[tool.ruff]
+exclude = [
+    "__init__.py",
+    "lex.py",
+    "yacc.py",
+]
+ignore = [
+    "N802",
+    "N803",
+    "N806",
+    "N812",
+    "N815",
+    "N816",
+    "N999",
+    "D107",
+    "D105",
+    "D102",
+    "D104",
+    "D100",
+    "D200",
+    "D205",
+    "D203",
+    "D213",
+    "D400",
+]
+line-length = 110
+select = [
+    "E",  # pycodestyle
+    "F",  # pycodestyle
+    "N",  # pep8-naming
+    "W",  # pycodestyle
+    "D",  # pydocstyle
+]
+target-version = "py311"
+# Commented out to suppress "unused noqa" in jenkins which has older ruff not
+# generating E721.
+extend-select = [
+    "RUF100", # Warn about unused noqa
+]

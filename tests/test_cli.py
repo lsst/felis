@@ -24,7 +24,7 @@ import shutil
 import tempfile
 import unittest
 from collections.abc import MutableMapping
-from typing import Any, Optional
+from typing import Any
 
 from click.testing import CliRunner
 
@@ -38,7 +38,7 @@ TEST_MERGE_YAML = os.path.join(TESTDIR, "data", "test-merge.yml")
 class CliTestCase(unittest.TestCase):
     """Tests for TapLoadingVisitor class."""
 
-    schema_obj: Optional[MutableMapping[str, Any]] = None
+    schema_obj: MutableMapping[str, Any] | None = None
 
     def setUp(self) -> None:
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
@@ -47,15 +47,13 @@ class CliTestCase(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_basic_check(self) -> None:
-        """Test for basic-check command"""
-
+        """Test for basic-check command."""
         runner = CliRunner()
         result = runner.invoke(cli, ["basic-check", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
     def test_create_all(self) -> None:
-        """Test for create-all command"""
-
+        """Test for create-all command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
 
         runner = CliRunner()
@@ -67,8 +65,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_create_all_dry_run(self) -> None:
-        """Test for create-all --dry-run command"""
-
+        """Test for create-all --dry-run command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
 
         runner = CliRunner()
@@ -80,23 +77,20 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_normalize(self) -> None:
-        """Test for normalize command"""
-
+        """Test for normalize command."""
         runner = CliRunner()
         result = runner.invoke(cli, ["normalize", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
     def test_init_tap(self) -> None:
-        """Test for init-tap command"""
-
+        """Test for init-tap command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
         runner = CliRunner()
         result = runner.invoke(cli, ["init-tap", url], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
     def test_load_tap(self) -> None:
-        """Test for load-tap command"""
-
+        """Test for load-tap command."""
         # Cannot use the same url for both init-tap and load-tap in the same
         # process.
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
@@ -110,8 +104,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_load_tap_mock(self) -> None:
-        """Test for load-tap --dry-run command"""
-
+        """Test for load-tap --dry-run command."""
         url = "postgresql+psycopg2://"
 
         runner = CliRunner()
@@ -121,8 +114,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_modify_tap(self) -> None:
-        """Test for modify-tap command"""
-
+        """Test for modify-tap command."""
         runner = CliRunner()
 
         # Without --start-schema-at it makes an exception
@@ -133,8 +125,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_merge(self) -> None:
-        """Test for merge command"""
-
+        """Test for merge command."""
         runner = CliRunner()
 
         result = runner.invoke(cli, ["merge", TEST_YAML, TEST_MERGE_YAML], catch_exceptions=False)

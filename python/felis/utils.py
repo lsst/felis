@@ -19,29 +19,35 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from collections.abc import Mapping, MutableMapping
-from typing import Any, Iterable
+from collections.abc import Iterable, Mapping, MutableMapping
+from typing import Any
 
 _Mapping = Mapping[str, Any]
 _MutableMapping = MutableMapping[str, Any]
 
 
 class ReorderingVisitor:
+    """A visitor that reorders and optionally adds the "@type".
+
+    Parameters
+    ----------
+    add_type : `bool`
+        If true, add the "@type" if it doesn't exist.
+    """
+
     def __init__(self, add_type: bool = False):
-        """
-        A visitor that reorders and optionall adds the "@type"
-        :param add_type: If true, add the "@type" if it doesn't exist
-        """
         self.add_type = add_type
 
     def visit_schema(self, schema_obj: _MutableMapping) -> _Mapping:
-        """The input MUST be a normalized representation"""
+        """Process schema, the input MUST be a normalized representation."""
         # Override with default
         tables = [self.visit_table(table_obj, schema_obj) for table_obj in schema_obj["tables"]]
         schema_obj["tables"] = tables
         if self.add_type:
             schema_obj["@type"] = schema_obj.get("@type", "Schema")
-        return _new_order(schema_obj, ["@context", "name", "@id", "@type", "description", "tables"])
+        return _new_order(
+            schema_obj, ["@context", "name", "@id", "@type", "description", "tables", "version"]
+        )
 
     def visit_table(self, table_obj: _MutableMapping, schema_obj: _Mapping) -> _Mapping:
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]

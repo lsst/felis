@@ -67,6 +67,53 @@ class FelisValidator:
         _id = self._assert_id(schema_obj)
         self._check_visited(_id)
 
+    def check_schema_version(self, version_obj: Any, schema_obj: _Mapping) -> None:
+        """Validate contents of schema description object.
+
+        Parameters
+        ----------
+        version_obj : `Any`
+            Felis object (should be string or mapping) representing schema
+            version.
+        schema_obj : `Mapping` [ `str`, `Any` ]
+            Felis object (mapping) representing parent schema.
+
+        Raises
+        ------
+        TypeError
+            Raised if validation fails for expected types of items.
+        ValueError
+            Raised if validation fails for the content of the object.
+        """
+        if isinstance(version_obj, Mapping):
+            # "current" is required, other keys are optional.
+            possible_keys = {"current", "compatible", "read_compatible"}
+            if not possible_keys.issuperset(version_obj):
+                extra_keys = list(set(version_obj) - possible_keys)
+                logger.error(f"unexpected keys in schema version description: {extra_keys}")
+            if "current" not in version_obj:
+                raise ValueError(f"missing 'current' key in schema version description: {version_obj}")
+            if not isinstance(version_obj["current"], str):
+                raise TypeError(f"schema version 'current' value is not a string: {version_obj['current']!r}")
+            if (compatible := version_obj.get("compatible")) is not None:
+                if not isinstance(compatible, list):
+                    raise TypeError(f"schema version 'compatible' value is not a list: {compatible!r}")
+                for item in compatible:
+                    if not isinstance(item, str):
+                        raise TypeError(f"items in 'compatible' value are not strings: {compatible!r}")
+            if (read_compatible := version_obj.get("read_compatible")) is not None:
+                if not isinstance(read_compatible, list):
+                    raise TypeError(
+                        f"schema version 'read_compatible' value is not a list: {read_compatible!r}"
+                    )
+                for item in read_compatible:
+                    if not isinstance(item, str):
+                        raise TypeError(
+                            f"items in 'read_compatible' value are not strings: {read_compatible!r}"
+                        )
+        elif not isinstance(version_obj, str):
+            raise TypeError(f"schema version description is not a string or object: {version_obj}")
+
     def check_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> None:
         """Validate contents of Felis table object.
 
@@ -137,7 +184,7 @@ class FelisValidator:
 
         self._check_visited(_id)
 
-    def check_primary_key(self, primary_key_obj: str | Iterable[str], table: _Mapping) -> None:
+    def check_primary_key(self, primary_key_obj: str | Iterable[str], table_obj: _Mapping) -> None:
         """Validate contents of Felis primary key object.
 
         Parameters
@@ -273,6 +320,7 @@ class FelisValidator:
         otherwise.
 
         Parameters
+        ----------
         _id : `str`
             Felis object ID.
         """
@@ -281,7 +329,7 @@ class FelisValidator:
         self._ids.add(_id)
 
 
-class CheckingVisitor(Visitor[None, None, None, None, None, None]):
+class CheckingVisitor(Visitor[None, None, None, None, None, None, None]):
     """Visitor implementation which validates felis structures and raises
     exceptions for errors.
     """
@@ -293,8 +341,14 @@ class CheckingVisitor(Visitor[None, None, None, None, None, None]):
     def visit_schema(self, schema_obj: _Mapping) -> None:
         # Docstring is inherited.
         self.checker.check_schema(schema_obj)
+        if (version_obj := schema_obj.get("version")) is not None:
+            self.visit_schema_version(version_obj, schema_obj)
         for table_obj in schema_obj["tables"]:
             self.visit_table(table_obj, schema_obj)
+
+    def visit_schema_version(self, version_obj: str | Mapping[str, Any], schema_obj: _Mapping) -> None:
+        # Docstring is inherited.
+        self.checker.check_schema_version(version_obj, schema_obj)
 
     def visit_table(self, table_obj: _Mapping, schema_obj: _Mapping) -> None:
         # Docstring is inherited.

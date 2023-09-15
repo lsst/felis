@@ -277,7 +277,7 @@ A schema comprises a group of annotated tables and a set of annotations
 that relate to that group of tables. The core annotations of a schema
 are:
 
-  - `name`  
+  - `name` \
     The name of this schema. In implementation terms, this typically
     maps to:
 
@@ -287,17 +287,19 @@ are:
 >   - A user in a `CREATE USER` statement in Oracle
 >   - A SQLite file, which might be named according to `[name].db`
 
-  - `@id`  
+  - `@id` \
     An identifier for this group of tables. This may be used for
     relating schemas together at a higher level. Typically, the name of
     the schema can be used as the id.
 
-  - `description`  
+  - `description` \
     A textual description of this schema
 
-  - `tables`  
-    the list of tables in the schema. A schema MUST have one or more
-    tables.
+  - `tables` \
+    The list of tables in the schema. A schema MUST have one or more tables.
+
+  - `version` \
+    Optional schema version description.
 
 Schemas MAY in addition have any number of annotations which provide
 information about the group of tables. Annotations on a group of tables
@@ -306,41 +308,79 @@ may include:
   - DBMS-specific information for a schema, especially for creating a
     schema.
   - IVOA metadata about the table
-  - Schema versioning information
   - Column Groupings
   - Links to other schemas which may be related
   - Reference URLs
   - Provenance
 
+### Schema versioning
+
+Database schemas usually evolve over time and client software has to depend on
+the knowledge of the schema version and possibly compatibility of different
+schema versions. Felis supports specification of versions and their possible
+relations but does not specify how exactly compatibility checks have to be
+implemented. It is the client responsibility to interpret version numbers and
+to define compatibility rules.
+
+In simplest form the schema version can be specified as a value for the
+`version` attribute and it must be a string:
+
+    version: "4.2.0"
+
+This example uses semantic version format, but in general any string or number
+can be specified here.
+
+In the extended form version can be specified using nested attributes:
+
+  - `current` \
+    Specifies current version defined by the schema, must be a string.
+
+  - `compatible` \
+    Specifies a list of versions that current schema is fully-compatible with,
+    all items must be strings.
+
+  - `read_compatible` \
+    Specifies a list of versions that current schema is read-compatible with,
+    all items must be strings.
+
+Naturally, compatibility behavior depends on the code that implements reading
+and writing of the data. An example of version specification using the extended
+format:
+
+    version:
+      current: "v42"
+      compatible: ["v41", "v40"]
+      read_compatible: ["v39", "v38"]
+
 ### Tables
 
 A Table within a Schema. The core annotations of a table are:
 
-  - `name`  
+  - `name` \
     The name of this table. In implementation terms, this typically maps
     to a table name in a `CREATE TABLE` statement in a
     MySQL/Oracle/Postgres/SQLite.
 
-  - `@id`  
+  - `@id` \
     an identifier for this table
 
-  - `description`  
+  - `description` \
     A textual of this table
 
-  - `columns`  
+  - `columns` \
     the list of columns in the table. A table MUST have one or more
     columns and the order of the columns within the list is significant
     and MUST be preserved by applications.
 
-  - `primaryKey`  
+  - `primaryKey` \
     A column reference that holds either a single reference to a column
     id or a list of column id references for compound primary keys.
 
-  - `constraints`  
+  - `constraints` \
     the list of constraints for the table. A table MAY have zero or more
     constraints. Usually these are Forein Key constraints.
 
-  - `indexes`  
+  - `indexes` \
     the list of indexes in the schema. A schema MAY have zero or more
     indexes.
 
@@ -356,29 +396,29 @@ information about the table. Annotations on a table may include:
 
 Represents a column in a table. The core annotations of a column are:
 
-  - `name`  
+  - `name` \
     the name of the column.
 
-  - `@id`  
+  - `@id` \
     an identifier for this column
 
-  - `description`  
+  - `description` \
     A textual description of this column
 
-  - `datatype`  
+  - `datatype` \
     the expected datatype for the value of the column. This is the
     canonical datatype, but may often be overridden by additional
     annotations for DBMS or format-specific datatypes.
 
-  - `value`  
+  - `value` \
     the default value for a column. This is used in DBMS systems that
     support it, and it may also be used when processing a table.
 
-  - `length`  
+  - `length` \
     the length for this column. This is used in types that support it,
     namely `char`, `string`, `unicode`, `text`, and `binary`.
 
-  - `nullable`  
+  - `nullable` \
     if the column is nullable. When set to `false`, this will cause a
     `NOT NULL` to be appended to SQL DDL. false. A missing value is
     assumed to be equivalent to `true`. If the value is set to `false`
@@ -386,7 +426,7 @@ Represents a column in a table. The core annotations of a column are:
     table, then an error should be thrown during the processing of the
     metadata.
 
-  - `autoincrement`  
+  - `autoincrement` \
     If the column is the primary key or part of a primary key, this may
     be used to specify autoincrement behavior. We derive semantics from
     [SQLAlchemy.](https://docs.sqlalchemy.org/en/rel_1_1/core/metadata.html#sqlalchemy.schema.Column.params.autoincrement)
@@ -419,22 +459,22 @@ expressions involving the columns of a table instead.
 
 The core annotations of an index are:
 
-  - `name`  
+  - `name` \
     The name of this index. This is optional.
 
-  - `@id`  
+  - `@id` \
     an identifier for this index
 
-  - `description`  
+  - `description` \
     A textual description of this index
 
-  - `columns`  
+  - `columns` \
     A column reference property that holds either a single reference to
     a column description object within this schema, or an list of
     references. *This annotation is mutually exclusive with the
     expressions annotation.*
 
-  - `expressions`  
+  - `expressions` \
     A column reference property that holds either a single column
     expression object, or a list of them. *This annotation is mutually
     exclusive with the columns annotation.*
@@ -453,36 +493,36 @@ This section is under development
 
 </div>
 
-  - `name`  
+  - `name` \
     The name of this constraint. This is optional.
 
-  - `@id`  
+  - `@id` \
     an identifier for this constraint
 
-  - `@type`  
+  - `@type` \
     One of `ForeignKey`, `Unique`, `Check`. *Required.*
 
-  - `description`  
+  - `description` \
     A description of this constraint
 
-  - `columns`  
+  - `columns` \
     A column reference property that holds either a single reference to
     a column description object within this schema, or an list of
     references.
 
-  - `referencedColumns`  
+  - `referencedColumns` \
     A column reference property that holds either a single reference to
     a column description object within this schema, or an list of
     references. Used on *ForeignKey* Constraints.
 
-  - `expression`  
+  - `expression` \
     A column expression object. Used on *Check* Constraints.
 
-  - `deferrable`  
+  - `deferrable` \
     If `true`, emit DEFERRABLE or NOT DEFERRABLE when issuing DDL for
     this constraint.
 
-  - `initially`  
+  - `initially` \
     If set, emit INITIALLY when issuing DDL for this constraint.
 
 ### References
@@ -510,16 +550,16 @@ It's also similar a `GROUP` nested in a `GROUP`, which provides an
 implicit reference where the nested GROUP would have an implicit
 reference to the parent.
 
-  - `name`  
+  - `name` \
     The name of this reference
 
-  - `@id`  
+  - `@id` \
     an identifier for this reference
 
-  - `description`  
+  - `description` \
     A description of the reference
 
-  - `reference`  
+  - `reference` \
     The id of the object being referenced
 
 ### Column Groupings
@@ -539,21 +579,21 @@ This section is incomplete
 Groupings are annotated objects that contain one or more references to
 other objects.
 
-  - `name`  
+  - `name` \
     The name of this table. In implementation terms, this typically maps
     to a table name in a `CREATE TABLE` statement in a
     MySQL/Oracle/Postgres/SQLite.
 
-  - `@id`  
+  - `@id` \
     an identifier for this grouping, so that it may be referenced.
 
-  - `description`  
+  - `description` \
     A description of the grouping
 
-  - `reference`  
+  - `reference` \
     A reference to another column grouping, if applicable.
 
-  - `columnReferences`  
+  - `columnReferences` \
     A list of column references in the table. A Column Grouping MUST
     have one or more column
 references.
@@ -649,17 +689,17 @@ property for a table would translate to `mysql:engine`, for example.
 
 #### Table
 
-  - `engine`  
+  - `engine` \
     The engine for this database. Usually `INNODB` would is the default
     for most instances of MySQL. `MYISAM` provides better performance.
 
-  - `charset`  
+  - `charset` \
     The charset for this table. `latin1` is a typical default for most
     installations. `utf8mb4` is probably a more sensible default.
 
 #### Column
 
-  - `datatype`  
+  - `datatype` \
     The MySQL specific datatypes for a column.
 
 ### Oracle
@@ -674,13 +714,13 @@ and specifiying Sequences for column primary keys.
 
 #### Table
 
-  - `compress`  
+  - `compress` \
     If this table is to use Oracle compression, set this to `true` or
     some other value
 
 #### Index
 
-  - `bitmap`  
+  - `bitmap` \
     If an index should be a bitmap index in Oracle, set this to `true`.
 
 ### SQLite
@@ -790,7 +830,7 @@ PyTables is an opinionated way of representing tabular data in HDF5.
         mysql:datatype: VARCHAR(255)
       primaryKey: "#sdqa_ImageStatus.sdqa_imageStatusId"
       mysql:engine: MyISAM
-    
+
     - name: sdqa_Metric
       "@id": "#sdqa_Metric"
       description: Unique set of metric names and associated metadata (e.g., 'nDeadPix';,
@@ -834,7 +874,7 @@ PyTables is an opinionated way of representing tabular data in HDF5.
         columns:
         - "#sdqa_Metric.metricName"
       mysql:engine: MyISAM
-    
+
     - name: sdqa_Rating_ForAmpVisit
       "@id": "#sdqa_Rating_ForAmpVisit"
       description: Various SDQA ratings for a given amplifier image. There will approximately
@@ -894,7 +934,7 @@ PyTables is an opinionated way of representing tabular data in HDF5.
         columns:
         - "#sdqa_Rating_ForAmpVisit.ampVisitId"
       mysql:engine: MyISAM
-    
+
     - name: sdqa_Rating_CcdVisit
       "@id": "#sdqa_Rating_CcdVisit"
       description: Various SDQA ratings for a given CcdVisit.
@@ -953,7 +993,7 @@ PyTables is an opinionated way of representing tabular data in HDF5.
         columns:
         - "#sdqa_Rating_CcdVisit.ccdVisitId"
       mysql:engine: MyISAM
-    
+
     - name: sdqa_Threshold
       "@id": "#sdqa_Threshold"
       description: Version-controlled metric thresholds. Total number of these records
