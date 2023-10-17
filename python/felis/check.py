@@ -159,8 +159,11 @@ class FelisValidator:
 
         # Check UCDs of columns
         ivoa_ucd = column_obj.get("ivoa:ucd")
-        if not ucd.check_ucd(ivoa_ucd, check_controlled_vocabulary=True):
-            logger.error(f"invalid ucd for {_id}: {ivoa_ucd}")
+        if ivoa_ucd:
+            try:
+                ucd.parse_ucd(ivoa_ucd, check_controlled_vocabulary=True, has_colon=";" in ivoa_ucd)
+            except ValueError as e:
+                logger.error(f"{e} in UCD '{ivoa_ucd}' for '{_id}'")
 
         # Check Units of columns
         fits_unit = column_obj.get("fits:tunit")
