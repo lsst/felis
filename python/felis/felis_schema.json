@@ -29,15 +29,35 @@
                                     "$ref": "#/definitions/db_object_name",
                                     "description": "The name of the database column"
                                 },
-                                "@id": {"type": "string"},
+                                "@id": {
+                                    "type": "string",
+                                    "description": "The unique identifier of the database column"
+                                },
                                 "datatype": {
                                     "type": "string",
-                                    "enum": ["boolean", "byte", "short", "int", "long", "float", "double", "char", "string", "unicode", "text", "binary"]
+                                    "enum": ["boolean", "byte", "short", "int", "long", "float", "double", "char", "string", "unicode", "text", "binary"],
+                                    "description": "The datatype of the database column"
                                 },
-                                "description": {"type": "string"},
-                                "ivo:ucd": {
+                                "description": {
                                     "type": "string",
-                                    "pattern": "^([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*)(;([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+))*)*$"
+                                    "description": "The description of the database column"
+                                },
+                                "nullable": {
+                                    "type": "boolean",
+                                    "description": "Whether or not the database column is nullable"
+                                },
+                                "tap:column_index": {
+                                    "type": "integer",
+                                    "description": "IVOA TAP column index"
+                                },
+                                "tap:principal": {
+                                    "type": "integer",
+                                    "description": "IVOA TAP principal column index"
+                                },
+                                "ivoa:ucd": {
+                                    "type": "string",
+                                    "pattern": "^([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*)(;([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*))*$",
+                                    "description": "IVOA UCD"
                                 }
                             },
                             "required": ["name", "@id", "datatype", "description"]
