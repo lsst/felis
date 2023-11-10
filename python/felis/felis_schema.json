@@ -2,7 +2,10 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "properties": {
-        "name": {"type": "string"},
+        "name": {
+            "$ref": "#/definitions/db_object_name",
+            "description": "The name of the database schema"
+        },
         "@id": {"type": "string"},
         "description": {"type": "string"},
         "tables": {
@@ -10,7 +13,10 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string"},
+                    "name": {
+                        "$ref": "#/definitions/db_object_name",
+                        "description": "The name of the database table"
+                    },
                     "@id": {"type": "string"},
                     "description": {"type": "string"},
                     "tap:table_index": {"type": "integer"},
@@ -19,7 +25,10 @@
                         "items": {
                             "type": "object",
                             "properties": {
-                                "name": {"type": "string"},
+                                "name": {
+                                    "$ref": "#/definitions/db_object_name",
+                                    "description": "The name of the database column"
+                                },
                                 "@id": {"type": "string"},
                                 "datatype": {
                                     "type": "string",
@@ -39,5 +48,11 @@
             }
         }
     },
-    "required": ["name", "@id", "description", "tables"]
+    "required": ["name", "@id", "description", "tables"],
+    "definitions": {
+        "db_object_name": {
+            "type": "string",
+            "pattern": "^[_a-zA-Z][_a-zA-Z0-9]*$"
+        }
+    }
 }
