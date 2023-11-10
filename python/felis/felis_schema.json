@@ -25,7 +25,11 @@
                                     "type": "string",
                                     "enum": ["boolean", "byte", "short", "int", "long", "float", "double", "char", "string", "unicode", "text", "binary"]
                                 },
-                                "description": {"type": "string"}
+                                "description": {"type": "string"},
+                                "ivo:ucd": {
+                                    "type": "string",
+                                    "pattern": "^([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*)(;([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+))*)*$"
+                                }
                             },
                             "required": ["name", "@id", "datatype", "description"]
                         }
