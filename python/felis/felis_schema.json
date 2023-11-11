@@ -99,9 +99,9 @@
                                     "description": "IVOA TAP principal column index"
                                 },
                                 "ivoa:ucd": {
-                                    "type": "string",
+                                    "type": ["string", "null"],
                                     "pattern": "^([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*)(;([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*))*$",
-                                    "description": "IVOA UCD"
+                                    "description": "IVOA UCD (allow null for now)"
                                 },
                                 "ivoa:unit": {
                                     "type": ["string", "null"],
@@ -112,16 +112,16 @@
                                     "description": "FITS TUNIT (null allowed for now)"
                                 },
                                 "votable:arraysize": {
-                                    "type": ["string", "integer"],
-                                    "description": "VOTable arraysize"
+                                    "type": ["string", "integer", "null"],
+                                    "description": "VOTable arraysize (allow null for now)"
                                 },
                                 "tap:std": {
                                     "type": "integer",
                                     "description": "TAP STD (?)"
                                 },
                                 "votable:utype": {
-                                    "type": "string",
-                                    "description": "VOTable utype (this could be constrained with a regexp)"
+                                    "type": ["string", "null"],
+                                    "description": "VOTable utype (allow null for now; this could be constrained with a regexp)"
                                 }
                             },
                             "required": ["name", "@id", "datatype", "description"],
