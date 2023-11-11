@@ -332,10 +332,17 @@ def dump_json(
 
 
 @cli.command("validate")
-@click.argument("file", type=click.File())
-def validate(file: io.TextIOBase) -> None:
-    """Validate a felis YAML file against a JSON schema."""
-    validate_felis_schema(file)
+@click.argument("files", nargs=-1, type=click.File())
+def validate(files: Iterable[io.TextIOBase]) -> None:
+    """Validate one or more felis YAML files against a JSON schema."""
+    rc = 0
+    for file in files:
+        try:
+            validate_felis_schema(file)
+        except Exception:
+            logger.error(f"Error validating {file.name}")
+            rc = 1
+    sys.exit(rc)
 
 
 def _dump(obj: Mapping[str, Any]) -> None:
