@@ -34,6 +34,7 @@ from sqlalchemy.engine.mock import MockConnection
 
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
+from .schema import validate as validate_felis_schema
 from .sql import SQLVisitor
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
@@ -328,6 +329,13 @@ def dump_json(
             options["graph"] = True
         schema_obj = jsonld.compact(schema_obj, DEFAULT_CONTEXT, options=options)
     json.dump(schema_obj, sys.stdout, indent=4)
+
+
+@cli.command("validate")
+@click.argument("file", type=click.File())
+def validate(file: io.TextIOBase) -> None:
+    """Validate a felis YAML file against a JSON schema."""
+    validate_felis_schema(file)
 
 
 def _dump(obj: Mapping[str, Any]) -> None:
