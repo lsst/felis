@@ -4,10 +4,16 @@
     "properties": {
         "name": {
             "$ref": "#/definitions/db_object_name",
-            "description": "The name of the database schema"
+            "description": "Name of the database schema"
         },
-        "@id": {"type": "string"},
-        "description": {"type": "string"},
+        "@id": {
+            "type": "string",
+            "description": "Unique identifier of the database schema"
+        },
+        "description": {
+            "type": "string",
+            "description": "Description of the database schema"
+        },
         "tables": {
             "type": "array",
             "items": {
@@ -17,9 +23,31 @@
                         "$ref": "#/definitions/db_object_name",
                         "description": "The name of the database table"
                     },
-                    "@id": {"type": "string"},
-                    "description": {"type": "string"},
-                    "tap:table_index": {"type": "integer"},
+                    "@id": {
+                        "type": "string",
+                        "description": "Unique identifier of the database table"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description of the database table"
+                    },
+                    "tap:table_index": {
+                        "type": "integer",
+                        "description": "IVOA TAP table index"
+                    },
+                    "primaryKey": {
+                        "type": "string",
+                        "description": "identifier of the primary key column"
+                    },
+                    "mysql:engine": {
+                        "type": "string",
+                        "enum": ["MyISAM", "MEMORY", "CSV", "ARCHIVE", "BLACKHOLE", "MERGE", "FEDERATED", "EXAMPLE"],
+                        "description": "MySQL storage engine"
+                    },
+                    "mysql:charset": {
+                        "type": "string",
+                        "description": "MySQL character set (unconstrained as there are many options)"
+                    },
                     "columns": {
                         "type": "array",
                         "items": {
@@ -27,20 +55,29 @@
                             "properties": {
                                 "name": {
                                     "$ref": "#/definitions/db_object_name",
-                                    "description": "The name of the database column"
+                                    "description": "Name of the database column"
                                 },
                                 "@id": {
                                     "type": "string",
-                                    "description": "The unique identifier of the database column"
+                                    "description": "Unique identifier of the database column"
                                 },
                                 "datatype": {
                                     "type": "string",
                                     "enum": ["boolean", "byte", "short", "int", "long", "float", "double", "char", "string", "unicode", "text", "binary"],
-                                    "description": "The datatype of the database column"
+                                    "description": "Datatype of the database column"
+                                },
+                                "length": {
+                                    "type": "integer",
+                                    "description": "Length of the database column",
+                                    "minimum": 1
+                                },
+                                "mysql:datatype": {
+                                    "type": "string",
+                                    "description": "MySQL datatype of the database column (unconstrained for now due to inclusion of length in parenthesis)"
                                 },
                                 "description": {
                                     "type": "string",
-                                    "description": "The description of the database column"
+                                    "description": "Description of the database column"
                                 },
                                 "nullable": {
                                     "type": "boolean",
@@ -58,13 +95,56 @@
                                     "type": "string",
                                     "pattern": "^([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*)(;([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*))*$",
                                     "description": "IVOA UCD"
+                                },
+                                "ivoa:unit": {
+                                    "type": "string",
+                                    "description": "IVOA unit"
+                                },
+                                "fits:tunit": {
+                                    "type": "string",
+                                    "description": "FITS TUNIT"
                                 }
                             },
-                            "required": ["name", "@id", "datatype", "description"]
+                            "required": ["name", "@id", "datatype", "description"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "constraints": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name of constraint"
+                                },
+                                "@type": {
+                                    "type": "string",
+                                    "description": "Type of constraint",
+                                    "enum": ["ForeignKey"]
+                                },
+                                "@id": {
+                                    "type": "string",
+                                    "description": "Unique identifier of constraint"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "Description of constraint"
+                                },
+                                "columns": {
+                                    "type": "array",
+                                    "description": "List of columns in constraint"
+                                },
+                                "referencedColumns": {
+                                    "type": "array",
+                                    "description": "List of referenced columns in constraint"
+                                }
+                            }
                         }
                     }
                 },
-                "required": ["name", "@id", "description", "columns"]
+                "required": ["name", "@id", "description", "columns"],
+                "additionalProperties": false
             }
         }
     },
@@ -74,5 +154,6 @@
             "type": "string",
             "pattern": "^[_a-zA-Z][_a-zA-Z0-9]*$"
         }
-    }
+    },
+    "additionalProperties": false
 }
