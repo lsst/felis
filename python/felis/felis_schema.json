@@ -66,6 +66,10 @@
                                     "enum": ["boolean", "byte", "short", "int", "long", "float", "double", "char", "string", "unicode", "text", "binary", "timestamp"],
                                     "description": "Datatype of the database column"
                                 },
+                                "description": {
+                                    "type": "string",
+                                    "description": "Description of the database column"
+                                },
                                 "length": {
                                     "type": "integer",
                                     "description": "Length of the database column",
@@ -74,10 +78,6 @@
                                 "mysql:datatype": {
                                     "type": "string",
                                     "description": "MySQL datatype of the database column (unconstrained for now due to inclusion of length in parenthesis)"
-                                },
-                                "description": {
-                                    "type": "string",
-                                    "description": "Description of the database column"
                                 },
                                 "nullable": {
                                     "type": "boolean",
