@@ -104,11 +104,24 @@
                                     "description": "IVOA UCD"
                                 },
                                 "ivoa:unit": {
-                                    "type": "string",
-                                    "description": "IVOA unit"
+                                    "type": ["string", "null"],
+                                    "description": "IVOA unit (null allowed for now)"
                                 },
                                 "fits:tunit": {
-                                    "description": "FITS TUNIT (no type specified for now as this is set to null in several schemas)"
+                                    "type": ["string", "null"],
+                                    "description": "FITS TUNIT (null allowed for now)"
+                                },
+                                "votable:arraysize": {
+                                    "type": ["string", "integer"],
+                                    "description": "VOTable arraysize"
+                                },
+                                "tap:std": {
+                                    "type": "integer",
+                                    "description": "TAP STD (?)"
+                                },
+                                "votable:utype": {
+                                    "type": "string",
+                                    "description": "VOTable utype (this could be constrained with a regexp)"
                                 }
                             },
                             "required": ["name", "@id", "datatype", "description"],
