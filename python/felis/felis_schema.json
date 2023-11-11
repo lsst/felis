@@ -108,8 +108,7 @@
                                     "description": "IVOA unit"
                                 },
                                 "fits:tunit": {
-                                    "type": "string",
-                                    "description": "FITS TUNIT"
+                                    "description": "FITS TUNIT (no type specified for now as this is set to null in several schemas)"
                                 }
                             },
                             "required": ["name", "@id", "datatype", "description"],
@@ -140,11 +139,47 @@
                                 },
                                 "columns": {
                                     "type": "array",
-                                    "description": "List of columns in constraint"
+                                    "uniqueItems": true,
+                                    "contains": {
+                                        "type": "string"
+                                    },
+                                    "description": "List of columns in constraint",
+                                    "minItems": 1
                                 },
                                 "referencedColumns": {
                                     "type": "array",
-                                    "description": "List of referenced columns in constraint"
+                                    "uniqueItems": true,
+                                    "contains": {
+                                        "type": "string"
+                                    },
+                                    "description": "List of referenced columns in constraint",
+                                    "minItems": 1
+                                }
+                            },
+                            "required": ["name", "@type", "@id", "description", "columns", "referencedColumns"]
+                        }
+                    },
+                    "indexes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name of index"
+                                },
+                                "@id": {
+                                    "type": "string",
+                                    "description": "Unique identifier of index"
+                                },
+                                "columns": {
+                                    "type": "array",
+                                    "uniqueItems": true,
+                                    "contains": {
+                                        "type": "string"
+                                    },
+                                    "description": "List of referenced columns in constraint",
+                                    "minItems": 1
                                 }
                             }
                         }
