@@ -36,8 +36,8 @@
                         "description": "IVOA TAP table index"
                     },
                     "primaryKey": {
-                        "type": "string",
-                        "description": "identifier of the primary key column"
+                        "type": ["string", "array"],
+                        "description": "identifier of the primary key column (should this be changed to always expect an array?)"
                     },
                     "mysql:engine": {
                         "type": "string",
@@ -100,8 +100,8 @@
                                 },
                                 "ivoa:ucd": {
                                     "type": ["string", "null"],
-                                    "pattern": "^([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*)(;([a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)*))*$",
-                                    "description": "IVOA UCD (allow null for now)"
+                                    "pattern": "^([a-zA-Z0-9-_]+(\\.[a-zA-Z0-9-_]+)*)(;([a-zA-Z0-9-_]+(\\.[a-zA-Z0-9-_]+)*))*$",
+                                    "description": "IVOA UCD (allow null for now; the regexp is not great)"
                                 },
                                 "ivoa:unit": {
                                     "type": ["string", "null"],
@@ -122,6 +122,10 @@
                                 "votable:utype": {
                                     "type": ["string", "null"],
                                     "description": "VOTable utype (allow null for now; this could be constrained with a regexp)"
+                                },
+                                "votable:xtype": {
+                                    "type": "string",
+                                    "description": "VOTable xtype (could likely be constrained with an enum)"
                                 }
                             },
                             "required": ["name", "@id", "datatype", "description"],
