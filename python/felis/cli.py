@@ -28,12 +28,14 @@ from typing import Any
 
 import click
 import yaml
+from pydantic import ValidationError
 from pyld import jsonld
 from sqlalchemy.engine import Engine, create_engine, create_mock_engine, make_url
 from sqlalchemy.engine.mock import MockConnection
 
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
+from .datamodel import Schema
 from .sql import SQLVisitor
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
@@ -297,6 +299,23 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
     merged = {"@context": DEFAULT_CONTEXT, "@graph": list(updated_map.values())}
     normalized = _normalize(merged, embed="@always")
     _dump(normalized)
+
+
+@cli.command("validate")
+@click.argument("files", nargs=-1, type=click.File())
+def validate(files: Iterable[io.TextIOBase]) -> None:
+    """Validate one or more felis YAML files."""
+    rc = 0
+    for file in files:
+        file_name = getattr(file, "name", None)
+        logger.info(f"Validating {file_name}")
+        try:
+            Schema.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
+        except ValidationError as e:
+            logger.error(e)
+            rc = 1
+    if rc:
+        raise click.exceptions.Exit(rc)
 
 
 @cli.command("dump-json")

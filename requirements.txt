@@ -3,3 +3,4 @@ sqlalchemy >= 1.4
 click
 pyyaml
 pyld
+pydantic >= 2, < 3
