@@ -150,7 +150,7 @@ def load_tap(
         logger.error("Schema object not of recognizable type")
         sys.exit(1)
 
-    normalized = _normalize(schema_obj)
+    normalized = _normalize(schema_obj, embed="@always")
     if len(normalized["@graph"]) > 1 and (schema_name or catalog_name):
         logger.error("--schema-name and --catalog-name incompatible with multiple schemas")
         sys.exit(1)
@@ -341,8 +341,8 @@ def _dump(obj: Mapping[str, Any]) -> None:
     print(yaml.dump(obj, Dumper=OrderedDumper, default_flow_style=False))
 
 
-def _normalize(schema_obj: Mapping[str, Any]) -> MutableMapping[str, Any]:
-    framed = jsonld.frame(schema_obj, DEFAULT_FRAME)
+def _normalize(schema_obj: Mapping[str, Any], embed="@last") -> MutableMapping[str, Any]:
+    framed = jsonld.frame(schema_obj, DEFAULT_FRAME, options=dict(embed=embed))
     compacted = jsonld.compact(framed, DEFAULT_CONTEXT, options=dict(graph=True))
     graph = compacted["@graph"]
     graph = [ReorderingVisitor(add_type=True).visit_schema(schema_obj) for schema_obj in graph]

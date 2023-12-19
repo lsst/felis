@@ -60,7 +60,7 @@ class VisitorTestCase(unittest.TestCase):
         Tap11Base.metadata.create_all(engine)
 
         # This repeats logic from cli.py.
-        normalized = _normalize(self.schema_obj)
+        normalized = _normalize(self.schema_obj, embed="@always")
         if isinstance(normalized["@graph"], dict):
             normalized["@graph"] = [normalized["@graph"]]
         for schema in normalized["@graph"]:
