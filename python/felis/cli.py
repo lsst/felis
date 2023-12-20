@@ -224,7 +224,7 @@ def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
         schema_obj["tap:schema_index"] = schema_index
         graph.extend(jsonld.flatten(schema_obj))
     merged = {"@context": DEFAULT_CONTEXT, "@graph": graph}
-    normalized = _normalize(merged)
+    normalized = _normalize(merged, embed="@always")
     _dump(normalized)
 
 
@@ -266,7 +266,7 @@ def normalize(file: io.TextIOBase) -> None:
     # Force Context and Schema Type
     schema_obj["@context"] = DEFAULT_CONTEXT
     expanded = jsonld.expand(schema_obj)
-    normalized = _normalize(expanded)
+    normalized = _normalize(expanded, embed="@always")
     _dump(normalized)
 
 
@@ -295,7 +295,7 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
         item_to_update.update(item)
         updated_map[_id] = item_to_update
     merged = {"@context": DEFAULT_CONTEXT, "@graph": list(updated_map.values())}
-    normalized = _normalize(merged)
+    normalized = _normalize(merged, embed="@always")
     _dump(normalized)
 
 
@@ -341,7 +341,7 @@ def _dump(obj: Mapping[str, Any]) -> None:
     print(yaml.dump(obj, Dumper=OrderedDumper, default_flow_style=False))
 
 
-def _normalize(schema_obj: Mapping[str, Any], embed="@last") -> MutableMapping[str, Any]:
+def _normalize(schema_obj: Mapping[str, Any], embed: str = "@last") -> MutableMapping[str, Any]:
     framed = jsonld.frame(schema_obj, DEFAULT_FRAME, options=dict(embed=embed))
     compacted = jsonld.compact(framed, DEFAULT_CONTEXT, options=dict(graph=True))
     graph = compacted["@graph"]
