@@ -150,12 +150,12 @@ def load_tap(
         schema_obj = {"@context": DEFAULT_CONTEXT, "@graph": top_level_object}
     else:
         logger.error("Schema object not of recognizable type")
-        sys.exit(1)
+        raise click.exceptions.Exit(1)
 
     normalized = _normalize(schema_obj, embed="@always")
     if len(normalized["@graph"]) > 1 and (schema_name or catalog_name):
         logger.error("--schema-name and --catalog-name incompatible with multiple schemas")
-        sys.exit(1)
+        raise click.exceptions.Exit(1)
 
     # Force normalized["@graph"] to a list, which is what happens when there's
     # multiple schemas
