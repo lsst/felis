@@ -338,8 +338,10 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
             description = constraint_obj.get("description")
             utype = constraint_obj.get("votable:utype")
 
-            columns = [self.graph_index[c_id] for c_id in constraint_obj.get("columns", [])]
-            refcolumns = [self.graph_index[c_id] for c_id in constraint_obj.get("referencedColumns", [])]
+            columns = [self.graph_index[col["@id"]] for col in constraint_obj.get("columns", [])]
+            refcolumns = [
+                self.graph_index[refcol["@id"]] for refcol in constraint_obj.get("referencedColumns", [])
+            ]
 
             table_name = None
             for column in columns:
@@ -373,7 +375,7 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
 
     def visit_index(self, index_obj: _Mapping, table_obj: _Mapping) -> None:
         self.checker.check_index(index_obj, table_obj)
-        columns = [self.graph_index[c_id] for c_id in index_obj.get("columns", [])]
+        columns = [self.graph_index[col["@id"]] for col in index_obj.get("columns", [])]
         # if just one column and it's indexed, update the object
         if len(columns) == 1:
             columns[0].indexed = 1
