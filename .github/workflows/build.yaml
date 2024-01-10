@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v3
@@ -34,16 +34,49 @@ jobs:
         run: pip install -r requirements.txt
 
       # We have two cores so we can speed up the testing with xdist
-      - name: Install xdist, openfiles and flake8 for pytest
-        run: pip install "flake8<5" pytest-xdist pytest-openfiles pytest-flake8 pytest-cov
+      - name: Install pytest packages
+        run: pip install pytest pytest-xdist pytest-cov
+
+      - name: List installed packages
+        run: pip list -v
 
       - name: Build and install
-        run: pip install -v .
+        run: pip install -v --no-deps -e .
 
       - name: Run tests
-        run: pytest -r a -v -n 3 --open-files --cov=tests --cov=lsst.pex.config --cov-report=xml --cov-report=term
+        run: pytest -r a -v -n 3 --cov=tests --cov=felis --cov-report=xml --cov-report=term --cov-branch
 
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
+
+  pypi:
+    runs-on: ubuntu-latest
+    needs: [build_and_test]
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Need to clone everything to embed the version.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade setuptools wheel build
+
+      - name: Build and create distribution
+        run: python -m build --skip-dependency-check
+
+      - name: Upload
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_UPLOADS }}
