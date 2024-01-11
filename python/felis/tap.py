@@ -191,28 +191,50 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
 
         if self.engine is not None:
             session: Session = sessionmaker(self.engine)()
+
             session.add(schema)
+
             for table_obj in schema_obj["tables"]:
-                table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
+                table, columns = self.visit_table(table_obj, schema_obj)
                 session.add(table)
                 session.add_all(columns)
-                session.add_all(keys)
-                session.add_all(key_columns)
+
+            keys, key_columns = self.visit_constraints(schema_obj)
+            session.add_all(keys)
+            session.add_all(key_columns)
+
             session.commit()
         else:
+            logger.info("Dry run, not inserting into database")
+
             # Only if we are mocking (dry run)
             assert self._mock_connection is not None, "Mock connection must not be None"
             conn = self._mock_connection
             conn.execute(_insert(self.tables["schemas"], schema))
+
             for table_obj in schema_obj["tables"]:
-                table, columns, keys, key_columns = self.visit_table(table_obj, schema_obj)
+                table, columns = self.visit_table(table_obj, schema_obj)
                 conn.execute(_insert(self.tables["tables"], table))
                 for column in columns:
                     conn.execute(_insert(self.tables["columns"], column))
-                for key in keys:
-                    conn.execute(_insert(self.tables["keys"], key))
-                for key_column in key_columns:
-                    conn.execute(_insert(self.tables["key_columns"], key_column))
+
+            keys, key_columns = self.visit_constraints(schema_obj)
+            for key in keys:
+                conn.execute(_insert(self.tables["keys"], key))
+            for key_column in key_columns:
+                conn.execute(_insert(self.tables["key_columns"], key_column))
+
+    def visit_constraints(self, schema_obj: _Mapping) -> tuple:
+        all_keys = []
+        all_key_columns = []
+        for table_obj in schema_obj["tables"]:
+            for c in table_obj.get("constraints", []):
+                key, key_columns = self.visit_constraint(c, table_obj)
+                if not key:
+                    continue
+                all_keys.append(key)
+                all_key_columns += key_columns
+        return all_keys, all_key_columns
 
     def visit_schema_version(
         self, version_obj: str | Mapping[str, Any], schema_obj: Mapping[str, Any]
@@ -235,20 +257,12 @@ class TapLoadingVisitor(Visitor[None, tuple, Tap11Base, None, tuple, None, None]
 
         columns = [self.visit_column(c, table_obj) for c in table_obj["columns"]]
         self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
-        all_keys = []
-        all_key_columns = []
-        for c in table_obj.get("constraints", []):
-            key, key_columns = self.visit_constraint(c, table)
-            if not key:
-                continue
-            all_keys.append(key)
-            all_key_columns += key_columns
 
         for i in table_obj.get("indexes", []):
             self.visit_index(i, table)
 
         self.graph_index[table_id] = table
-        return table, columns, all_keys, all_key_columns
+        return table, columns
 
     def check_column(self, column_obj: _Mapping, table_obj: _Mapping) -> None:
         self.checker.check_column(column_obj, table_obj)
