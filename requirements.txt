@@ -1,6 +1,6 @@
-astropy
+astropy >= 4
 sqlalchemy >= 1.4
-click
-pyyaml
-pyld
+click >= 7
+pyyaml >= 6
+pyld >= 2
 pydantic >= 2, < 3
