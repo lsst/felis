@@ -305,10 +305,10 @@ class SchemaVersion(BaseModel):
     current: str
     """The current version of the schema."""
 
-    compatible: list[str] | None = None
+    compatible: list[str] = Field(default_factory=list)
     """The compatible versions of the schema."""
 
-    read_compatible: list[str] | None = None
+    read_compatible: list[str] = Field(default_factory=list)
     """The read compatible versions of the schema."""
 
 
