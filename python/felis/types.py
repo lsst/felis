@@ -28,7 +28,7 @@ class FelisType:
     """Base class for types that represent Felis column types.
 
     This class plays a role of a metaclass without being an actual metaclass.
-    It provides a method to retrieve a c;ass (type) given Felis type name.
+    It provides a method to retrieve a class (type) given Felis type name.
     There should be no instances of this class (or sub-classes), the utility
     of the class hierarchy is in the type system itself.
     """
