@@ -36,7 +36,7 @@ TEST_MERGE_YAML = os.path.join(TESTDIR, "data", "test-merge.yml")
 
 
 class CliTestCase(unittest.TestCase):
-    """Tests for TapLoadingVisitor class."""
+    """Tests for CLI commands."""
 
     schema_obj: MutableMapping[str, Any] | None = None
 
@@ -125,6 +125,18 @@ class CliTestCase(unittest.TestCase):
         runner = CliRunner()
 
         result = runner.invoke(cli, ["merge", TEST_YAML, TEST_MERGE_YAML], catch_exceptions=False)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_validate_default(self) -> None:
+        """Test for validate command."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["validate", TEST_YAML], catch_exceptions=False)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_validate_rsp(self) -> None:
+        """Test for validation using the RSP schema type."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["validate", "-s", "RSP", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
 

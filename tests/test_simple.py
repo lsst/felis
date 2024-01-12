@@ -89,14 +89,14 @@ class VisitorTestCase(unittest.TestCase):
         self.assertEqual(
             [column.annotations for column in table.columns],
             [
-                {"mysql:datatype": "SMALLINT"},
+                {"mysql:datatype": "SMALLINT", "tap:principal": 1},
                 {"mysql:datatype": "VARCHAR(30)"},
                 {"mysql:datatype": "VARCHAR(255)"},
             ],
         )
         self.assertEqual(_names(table.primary_key), ["sdqa_imageStatusId"])
         self.assertFalse(table.indexes)
-        self.assertEqual(table.annotations, {"mysql:engine": "MyISAM"})
+        self.assertEqual(table.annotations, {"mysql:engine": "MyISAM", "tap:table_index": 1})
 
         # Details of sdqa_Metric table.
         table = tables["sdqa_Metric"]
@@ -110,7 +110,7 @@ class VisitorTestCase(unittest.TestCase):
         self.assertEqual([column.length for column in table.columns], [None, 30, 30, 1, 255])
         self.assertEqual(_names(table.primary_key), ["sdqa_metricId"])
         self.assertFalse(table.indexes)
-        self.assertEqual(table.annotations, {"mysql:engine": "MyISAM"})
+        self.assertEqual(table.annotations, {"mysql:engine": "MyISAM", "tap:table_index": 2})
 
         # It defines a unique constraint.
         self.assertEqual(len(table.constraints), 1)
@@ -139,7 +139,7 @@ class VisitorTestCase(unittest.TestCase):
             [column.datatype for column in table.columns],
             [types.Long, types.Short, types.Short, types.Long, types.Double, types.Double],
         )
-        self.assertEqual(table.annotations, {"mysql:engine": "MyISAM"})
+        self.assertEqual(table.annotations, {"mysql:engine": "MyISAM", "tap:table_index": 3})
 
         # constraints
         self.assertEqual(len(table.constraints), 2)

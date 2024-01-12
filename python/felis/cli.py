@@ -24,7 +24,7 @@ import json
 import logging
 import sys
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any
+from typing import Any, Type
 
 import click
 import yaml
@@ -39,6 +39,7 @@ from .datamodel import Schema
 from .sql import SQLVisitor
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
+from .validation import get_schema
 
 logger = logging.getLogger("felis")
 
@@ -302,15 +303,25 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
 
 
 @cli.command("validate")
+@click.option(
+    "-s",
+    "--schema-name",
+    help="Schema name for validation",
+    type=click.Choice(["RSP", "default"]),
+    default="default",
+)
 @click.argument("files", nargs=-1, type=click.File())
-def validate(files: Iterable[io.TextIOBase]) -> None:
+def validate(schema_name: str, files: Iterable[io.TextIOBase]) -> None:
     """Validate one or more felis YAML files."""
+    schema_class: Type[Schema] = get_schema(schema_name)
+    logger.info(f"Using schema {schema_class.__name__}")
+
     rc = 0
     for file in files:
         file_name = getattr(file, "name", None)
         logger.info(f"Validating {file_name}")
         try:
-            Schema.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
+            schema_class.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
         except ValidationError as e:
             logger.error(e)
             rc = 1
