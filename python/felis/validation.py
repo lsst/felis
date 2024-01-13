@@ -49,7 +49,7 @@ class RspTable(Table):
     """Redefine description so that it is required and non-empty.
     """
 
-    tap_table_index: int | None = Field(..., alias="tap:table_index")
+    tap_table_index: int = Field(..., alias="tap:table_index")
     """Redefine the TAP_SCHEMA table index so that it is required."""
 
     columns: list[RspColumn]  # type: ignore

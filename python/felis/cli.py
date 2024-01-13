@@ -314,7 +314,7 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
 def validate(schema_name: str, files: Iterable[io.TextIOBase]) -> None:
     """Validate one or more felis YAML files."""
     schema_class: Type[Schema] = get_schema(schema_name)
-    logger.info(f"Using schema {schema_class.__name__}")
+    logger.info(f"Using schema '{schema_class.__name__}'")
 
     rc = 0
     for file in files:
