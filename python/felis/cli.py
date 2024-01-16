@@ -204,7 +204,7 @@ def load_tap(
 
 
 @cli.command("modify-tap")
-@click.option("--start-schema-at", type=int, help="Rewrite index for tap:schema_index")
+@click.option("--start-schema-at", type=int, help="Rewrite index for tap:schema_index", default=0)
 @click.argument("files", nargs=-1, type=click.File())
 def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
     """Modify TAP information in Felis schema FILES.
