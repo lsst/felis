@@ -20,7 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-from typing import Type
+from typing import Any, Type
 
 from pydantic import Field, model_validator
 
@@ -46,8 +46,7 @@ class RspTable(Table):
     """
 
     description: str = Field(..., min_length=1)
-    """Redefine description so that it is required and non-empty.
-    """
+    """Redefine description so that it is required and non-empty."""
 
     tap_table_index: int = Field(..., alias="tap:table_index")
     """Redefine the TAP_SCHEMA table index so that it is required."""
@@ -57,7 +56,7 @@ class RspTable(Table):
 
     @model_validator(mode="after")  # type: ignore
     @classmethod
-    def check_tap_principal(cls, tbl: "RspTable") -> "RspTable":
+    def check_tap_principal(cls: Any, tbl: "RspTable") -> "RspTable":
         """Check that at least one column is flagged as the TAP principal."""
         for col in tbl.columns:
             if col.tap_principal == 1:
@@ -80,7 +79,7 @@ class RspSchema(Schema):
 
     @model_validator(mode="after")  # type: ignore
     @classmethod
-    def check_tap_table_indexes(cls, sch: "RspSchema") -> "RspSchema":
+    def check_tap_table_indexes(cls: Any, sch: "RspSchema") -> "RspSchema":
         """Check that the TAP table indexes are unique."""
         table_indicies = set()
         for table in sch.tables:

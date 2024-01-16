@@ -388,7 +388,7 @@ class Schema(BaseObject):
         return tables
 
     @model_validator(mode="after")
-    def create_id_map(self) -> "Schema":
+    def create_id_map(self: "Schema") -> "Schema":
         """Create a map of IDs to objects."""
         visitor: SchemaVisitor = SchemaVisitor()
         visitor.visit_schema(self)
