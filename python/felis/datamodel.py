@@ -300,7 +300,10 @@ class SchemaVersion(BaseModel):
 
 
 def _extract_ids(
-    obj: BaseModel | list[BaseModel] | dict[str, BaseModel], id_map: dict[str, BaseModel], processed: set[int]
+    obj: BaseModel | list[BaseModel] | dict[str, BaseModel],
+    id_map: dict[str, BaseModel],
+    duplicates: set[str],
+    processed: set[int] = set(),
 ) -> None:
     """Recursively extract ID values from a `BaseModel` object
     and map them to their corresponding object.
@@ -312,20 +315,24 @@ def _extract_ids(
 
     if isinstance(obj, BaseModel):
         if hasattr(obj, "id"):
-            id_map[getattr(obj, "id")] = obj
+            if getattr(obj, "id") in id_map:
+                # Found a duplicate ID, but keep going to find all duplicates
+                duplicates.add(getattr(obj, "id"))
+            else:
+                id_map[getattr(obj, "id")] = obj
 
         # Iterate over the fields of the BaseModel object
         for attr, value in obj.__dict__.items():
             if isinstance(value, BaseModel | list | dict):
-                _extract_ids(value, id_map, processed)
+                _extract_ids(value, id_map, duplicates)
 
     elif isinstance(obj, list):
         for item in obj:
-            _extract_ids(item, id_map, processed)
+            _extract_ids(item, id_map, duplicates)
 
     elif isinstance(obj, dict):
         for value in obj.values():
-            _extract_ids(value, id_map, processed)
+            _extract_ids(value, id_map, duplicates)
 
 
 class Schema(BaseObject):
@@ -351,6 +358,9 @@ class Schema(BaseObject):
     @model_validator(mode="after")
     def create_id_map(self) -> "Schema":
         """Create a map of IDs to objects."""
-        _extract_ids(self, self.id_map, set())
+        duplicates: set[str] = set()
+        _extract_ids(self, self.id_map, duplicates)
+        if len(duplicates) > 0:
+            raise ValueError("Duplicate IDs found in schema:\n    " + "\n    ".join(duplicates) + "\n")
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
         return self
