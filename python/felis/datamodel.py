@@ -324,31 +324,33 @@ class SchemaVisitor:
     This class is intended for internal use only.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Create a new SchemaVisitor."""
-        self.schema: "Schema" = None
+        self.schema: "Schema" | None = None
         self.duplicates: set[str] = set()
 
-    def add(self, obj: BaseObject):
+    def add(self, obj: BaseObject) -> None:
         """Add an object to the ID map."""
         if hasattr(obj, "id"):
             obj_id = getattr(obj, "id")
-            if obj_id in self.schema.id_map:
-                self.duplicates.add(obj_id)
-            else:
-                self.schema.id_map[obj_id] = obj
+            if self.schema is not None:
+                if obj_id in self.schema.id_map:
+                    self.duplicates.add(obj_id)
+                else:
+                    self.schema.id_map[obj_id] = obj
 
-    def visit_schema(self, schema: "Schema"):
-        """Visit a schema object.
+    def visit_schema(self, schema: "Schema") -> None:
+        """Visit the schema object that was added during initialization.
 
         This will set an internal variable pointing to the schema object.
         """
         self.schema = schema
-        self.add(schema)
-        for table in schema.tables:
+        self.duplicates.clear()
+        self.add(self.schema)
+        for table in self.schema.tables:
             self.visit_table(table)
 
-    def visit_table(self, table: Table):
+    def visit_table(self, table: Table) -> None:
         """Visit a table object."""
         self.add(table)
         for column in table.columns:
@@ -356,11 +358,11 @@ class SchemaVisitor:
         for constraint in table.constraints:
             self.visit_constraint(constraint)
 
-    def visit_column(self, column: Column):
+    def visit_column(self, column: Column) -> None:
         """Visit a column object."""
         self.add(column)
 
-    def visit_constraint(self, constraint: Constraint):
+    def visit_constraint(self, constraint: Constraint) -> None:
         """Visit a constraint object."""
         self.add(constraint)
 
@@ -396,3 +398,12 @@ class Schema(BaseObject):
                 "Duplicate IDs found in schema:\n    " + "\n    ".join(visitor.duplicates) + "\n"
             )
         return self
+
+    def get_object_by_id(self, id: str) -> BaseObject:
+        """Get an object by its unique "@id" field value.
+
+        An error will be thrown if the object is not found.
+        """
+        if id not in self.id_map:
+            raise ValueError(f"Object with ID {id} not found in schema")
+        return self.id_map[id]
