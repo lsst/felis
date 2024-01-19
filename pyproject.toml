@@ -3,7 +3,7 @@ requires = ["setuptools", "lsst-versions >= 1.3.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "felis"
+name = "lsst-felis"
 description = "A vocabulary for describing catalogs and acting on those descriptions"
 license = {text = "GNU General Public License v3 or later (GPLv3+)"}
 readme = "README.md"
