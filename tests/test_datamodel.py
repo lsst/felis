@@ -310,14 +310,14 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Schema(name="testSchema", id="#test_id")
 
-        test_col = Column(name="testColumn", id="#test_id", datatype="string")
-        test_tbl = Table(name="testTable", id="#test_id", columns=[test_col])
+        test_col = Column(name="testColumn", id="#test_col_id", datatype="string")
+        test_tbl = Table(name="testTable", id="#test_tbl_id", columns=[test_col])
 
         # Setting name, id, and columns should not throw an exception and
         # should load data correctly.
-        sch = Schema(name="testSchema", id="#test_id", tables=[test_tbl])
+        sch = Schema(name="testSchema", id="#test_sch_id", tables=[test_tbl])
         self.assertEqual(sch.name, "testSchema", "name should be 'testSchema'")
-        self.assertEqual(sch.id, "#test_id", "id should be '#test_id'")
+        self.assertEqual(sch.id, "#test_sch_id", "id should be '#test_sch_id'")
         self.assertEqual(sch.tables, [test_tbl], "tables should be ['testTable']")
 
         # Creating a schema with duplicate table names should raise an
