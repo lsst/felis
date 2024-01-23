@@ -325,6 +325,10 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Schema(name="testSchema", id="#test_id", tables=[test_tbl, test_tbl])
 
+        # Using an undefined YAML field should raise an exception.
+        with self.assertRaises(ValidationError):
+            Schema(**{"name": "testSchema", "id": "#test_sch_id", "bad_field": "1234"}, tables=[test_tbl])
+
     def test_id_map(self) -> None:
         """Test that the id_map is properly populated."""
         test_col = Column(name="testColumn", id="#test_col_id", datatype="string")
