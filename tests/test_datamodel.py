@@ -329,16 +329,32 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Schema(**{"name": "testSchema", "id": "#test_sch_id", "bad_field": "1234"}, tables=[test_tbl])
 
+        # Creating a schema containing duplicate IDs should raise an error.
+        with self.assertRaises(ValidationError):
+            Schema(
+                name="testSchema",
+                id="#test_sch_id",
+                tables=[
+                    Table(
+                        name="testTable",
+                        id="#test_tbl_id",
+                        columns=[
+                            Column(name="testColumn", id="#test_col_id", datatype="string"),
+                            Column(name="testColumn2", id="#test_col_id", datatype="string"),
+                        ],
+                    )
+                ],
+            )
+
     def test_id_map(self) -> None:
         """Test that the id_map is properly populated."""
         test_col = Column(name="testColumn", id="#test_col_id", datatype="string")
         test_tbl = Table(name="testTable", id="#test_table_id", columns=[test_col])
         sch = Schema(name="testSchema", id="#test_schema_id", tables=[test_tbl])
 
-        # print(f"id map:\n {sch.id_map}")
-
         for id in ["#test_col_id", "#test_table_id", "#test_schema_id"]:
-            self.assertTrue(id in sch.id_map, f"ID {id} is missing from id_map")
+            # Test that the id_map contains the expected id.
+            sch.get_object_by_id(id)
 
 
 class SchemaVersionTest(unittest.TestCase):
