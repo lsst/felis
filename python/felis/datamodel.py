@@ -31,6 +31,19 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
 
+__all__ = (
+    "BaseObject",
+    "Column",
+    "Constraint",
+    "CheckConstraint",
+    "UniqueConstraint",
+    "Index",
+    "ForeignKeyConstraint",
+    "Table",
+    "SchemaVersion",
+    "Schema",
+)
+
 
 class BaseObject(BaseModel):
     """Base class for all Felis objects."""
@@ -299,33 +312,59 @@ class SchemaVersion(BaseModel):
     """The read compatible versions of the schema."""
 
 
-def _extract_ids(
-    obj: BaseModel | list[BaseModel] | dict[str, BaseModel], id_map: dict[str, BaseModel], processed: set[int]
-) -> None:
-    """Recursively extract ID values from a `BaseModel` object
-    and map them to their corresponding object.
+class SchemaVisitor:
+    """Visitor to build a Schema object's map of IDs to objects.
+
+    Duplicates are added to a set when they are encountered, which can be
+    accessed via the `duplicates` attribute. The presence of duplicates will
+    not throw an error. Only the first object with a given ID will be added to
+    the map, but this should not matter, since a ValidationError will be thrown
+    by the `model_validator` method if any duplicates are found in the schema.
+
+    This class is intended for internal use only.
     """
-    obj_id = id(obj)
-    if obj_id in processed:
-        return
-    processed.add(obj_id)
 
-    if isinstance(obj, BaseModel):
+    def __init__(self) -> None:
+        """Create a new SchemaVisitor."""
+        self.schema: "Schema" | None = None
+        self.duplicates: set[str] = set()
+
+    def add(self, obj: BaseObject) -> None:
+        """Add an object to the ID map."""
         if hasattr(obj, "id"):
-            id_map[getattr(obj, "id")] = obj
+            obj_id = getattr(obj, "id")
+            if self.schema is not None:
+                if obj_id in self.schema.id_map:
+                    self.duplicates.add(obj_id)
+                else:
+                    self.schema.id_map[obj_id] = obj
 
-        # Iterate over the fields of the BaseModel object
-        for attr, value in obj.__dict__.items():
-            if isinstance(value, BaseModel | list | dict):
-                _extract_ids(value, id_map, processed)
+    def visit_schema(self, schema: "Schema") -> None:
+        """Visit the schema object that was added during initialization.
 
-    elif isinstance(obj, list):
-        for item in obj:
-            _extract_ids(item, id_map, processed)
+        This will set an internal variable pointing to the schema object.
+        """
+        self.schema = schema
+        self.duplicates.clear()
+        self.add(self.schema)
+        for table in self.schema.tables:
+            self.visit_table(table)
 
-    elif isinstance(obj, dict):
-        for value in obj.values():
-            _extract_ids(value, id_map, processed)
+    def visit_table(self, table: Table) -> None:
+        """Visit a table object."""
+        self.add(table)
+        for column in table.columns:
+            self.visit_column(column)
+        for constraint in table.constraints:
+            self.visit_constraint(constraint)
+
+    def visit_column(self, column: Column) -> None:
+        """Visit a column object."""
+        self.add(column)
+
+    def visit_constraint(self, constraint: Constraint) -> None:
+        """Visit a constraint object."""
+        self.add(constraint)
 
 
 class Schema(BaseObject):
@@ -351,6 +390,20 @@ class Schema(BaseObject):
     @model_validator(mode="after")
     def create_id_map(self) -> "Schema":
         """Create a map of IDs to objects."""
-        _extract_ids(self, self.id_map, set())
+        visitor: SchemaVisitor = SchemaVisitor()
+        visitor.visit_schema(self)
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
+        if len(visitor.duplicates):
+            raise ValueError(
+                "Duplicate IDs found in schema:\n    " + "\n    ".join(visitor.duplicates) + "\n"
+            )
         return self
+
+    def get_object_by_id(self, id: str) -> BaseObject:
+        """Get an object by its unique "@id" field value.
+
+        An error will be thrown if the object is not found.
+        """
+        if id not in self.id_map:
+            raise ValueError(f"Object with ID {id} not found in schema")
+        return self.id_map[id]
