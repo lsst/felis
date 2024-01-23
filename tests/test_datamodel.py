@@ -370,6 +370,32 @@ class SchemaVersionTest(unittest.TestCase):
         sv = SchemaVersion(current="1.0.0")
         self.assertEqual(sv.current, "1.0.0", "current should be '1.0.0'")
 
+        # Check that schema version can be specified as a single string or
+        # an object.
+        data = {
+            "name": "schema",
+            "@id": "#schema",
+            "tables": [],
+            "version": "1.2.3",
+        }
+        schema = Schema.model_validate(data)
+        self.assertEqual(schema.version, "1.2.3")
+
+        data = {
+            "name": "schema",
+            "@id": "#schema",
+            "tables": [],
+            "version": {
+                "current": "1.2.3",
+                "compatible": ["1.2.0", "1.2.1", "1.2.2"],
+                "read_compatible": ["1.1.0", "1.1.1"],
+            },
+        }
+        schema = Schema.model_validate(data)
+        self.assertEqual(schema.version.current, "1.2.3")
+        self.assertEqual(schema.version.compatible, ["1.2.0", "1.2.1", "1.2.2"])
+        self.assertEqual(schema.version.read_compatible, ["1.1.0", "1.1.1"])
+
 
 if __name__ == "__main__":
     unittest.main()
