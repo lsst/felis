@@ -370,7 +370,7 @@ class SchemaVisitor:
 class Schema(BaseObject):
     """The database schema."""
 
-    version: SchemaVersion | None = None
+    version: SchemaVersion | str | None = None
     """The version of the schema."""
 
     tables: list[Table]
