@@ -20,7 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-from typing import Any, Type
+from typing import Any, Sequence, Type
 
 from pydantic import Field, model_validator
 
@@ -51,7 +51,7 @@ class RspTable(Table):
     tap_table_index: int = Field(..., alias="tap:table_index")
     """Redefine the TAP_SCHEMA table index so that it is required."""
 
-    columns: list[RspColumn]  # type: ignore
+    columns: Sequence[RspColumn]
     """Redefine columns to include RSP validation."""
 
     @model_validator(mode="after")  # type: ignore
@@ -74,7 +74,7 @@ class RspSchema(Schema):
     """Redefine description to make it required and non-empty.
     """
 
-    tables: list[RspTable]  # type: ignore
+    tables: Sequence[RspTable]
     """Redefine tables to include RSP validation."""
 
     @model_validator(mode="after")  # type: ignore

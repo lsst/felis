@@ -99,7 +99,8 @@ class RSPSchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RspSchema(tables=[tbl])
 
-        # Creating a schema with duplicate TAP table indices should throw an exception.
+        # Creating a schema with duplicate TAP table indices should throw an
+        # exception.
         with self.assertRaises(ValidationError):
             RspSchema(
                 **{"name": "testSchema", "@id": "#test_schema_id", "description": "test schema"},

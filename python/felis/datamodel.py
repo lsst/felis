@@ -22,7 +22,7 @@
 import logging
 from collections.abc import Mapping
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
@@ -243,7 +243,7 @@ class ForeignKeyConstraint(Constraint):
 class Table(BaseObject):
     """A database table."""
 
-    columns: list[Column]
+    columns: Sequence[Column]
     """The columns in the table."""
 
     constraints: list[Constraint] = Field(default_factory=list)
@@ -373,7 +373,7 @@ class Schema(BaseObject):
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
-    tables: list[Table]
+    tables: Sequence[Table]
     """The tables in the schema."""
 
     id_map: dict[str, Any] = Field(default_factory=dict, exclude=True)
