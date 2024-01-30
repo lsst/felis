@@ -26,7 +26,7 @@ from typing import Any, Literal, Sequence
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -48,11 +48,23 @@ __all__ = (
 class BaseObject(BaseModel):
     """Base class for all Felis objects."""
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid", use_enum_values=True)
-    """Configuration for the `BaseModel` class.
+    class Config:
+        """Configuration for the `BaseModel` class."""
 
-    Allow attributes to be populated by name and forbid extra attributes.
-    """
+        populate_by_name = True
+        """Allow fields to be populated by name."""
+
+        extra = "forbid"
+        """Forbid extra fields."""
+
+        use_enum_values = True
+        """Use the values of `Enum` members instead of their names."""
+
+        _require_description = False
+        """Flag to require a description for all objects.
+
+        This is set by the `require_description` class method.
+        """
 
     name: str
     """The name of the database object.
@@ -69,8 +81,18 @@ class BaseObject(BaseModel):
     description: str | None = None
     """A description of the database object.
 
-    The description is optional.
+    By default, the description is optional but will be required if
+    `BaseObject.Config.require_description` is set to `True` by the user.
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_description(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Check that the description is present if required."""
+        if Schema.is_description_required():
+            if "description" not in values or not values["description"]:
+                raise ValueError("Description is required and must be non-empty")
+        return values
 
 
 class DataType(Enum):
@@ -407,3 +429,20 @@ class Schema(BaseObject):
         if id not in self.id_map:
             raise ValueError(f"Object with ID {id} not found in schema")
         return self.id_map[id]
+
+    @classmethod
+    def require_description(cls, rd: bool = True) -> None:
+        """Set whether a description is required for all objects.
+
+        This includes the schema, tables, columns, and constraints.
+
+        Users should call this method to set the requirement for a description
+        rather than change the flag directly in `BaseObject`.
+        """
+        logger.debug(f"Setting description requirement to '{rd}'")
+        BaseObject.Config._require_description = rd
+
+    @classmethod
+    def is_description_required(cls) -> bool:
+        """Return whether a description is required for all objects."""
+        return BaseObject.Config._require_description

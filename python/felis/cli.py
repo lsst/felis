@@ -310,11 +310,15 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
     type=click.Choice(["RSP", "default"]),
     default="default",
 )
+@click.option("-d", "--require-description", is_flag=True, help="Require description for all objects")
 @click.argument("files", nargs=-1, type=click.File())
-def validate(schema_name: str, files: Iterable[io.TextIOBase]) -> None:
+def validate(schema_name: str, require_description: bool, files: Iterable[io.TextIOBase]) -> None:
     """Validate one or more felis YAML files."""
     schema_class: Type[Schema] = get_schema(schema_name)
     logger.info(f"Using schema '{schema_class.__name__}'")
+
+    if require_description:
+        Schema.require_description(True)
 
     rc = 0
     for file in files:

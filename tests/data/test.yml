@@ -80,6 +80,7 @@ tables:
         "@id": "#UQ_sdqaMetric_metricName"
         "@type": Unique
         columns: ["#sdqa_Metric.metricName"]
+        description: Unique constraint on metricName.
     mysql:engine: MyISAM
 
   - name: sdqa_Rating_ForAmpVisit
@@ -126,23 +127,28 @@ tables:
       - name: UQ_sdqaRatingForAmpVisit_metricId_ampVisitId
         "@id": "#UQ_sdqaRatingForAmpVisit_metricId_ampVisitId"
         "@type": Unique
+        description: Unique constraint on metricId and ampVisitId.
         columns:
           - "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
           - "#sdqa_Rating_ForAmpVisit.ampVisitId"
       - name: FK_sdqa_Rating_ForAmpVisit_sdqa_Metric
         "@id": "#FK_sdqa_Rating_ForAmpVisit_sdqa_Metric"
         "@type": ForeignKey
+        description: Foreign key constraint on sdqa_metricId.
         columns: ["#sdqa_Rating_ForAmpVisit.sdqa_metricId"]
         referencedColumns: ["#sdqa_Metric.sdqa_metricId"]
     indexes:
       - name: IDX_sdqaRatingForAmpVisit_metricId
         "@id": "#IDX_sdqaRatingForAmpVisit_metricId"
+        description: Index on metricId.
         columns: ["#sdqa_Rating_ForAmpVisit.sdqa_metricId"]
       - name: IDX_sdqaRatingForAmpVisit_thresholdId
         "@id": "#IDX_sdqaRatingForAmpVisit_thresholdId"
+        description: Index on thresholdId.
         columns: ["#sdqa_Rating_ForAmpVisit.sdqa_thresholdId"]
       - name: IDX_sdqaRatingForAmpVisit_ampVisitId
         "@id": "#IDX_sdqaRatingForAmpVisit_ampVisitId"
+        description: Index on ampVisitId.
         columns: ["#sdqa_Rating_ForAmpVisit.ampVisitId"]
     mysql:engine: MyISAM
 
@@ -189,18 +195,22 @@ tables:
       - name: UQ_sdqaRatingCcdVisit_metricId_ccdVisitId
         "@id": "#UQ_sdqaRatingCcdVisit_metricId_ccdVisitId"
         "@type": Unique
+        description: Unique constraint on metricId and ccdVisitId.
         columns:
           - "#sdqa_Rating_CcdVisit.sdqa_metricId"
           - "#sdqa_Rating_CcdVisit.ccdVisitId"
     indexes:
       - name: IDX_sdqaRatingCcdVisit_metricId
         "@id": "#IDX_sdqaRatingCcdVisit_metricId"
+        description: Index on metricId.
         columns: ["#sdqa_Rating_CcdVisit.sdqa_metricId"]
       - name: IDX_sdqaRatingCcdVisit_thresholdId
         "@id": "#IDX_sdqaRatingCcdVisit_thresholdId"
+        description: Index on thresholdId.
         columns: ["#sdqa_Rating_CcdVisit.sdqa_thresholdId"]
       - name: IDX_sdqaRatingCcdVisit_ccdVisitId
         "@id": "#IDX_sdqaRatingCcdVisit_ccdVisitId"
+        description: Index on ccdVisitId.
         columns: ["#sdqa_Rating_CcdVisit.ccdVisitId"]
     mysql:engine: MyISAM
 
@@ -245,5 +255,6 @@ tables:
     indexes:
       - name: IDX_sdqaThreshold_metricId
         "@id": "#IDX_sdqaThreshold_metricId"
+        description: Index on metricId.
         columns: ["#sdqa_Threshold.sdqa_metricId"]
     mysql:engine: MyISAM

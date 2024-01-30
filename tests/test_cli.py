@@ -29,6 +29,7 @@ from typing import Any
 from click.testing import CliRunner
 
 from felis.cli import cli
+from felis.datamodel import Schema
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
@@ -128,13 +129,23 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_validate_default(self) -> None:
-        """Test for validate command."""
+        """Test validate command."""
         runner = CliRunner()
         result = runner.invoke(cli, ["validate", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
+    def test_validate_default_with_require_description(self) -> None:
+        """Test validate command with description required."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["validate", "--require-description", TEST_YAML], catch_exceptions=False)
+        # This state needs to be reset for subsequent tests or some will fail.
+        # This is not an issue when running the actual command line tool, which
+        # will execute in its own system process.
+        Schema.require_description(False)
+        self.assertEqual(result.exit_code, 0)
+
     def test_validate_rsp(self) -> None:
-        """Test for validation using the RSP schema type."""
+        """Test RSP schema type validation."""
         runner = CliRunner()
         result = runner.invoke(cli, ["validate", "-s", "RSP", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)

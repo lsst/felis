@@ -121,6 +121,27 @@ class ColumnTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Column(**units_data)
 
+        # Turn on description requirement for next two tests.
+        Schema.require_description(True)
+
+        # Make sure that setting the flag for description requirement works
+        # correctly.
+        self.assertTrue(Schema.is_description_required(), "description should be required")
+
+        # Creating a column without a description when required should throw an
+        # error.
+        with self.assertRaises(ValidationError):
+            col = Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                }
+            )
+
+        # Turn off flag or it will affect subsequent tests.
+        Schema.require_description(False)
+
 
 class ConstraintTestCase(unittest.TestCase):
     """Test the `UniqueConstraint`, `Index`, `CheckCosntraint`, and
