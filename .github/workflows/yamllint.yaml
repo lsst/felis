@@ -1,4 +1,4 @@
-name: Lint YAML Files
+name: Lint YAML files
 
 on:
   push:
