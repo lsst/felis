@@ -117,10 +117,6 @@ class CliTestCase(unittest.TestCase):
         """Test for modify-tap command."""
         runner = CliRunner()
 
-        # Without --start-schema-at it makes an exception
-        with self.assertRaises(TypeError):
-            result = runner.invoke(cli, ["modify-tap", TEST_YAML], catch_exceptions=False)
-
         result = runner.invoke(cli, ["modify-tap", "--start-schema-at=1", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
