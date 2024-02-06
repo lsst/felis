@@ -103,9 +103,24 @@ class SQLVisitor(Visitor[Schema, Table, Column, PrimaryKeyConstraint | None, Con
         self.checker.check_schema(schema_obj)
         if (version_obj := schema_obj.get("version")) is not None:
             self.visit_schema_version(version_obj, schema_obj)
+
+        # Create tables but don't add constraints yet.
+        tables = [self.visit_table(t, schema_obj) for t in schema_obj["tables"]]
+
+        # Process constraints after the tables are created so that all
+        # referenced columns are available.
+        for table_obj in schema_obj["tables"]:
+            constraints = [
+                self.visit_constraint(constraint, table_obj)
+                for constraint in table_obj.get("constraints", [])
+            ]
+            table = self.graph_index[table_obj["@id"]]
+            for constraint in constraints:
+                table.append_constraint(constraint)
+
         schema = Schema(
             name=self.schema_name or schema_obj["name"],
-            tables=[self.visit_table(t, schema_obj) for t in schema_obj["tables"]],
+            tables=tables,
             metadata=self.metadata,
             graph_index=self.graph_index,
         )
@@ -134,10 +149,6 @@ class SQLVisitor(Visitor[Schema, Table, Column, PrimaryKeyConstraint | None, Con
         primary_key = self.visit_primary_key(table_obj.get("primaryKey", []), table_obj)
         if primary_key:
             table.append_constraint(primary_key)
-
-        constraints = [self.visit_constraint(c, table_obj) for c in table_obj.get("constraints", [])]
-        for constraint in constraints:
-            table.append_constraint(constraint)
 
         indexes = [self.visit_index(i, table_obj) for i in table_obj.get("indexes", [])]
         for index in indexes:
