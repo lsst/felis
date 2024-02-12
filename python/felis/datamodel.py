@@ -334,7 +334,7 @@ class SchemaVersion(BaseModel):
     """The read compatible versions of the schema."""
 
 
-class SchemaVisitor:
+class SchemaIdVisitor:
     """Visitor to build a Schema object's map of IDs to objects.
 
     Duplicates are added to a set when they are encountered, which can be
@@ -412,7 +412,7 @@ class Schema(BaseObject):
     @model_validator(mode="after")
     def create_id_map(self: "Schema") -> "Schema":
         """Create a map of IDs to objects."""
-        visitor: SchemaVisitor = SchemaVisitor()
+        visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
         if len(visitor.duplicates):
@@ -421,14 +421,15 @@ class Schema(BaseObject):
             )
         return self
 
-    def get_object_by_id(self, id: str) -> BaseObject:
-        """Get an object by its unique "@id" field value.
-
-        An error will be thrown if the object is not found.
-        """
-        if id not in self.id_map:
-            raise ValueError(f"Object with ID {id} not found in schema")
+    def __getitem__(self, id: str) -> BaseObject:
+        """Get an object by its ID."""
+        if id not in self:
+            raise ValueError(f"Object with ID '{id}' not found in schema")
         return self.id_map[id]
+
+    def __contains__(self, id: str) -> bool:
+        """Check if an object with the given ID is in the schema."""
+        return id in self.id_map
 
     @classmethod
     def require_description(cls, rd: bool = True) -> None:
