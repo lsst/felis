@@ -39,6 +39,14 @@ class RSPSchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RspColumn(name="testColumn", id="#test_col_id", datatype="string")
 
+        # A column description with only whitespace should throw an exception.
+        with self.assertRaises(ValidationError):
+            RspColumn(name="testColumn", id="#test_col_id", datatype="string", description="  ")
+
+        # A column description of `None` should throw an exception.
+        with self.assertRaises(ValidationError):
+            RspColumn(name="testColumn", id="#test_col_id", datatype="string", description=None)
+
         # Creating a valid RSP column should not throw an exception.
         col = RspColumn(
             **{
@@ -57,6 +65,20 @@ class RSPSchemaTestCase(unittest.TestCase):
         # Missing table description should throw an exception.
         with self.assertRaises(ValidationError):
             RspTable(**{"name": "testTable", "@id": "#test_table_id", "tap:table_index": 1}, columns=[col])
+
+        # A table description with only whitespace should throw an exception.
+        with self.assertRaises(ValidationError):
+            RspTable(
+                **{"name": "testTable", "@id": "#test_table_id", "tap:table_index": 1, "description": "  "},
+                columns=[col],
+            )
+
+        # A table description of `None` should throw an exception.
+        with self.assertRaises(ValidationError):
+            RspTable(
+                **{"name": "testTable", "@id": "#test_table_id", "tap:table_index": 1, "description": None},
+                columns=[col],
+            )
 
         # Missing TAP table index should throw an exception.
         with self.assertRaises(ValidationError):

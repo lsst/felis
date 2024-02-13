@@ -22,17 +22,22 @@
 import logging
 from typing import Any, Sequence, Type
 
-from pydantic import Field, model_validator
+from pydantic import Field, constr, model_validator
 
 from .datamodel import Column, Schema, Table
 
 logger = logging.getLogger(__name__)
 
+NonEmptyStrippedStr = constr(strip_whitespace=True, min_length=3)
+"""A string type that is required to be non-empty after being stripped of
+whitespace.
+"""
+
 
 class RspColumn(Column):
     """Column for RSP data validation."""
 
-    description: str = Field(..., min_length=1)
+    description: NonEmptyStrippedStr  # type: ignore[valid-type]
     """Redefine description to make it required and non-empty.
     """
 
@@ -45,7 +50,7 @@ class RspTable(Table):
     Tables for the RSP must have a TAP table index and a valid description.
     """
 
-    description: str = Field(..., min_length=1)
+    description: NonEmptyStrippedStr  # type: ignore[valid-type]
     """Redefine description so that it is required and non-empty."""
 
     tap_table_index: int = Field(..., alias="tap:table_index")
@@ -54,7 +59,7 @@ class RspTable(Table):
     columns: Sequence[RspColumn]
     """Redefine columns to include RSP validation."""
 
-    @model_validator(mode="after")  # type: ignore
+    @model_validator(mode="after")  # type: ignore[arg-type]
     @classmethod
     def check_tap_principal(cls: Any, tbl: "RspTable") -> "RspTable":
         """Check that at least one column is flagged as 'principal' for
@@ -79,7 +84,7 @@ class RspSchema(Schema):
     tables: Sequence[RspTable]
     """Redefine tables to include RSP validation."""
 
-    @model_validator(mode="after")  # type: ignore
+    @model_validator(mode="after")  # type: ignore[arg-type]
     @classmethod
     def check_tap_table_indexes(cls: Any, sch: "RspSchema") -> "RspSchema":
         """Check that the TAP table indexes are unique."""
