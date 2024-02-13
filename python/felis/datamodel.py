@@ -26,7 +26,7 @@ from typing import Any, Literal, Sequence
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 # logger.setLevel(logging.DEBUG)
@@ -44,21 +44,28 @@ __all__ = (
     "Schema",
 )
 
+CONFIG = ConfigDict(
+    populate_by_name=True,  # Populate attributes by name.
+    extra="forbid",  # Do not allow extra fields.
+    use_enum_values=True,  # Use enum values instead of names.
+    validate_assignment=True,  # Validate assignments after model is created.
+)
+"""Pydantic model configuration as described in:
+https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
+"""
+
 
 class BaseObject(BaseModel):
     """Base class for all Felis objects."""
 
-    class Config:
-        """Configuration for the `BaseModel` class."""
+    model_config = CONFIG
+    """Pydantic model configuration."""
 
-        populate_by_name = True
-        """Allow fields to be populated by name."""
-
-        extra = "forbid"
-        """Forbid extra fields."""
-
-        use_enum_values = True
-        """Use the values of `Enum` members instead of their names."""
+    class ValidationConfig:
+        """Validation configuration for the `BaseModel` class which is specific
+        to Felis. For now, this is handled with a global flag to avoid holding
+        this state in all of the relevant datamodel objects.
+        """
 
         _require_description = False
         """Flag to require a description for all objects.
@@ -441,9 +448,9 @@ class Schema(BaseObject):
         rather than change the flag directly in `BaseObject`.
         """
         logger.debug(f"Setting description requirement to '{rd}'")
-        BaseObject.Config._require_description = rd
+        BaseObject.ValidationConfig._require_description = rd
 
     @classmethod
     def is_description_required(cls) -> bool:
         """Return whether a description is required for all objects."""
-        return BaseObject.Config._require_description
+        return BaseObject.ValidationConfig._require_description

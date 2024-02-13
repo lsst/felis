@@ -42,7 +42,7 @@ TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 
 
 class DataModelTestCase(unittest.TestCase):
-    """Test validation a test schema from a YAML file."""
+    """Test validation of a test schema from a YAML file."""
 
     schema_obj: Schema
 
