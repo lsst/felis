@@ -57,7 +57,9 @@ class RspTable(Table):
     @model_validator(mode="after")  # type: ignore
     @classmethod
     def check_tap_principal(cls: Any, tbl: "RspTable") -> "RspTable":
-        """Check that at least one column is flagged as the TAP principal."""
+        """Check that at least one column is flagged as 'principal' for
+        TAP purposes.
+        """
         for col in tbl.columns:
             if col.tap_principal == 1:
                 return tbl
