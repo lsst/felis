@@ -22,22 +22,17 @@
 import logging
 from typing import Any, Sequence, Type
 
-from pydantic import Field, constr, model_validator
+from pydantic import Field, model_validator
 
-from .datamodel import Column, Schema, Table
+from .datamodel import DESCR_MIN_LENGTH, Column, Schema, Table
 
 logger = logging.getLogger(__name__)
-
-NonEmptyStrippedStr = constr(strip_whitespace=True, min_length=3)
-"""A string type that is required to be non-empty after being stripped of
-whitespace.
-"""
 
 
 class RspColumn(Column):
     """Column for RSP data validation."""
 
-    description: NonEmptyStrippedStr  # type: ignore[valid-type]
+    description: str = Field(..., min_length=DESCR_MIN_LENGTH)
     """Redefine description to make it required and non-empty.
     """
 
@@ -50,8 +45,8 @@ class RspTable(Table):
     Tables for the RSP must have a TAP table index and a valid description.
     """
 
-    description: NonEmptyStrippedStr  # type: ignore[valid-type]
-    """Redefine description so that it is required and non-empty."""
+    description: str = Field(..., min_length=DESCR_MIN_LENGTH)
+    """Redefine description so that it is required."""
 
     tap_table_index: int = Field(..., alias="tap:table_index")
     """Redefine the TAP_SCHEMA table index so that it is required."""
@@ -77,7 +72,7 @@ class RspSchema(Schema):
     TAP table indexes must be unique across all tables.
     """
 
-    description: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=DESCR_MIN_LENGTH)
     """Redefine description to make it required and non-empty.
     """
 

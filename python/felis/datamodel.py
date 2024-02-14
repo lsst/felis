@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 __all__ = (
     "BaseObject",
     "Column",
-    "Constraint",
     "CheckConstraint",
-    "UniqueConstraint",
-    "Index",
+    "Constraint",
     "ForeignKeyConstraint",
-    "Table",
-    "SchemaVersion",
+    "Index",
     "Schema",
+    "SchemaVersion",
+    "Table",
+    "UniqueConstraint",
 )
 
 CONFIG = ConfigDict(
@@ -49,10 +49,14 @@ CONFIG = ConfigDict(
     extra="forbid",  # Do not allow extra fields.
     use_enum_values=True,  # Use enum values instead of names.
     validate_assignment=True,  # Validate assignments after model is created.
+    str_strip_whitespace=True,  # Strip whitespace from string fields.
 )
 """Pydantic model configuration as described in:
 https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
 """
+
+DESCR_MIN_LENGTH = 3
+"""Minimum length for a description field."""
 
 
 class BaseObject(BaseModel):
@@ -60,18 +64,6 @@ class BaseObject(BaseModel):
 
     model_config = CONFIG
     """Pydantic model configuration."""
-
-    class ValidationConfig:
-        """Validation configuration for the `BaseModel` class which is specific
-        to Felis. For now, this is handled with a global flag to avoid holding
-        this state in all of the relevant datamodel objects.
-        """
-
-        _require_description = False
-        """Flag to require a description for all objects.
-
-        This is set by the `require_description` class method.
-        """
 
     name: str
     """The name of the database object.
@@ -85,7 +77,7 @@ class BaseObject(BaseModel):
     All Felis database objects must have a unique identifier.
     """
 
-    description: str | None = None
+    description: str | None = Field(None, min_length=DESCR_MIN_LENGTH)
     """A description of the database object.
 
     By default, the description is optional but will be required if
@@ -99,6 +91,8 @@ class BaseObject(BaseModel):
         if Schema.is_description_required():
             if "description" not in values or not values["description"]:
                 raise ValueError("Description is required and must be non-empty")
+            if len(values["description"].strip()) < 3:
+                raise ValueError("Description must be at least three characters long")
         return values
 
 
@@ -155,8 +149,6 @@ class Column(BaseObject):
 
     tap_principal: int | None = Field(0, alias="tap:principal", ge=0, le=1)
     """Whether this is a TAP_SCHEMA principal column; can be either 0 or 1.
-
-    This could be a boolean instead of 0 or 1.
     """
 
     votable_arraysize: int | Literal["*"] | None = Field(None, alias="votable:arraysize")
@@ -397,7 +389,16 @@ class SchemaIdVisitor:
 
 
 class Schema(BaseObject):
-    """The database schema."""
+    """The database schema containing the tables."""
+
+    class ValidationConfig:
+        """Validation configuration which is specific to Felis."""
+
+        _require_description = False
+        """Flag to require a description for all objects.
+
+        This is set by the `require_description` class method.
+        """
 
     version: SchemaVersion | str | None = None
     """The version of the schema."""
@@ -445,12 +446,12 @@ class Schema(BaseObject):
         This includes the schema, tables, columns, and constraints.
 
         Users should call this method to set the requirement for a description
-        rather than change the flag directly in `BaseObject`.
+        when validating schemas, rather than change the flag value directly.
         """
         logger.debug(f"Setting description requirement to '{rd}'")
-        BaseObject.ValidationConfig._require_description = rd
+        Schema.ValidationConfig._require_description = rd
 
     @classmethod
     def is_description_required(cls) -> bool:
         """Return whether a description is required for all objects."""
-        return BaseObject.ValidationConfig._require_description
+        return Schema.ValidationConfig._require_description
