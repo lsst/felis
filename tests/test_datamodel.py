@@ -382,7 +382,7 @@ class SchemaTestCase(unittest.TestCase):
         self.assertIsInstance(sch["#test_table_id"], Table, "schema[id] should return a Table")
         self.assertIsInstance(sch["#test_schema_id"], Schema, "schema[id] should return a Schema")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             # Test that an invalid id raises an exception.
             sch["#bad_id"]
 

@@ -19,8 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Sequence, Type
+from collections.abc import Sequence
+from typing import Any
 
 from pydantic import Field, model_validator
 
@@ -28,13 +31,14 @@ from .datamodel import DESCR_MIN_LENGTH, Column, Schema, Table
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["RspColumn", "RspSchema", "RspTable", "get_schema"]
+
 
 class RspColumn(Column):
     """Column for RSP data validation."""
 
     description: str = Field(..., min_length=DESCR_MIN_LENGTH)
-    """Redefine description to make it required and non-empty.
-    """
+    """Redefine description to make it required and non-empty."""
 
 
 class RspTable(Table):
@@ -93,7 +97,7 @@ class RspSchema(Schema):
         return sch
 
 
-def get_schema(schema_name: str) -> Type[Schema]:
+def get_schema(schema_name: str) -> type[Schema]:
     """Get the schema class for the given name."""
     if schema_name == "default":
         return Schema

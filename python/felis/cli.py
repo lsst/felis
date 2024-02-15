@@ -19,12 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import io
 import json
 import logging
 import sys
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any, Type
+from typing import Any
 
 import click
 import yaml
@@ -314,7 +316,7 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
 @click.argument("files", nargs=-1, type=click.File())
 def validate(schema_name: str, require_description: bool, files: Iterable[io.TextIOBase]) -> None:
     """Validate one or more felis YAML files."""
-    schema_class: Type[Schema] = get_schema(schema_name)
+    schema_class = get_schema(schema_name)
     logger.info(f"Using schema '{schema_class.__name__}'")
 
     if require_description:
