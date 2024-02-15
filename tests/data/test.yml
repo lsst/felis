@@ -11,12 +11,14 @@ tables:
     '@id': "#sdqa_ImageStatus"
     description: Unique set of status names and their definitions, e.g.
       'passed', 'failed', etc.
+    tap:table_index: 1
     columns:
       - name: sdqa_imageStatusId
         "@id": "#sdqa_ImageStatus.sdqa_imageStatusId"
         datatype: short
         description: Primary key
         mysql:datatype: SMALLINT
+        tap:principal: 1
       - name: statusName
         "@id": "#sdqa_ImageStatus.statusName"
         datatype: string
@@ -38,12 +40,14 @@ tables:
     description: Unique set of metric names and associated metadata (e.g.,
       'nDeadPix';, 'median';, etc.). There will be approximately 30 records
       total in this table.
+    tap:table_index: 2
     columns:
       - name: sdqa_metricId
         "@id": "#sdqa_Metric.sdqa_metricId"
         datatype: short
         description: Primary key.
         mysql:datatype: SMALLINT
+        tap:principal: 1
       - name: metricName
         "@id": "#sdqa_Metric.metricName"
         datatype: string
@@ -67,6 +71,7 @@ tables:
       - name: definition
         "@id": "#sdqa_Metric.definition"
         datatype: string
+        description: Detailed definition of the metric.
         length: 255
         mysql:datatype: VARCHAR(255)
     primaryKey: "#sdqa_Metric.sdqa_metricId"
@@ -75,12 +80,14 @@ tables:
         "@id": "#UQ_sdqaMetric_metricName"
         "@type": Unique
         columns: ["#sdqa_Metric.metricName"]
+        description: Unique constraint on metricName.
     mysql:engine: MyISAM
 
   - name: sdqa_Rating_ForAmpVisit
     "@id": "#sdqa_Rating_ForAmpVisit"
     description: Various SDQA ratings for a given amplifier image. There will
       be approximately 30 of these records per image record.
+    tap:table_index: 3
     columns:
       - name: sdqa_ratingId
         "@id": "#sdqa_Rating_ForAmpVisit.sdqa_ratingId"
@@ -88,6 +95,7 @@ tables:
         description: Primary key. Auto-increment is used, we define a composite
           unique key, so potential duplicates will be captured.
         mysql:datatype: BIGINT
+        tap:principal: 1
       - name: sdqa_metricId
         "@id": "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
         datatype: short
@@ -119,29 +127,35 @@ tables:
       - name: UQ_sdqaRatingForAmpVisit_metricId_ampVisitId
         "@id": "#UQ_sdqaRatingForAmpVisit_metricId_ampVisitId"
         "@type": Unique
+        description: Unique constraint on metricId and ampVisitId.
         columns:
           - "#sdqa_Rating_ForAmpVisit.sdqa_metricId"
           - "#sdqa_Rating_ForAmpVisit.ampVisitId"
       - name: FK_sdqa_Rating_ForAmpVisit_sdqa_Metric
         "@id": "#FK_sdqa_Rating_ForAmpVisit_sdqa_Metric"
         "@type": ForeignKey
+        description: Foreign key constraint on sdqa_metricId.
         columns: ["#sdqa_Rating_ForAmpVisit.sdqa_metricId"]
         referencedColumns: ["#sdqa_Metric.sdqa_metricId"]
     indexes:
       - name: IDX_sdqaRatingForAmpVisit_metricId
         "@id": "#IDX_sdqaRatingForAmpVisit_metricId"
+        description: Index on metricId.
         columns: ["#sdqa_Rating_ForAmpVisit.sdqa_metricId"]
       - name: IDX_sdqaRatingForAmpVisit_thresholdId
         "@id": "#IDX_sdqaRatingForAmpVisit_thresholdId"
+        description: Index on thresholdId.
         columns: ["#sdqa_Rating_ForAmpVisit.sdqa_thresholdId"]
       - name: IDX_sdqaRatingForAmpVisit_ampVisitId
         "@id": "#IDX_sdqaRatingForAmpVisit_ampVisitId"
+        description: Index on ampVisitId.
         columns: ["#sdqa_Rating_ForAmpVisit.ampVisitId"]
     mysql:engine: MyISAM
 
   - name: sdqa_Rating_CcdVisit
     "@id": "#sdqa_Rating_CcdVisit"
     description: Various SDQA ratings for a given CcdVisit.
+    tap:table_index: 4
     columns:
       - name: sdqa_ratingId
         "@id": "#sdqa_Rating_CcdVisit.sdqa_ratingId"
@@ -149,6 +163,7 @@ tables:
         description: Primary key. Auto-increment is used, we define a composite
           unique key, so potential duplicates will be captured.
         mysql:datatype: BIGINT
+        tap:principal: 1
       - name: sdqa_metricId
         "@id": "#sdqa_Rating_CcdVisit.sdqa_metricId"
         datatype: short
@@ -180,18 +195,22 @@ tables:
       - name: UQ_sdqaRatingCcdVisit_metricId_ccdVisitId
         "@id": "#UQ_sdqaRatingCcdVisit_metricId_ccdVisitId"
         "@type": Unique
+        description: Unique constraint on metricId and ccdVisitId.
         columns:
           - "#sdqa_Rating_CcdVisit.sdqa_metricId"
           - "#sdqa_Rating_CcdVisit.ccdVisitId"
     indexes:
       - name: IDX_sdqaRatingCcdVisit_metricId
         "@id": "#IDX_sdqaRatingCcdVisit_metricId"
+        description: Index on metricId.
         columns: ["#sdqa_Rating_CcdVisit.sdqa_metricId"]
       - name: IDX_sdqaRatingCcdVisit_thresholdId
         "@id": "#IDX_sdqaRatingCcdVisit_thresholdId"
+        description: Index on thresholdId.
         columns: ["#sdqa_Rating_CcdVisit.sdqa_thresholdId"]
       - name: IDX_sdqaRatingCcdVisit_ccdVisitId
         "@id": "#IDX_sdqaRatingCcdVisit_ccdVisitId"
+        description: Index on ccdVisitId.
         columns: ["#sdqa_Rating_CcdVisit.ccdVisitId"]
     mysql:engine: MyISAM
 
@@ -201,12 +220,14 @@ tables:
       records is approximately equal to 30 x the number of times the thresholds
       will be changed over the entire period of LSST operations (of order of
       100), with most of the changes occuring in the first year of operations.
+    tap:table_index: 5
     columns:
       - name: sdqa_thresholdId
         "@id": "#sdqa_Threshold.sdqa_thresholdId"
         datatype: short
         description: Primary key.
         mysql:datatype: SMALLINT
+        tap:principal: 1
       - name: sdqa_metricId
         "@id": "#sdqa_Threshold.sdqa_metricId"
         datatype: short
@@ -234,5 +255,6 @@ tables:
     indexes:
       - name: IDX_sdqaThreshold_metricId
         "@id": "#IDX_sdqaThreshold_metricId"
+        description: Index on metricId.
         columns: ["#sdqa_Threshold.sdqa_metricId"]
     mysql:engine: MyISAM

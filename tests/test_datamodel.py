@@ -42,7 +42,7 @@ TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 
 
 class DataModelTestCase(unittest.TestCase):
-    """Test validation a test schema from a YAML file."""
+    """Test validation of a test schema from a YAML file."""
 
     schema_obj: Schema
 
@@ -120,6 +120,27 @@ class ColumnTestCase(unittest.TestCase):
         units_data["ivoa:unit"] = "m"
         with self.assertRaises(ValidationError):
             Column(**units_data)
+
+        # Turn on description requirement for next two tests.
+        Schema.require_description(True)
+
+        # Make sure that setting the flag for description requirement works
+        # correctly.
+        self.assertTrue(Schema.is_description_required(), "description should be required")
+
+        # Creating a column without a description when required should throw an
+        # error.
+        with self.assertRaises(ValidationError):
+            col = Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                }
+            )
+
+        # Turn off flag or it will affect subsequent tests.
+        Schema.require_description(False)
 
 
 class ConstraintTestCase(unittest.TestCase):
@@ -346,15 +367,24 @@ class SchemaTestCase(unittest.TestCase):
                 ],
             )
 
-    def test_id_map(self) -> None:
+    def test_schema_object_ids(self) -> None:
         """Test that the id_map is properly populated."""
         test_col = Column(name="testColumn", id="#test_col_id", datatype="string")
         test_tbl = Table(name="testTable", id="#test_table_id", columns=[test_col])
         sch = Schema(name="testSchema", id="#test_schema_id", tables=[test_tbl])
 
         for id in ["#test_col_id", "#test_table_id", "#test_schema_id"]:
-            # Test that the id_map contains the expected id.
-            sch.get_object_by_id(id)
+            # Test that the schema contains the expected id.
+            self.assertTrue(id in sch, f"schema should contain '{id}'")
+
+        # Check that types of returned objects are correct.
+        self.assertIsInstance(sch["#test_col_id"], Column, "schema[id] should return a Column")
+        self.assertIsInstance(sch["#test_table_id"], Table, "schema[id] should return a Table")
+        self.assertIsInstance(sch["#test_schema_id"], Schema, "schema[id] should return a Schema")
+
+        with self.assertRaises(ValueError):
+            # Test that an invalid id raises an exception.
+            sch["#bad_id"]
 
 
 class SchemaVersionTest(unittest.TestCase):

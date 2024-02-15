@@ -22,7 +22,7 @@
 import logging
 from collections.abc import Mapping
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
@@ -34,25 +34,36 @@ logger = logging.getLogger(__name__)
 __all__ = (
     "BaseObject",
     "Column",
-    "Constraint",
     "CheckConstraint",
-    "UniqueConstraint",
-    "Index",
+    "Constraint",
     "ForeignKeyConstraint",
-    "Table",
-    "SchemaVersion",
+    "Index",
     "Schema",
+    "SchemaVersion",
+    "Table",
+    "UniqueConstraint",
 )
+
+CONFIG = ConfigDict(
+    populate_by_name=True,  # Populate attributes by name.
+    extra="forbid",  # Do not allow extra fields.
+    use_enum_values=True,  # Use enum values instead of names.
+    validate_assignment=True,  # Validate assignments after model is created.
+    str_strip_whitespace=True,  # Strip whitespace from string fields.
+)
+"""Pydantic model configuration as described in:
+https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
+"""
+
+DESCR_MIN_LENGTH = 3
+"""Minimum length for a description field."""
 
 
 class BaseObject(BaseModel):
     """Base class for all Felis objects."""
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid", use_enum_values=True)
-    """Configuration for the `BaseModel` class.
-
-    Allow attributes to be populated by name and forbid extra attributes.
-    """
+    model_config = CONFIG
+    """Pydantic model configuration."""
 
     name: str
     """The name of the database object.
@@ -66,11 +77,23 @@ class BaseObject(BaseModel):
     All Felis database objects must have a unique identifier.
     """
 
-    description: str | None = None
+    description: str | None = Field(None, min_length=DESCR_MIN_LENGTH)
     """A description of the database object.
 
-    The description is optional.
+    By default, the description is optional but will be required if
+    `BaseObject.Config.require_description` is set to `True` by the user.
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_description(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Check that the description is present if required."""
+        if Schema.is_description_required():
+            if "description" not in values or not values["description"]:
+                raise ValueError("Description is required and must be non-empty")
+            if len(values["description"].strip()) < 3:
+                raise ValueError("Description must be at least three characters long")
+        return values
 
 
 class DataType(Enum):
@@ -126,8 +149,6 @@ class Column(BaseObject):
 
     tap_principal: int | None = Field(0, alias="tap:principal", ge=0, le=1)
     """Whether this is a TAP_SCHEMA principal column; can be either 0 or 1.
-
-    This could be a boolean instead of 0 or 1.
     """
 
     votable_arraysize: int | Literal["*"] | None = Field(None, alias="votable:arraysize")
@@ -243,7 +264,7 @@ class ForeignKeyConstraint(Constraint):
 class Table(BaseObject):
     """A database table."""
 
-    columns: list[Column]
+    columns: Sequence[Column]
     """The columns in the table."""
 
     constraints: list[Constraint] = Field(default_factory=list)
@@ -305,14 +326,14 @@ class SchemaVersion(BaseModel):
     current: str
     """The current version of the schema."""
 
-    compatible: list[str] | None = None
+    compatible: list[str] = Field(default_factory=list)
     """The compatible versions of the schema."""
 
-    read_compatible: list[str] | None = None
+    read_compatible: list[str] = Field(default_factory=list)
     """The read compatible versions of the schema."""
 
 
-class SchemaVisitor:
+class SchemaIdVisitor:
     """Visitor to build a Schema object's map of IDs to objects.
 
     Duplicates are added to a set when they are encountered, which can be
@@ -368,12 +389,21 @@ class SchemaVisitor:
 
 
 class Schema(BaseObject):
-    """The database schema."""
+    """The database schema containing the tables."""
+
+    class ValidationConfig:
+        """Validation configuration which is specific to Felis."""
+
+        _require_description = False
+        """Flag to require a description for all objects.
+
+        This is set by the `require_description` class method.
+        """
 
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
-    tables: list[Table]
+    tables: Sequence[Table]
     """The tables in the schema."""
 
     id_map: dict[str, Any] = Field(default_factory=dict, exclude=True)
@@ -388,9 +418,9 @@ class Schema(BaseObject):
         return tables
 
     @model_validator(mode="after")
-    def create_id_map(self) -> "Schema":
+    def create_id_map(self: "Schema") -> "Schema":
         """Create a map of IDs to objects."""
-        visitor: SchemaVisitor = SchemaVisitor()
+        visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
         if len(visitor.duplicates):
@@ -399,11 +429,29 @@ class Schema(BaseObject):
             )
         return self
 
-    def get_object_by_id(self, id: str) -> BaseObject:
-        """Get an object by its unique "@id" field value.
-
-        An error will be thrown if the object is not found.
-        """
-        if id not in self.id_map:
-            raise ValueError(f"Object with ID {id} not found in schema")
+    def __getitem__(self, id: str) -> BaseObject:
+        """Get an object by its ID."""
+        if id not in self:
+            raise ValueError(f"Object with ID '{id}' not found in schema")
         return self.id_map[id]
+
+    def __contains__(self, id: str) -> bool:
+        """Check if an object with the given ID is in the schema."""
+        return id in self.id_map
+
+    @classmethod
+    def require_description(cls, rd: bool = True) -> None:
+        """Set whether a description is required for all objects.
+
+        This includes the schema, tables, columns, and constraints.
+
+        Users should call this method to set the requirement for a description
+        when validating schemas, rather than change the flag value directly.
+        """
+        logger.debug(f"Setting description requirement to '{rd}'")
+        Schema.ValidationConfig._require_description = rd
+
+    @classmethod
+    def is_description_required(cls) -> bool:
+        """Return whether a description is required for all objects."""
+        return Schema.ValidationConfig._require_description
