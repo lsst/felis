@@ -121,7 +121,9 @@ class ColumnTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Column(**units_data)
 
-        # Turn on description requirement for next two tests.
+    def test_require_description(self) -> None:
+        """Test the require_description flag for the `Column` class."""
+        # Turn on description requirement for this test.
         Schema.require_description(True)
 
         # Make sure that setting the flag for description requirement works
@@ -131,13 +133,27 @@ class ColumnTestCase(unittest.TestCase):
         # Creating a column without a description when required should throw an
         # error.
         with self.assertRaises(ValidationError):
-            col = Column(
+            Column(
                 **{
                     "name": "testColumn",
                     "@id": "#test_col_id",
                     "datatype": "string",
                 }
             )
+
+        # Creating a column with a None description when required should throw.
+        with self.assertRaises(ValidationError):
+            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": None})
+
+        # Creating a column with an empty description when required should
+        # throw.
+        with self.assertRaises(ValidationError):
+            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": ""})
+
+        # Creating a column with a description that is not long enough should
+        # throw.
+        with self.assertRaises(ValidationError):
+            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": "xy"})
 
         # Turn off flag or it will affect subsequent tests.
         Schema.require_description(False)
@@ -382,7 +398,7 @@ class SchemaTestCase(unittest.TestCase):
         self.assertIsInstance(sch["#test_table_id"], Table, "schema[id] should return a Table")
         self.assertIsInstance(sch["#test_schema_id"], Schema, "schema[id] should return a Schema")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             # Test that an invalid id raises an exception.
             sch["#bad_id"]
 

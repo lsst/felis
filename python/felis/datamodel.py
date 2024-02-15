@@ -19,10 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from enum import Enum
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
@@ -91,8 +93,8 @@ class BaseObject(BaseModel):
         if Schema.is_description_required():
             if "description" not in values or not values["description"]:
                 raise ValueError("Description is required and must be non-empty")
-            if len(values["description"].strip()) < 3:
-                raise ValueError("Description must be at least three characters long")
+            if len(values["description"].strip()) < DESCR_MIN_LENGTH:
+                raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
         return values
 
 
@@ -418,7 +420,7 @@ class Schema(BaseObject):
         return tables
 
     @model_validator(mode="after")
-    def create_id_map(self: "Schema") -> "Schema":
+    def create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects."""
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
@@ -432,7 +434,7 @@ class Schema(BaseObject):
     def __getitem__(self, id: str) -> BaseObject:
         """Get an object by its ID."""
         if id not in self:
-            raise ValueError(f"Object with ID '{id}' not found in schema")
+            raise KeyError(f"Object with ID '{id}' not found in schema")
         return self.id_map[id]
 
     def __contains__(self, id: str) -> bool:
@@ -449,9 +451,9 @@ class Schema(BaseObject):
         when validating schemas, rather than change the flag value directly.
         """
         logger.debug(f"Setting description requirement to '{rd}'")
-        Schema.ValidationConfig._require_description = rd
+        cls.ValidationConfig._require_description = rd
 
     @classmethod
     def is_description_required(cls) -> bool:
         """Return whether a description is required for all objects."""
-        return Schema.ValidationConfig._require_description
+        return cls.ValidationConfig._require_description

@@ -137,11 +137,18 @@ class CliTestCase(unittest.TestCase):
     def test_validate_default_with_require_description(self) -> None:
         """Test validate command with description required."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["validate", "--require-description", TEST_YAML], catch_exceptions=False)
-        # This state needs to be reset for subsequent tests or some will fail.
-        # This is not an issue when running the actual command line tool, which
-        # will execute in its own system process.
-        Schema.require_description(False)
+        try:
+            # Wrap this in a try/catch in case an exception is thrown.
+            result = runner.invoke(
+                cli, ["validate", "--require-description", TEST_YAML], catch_exceptions=False
+            )
+        except Exception as e:
+            # Reraise exception.
+            raise e
+        finally:
+            # Turn the flag off so it does not effect subsequent tests.
+            Schema.require_description(False)
+
         self.assertEqual(result.exit_code, 0)
 
     def test_validate_rsp(self) -> None:
