@@ -47,6 +47,10 @@ class RSPSchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RspColumn(name="testColumn", id="#test_col_id", datatype="string", description=None)
 
+        # A column description which is not long enough should throw.
+        with self.assertRaises(ValidationError):
+            RspColumn(name="testColumn", id="#test_col_id", datatype="string", description="xy")
+
         # Creating a valid RSP column should not throw an exception.
         col = RspColumn(
             **{
