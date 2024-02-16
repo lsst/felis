@@ -30,8 +30,7 @@ from typing import Any
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.mock import MockConnection
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.schema import MetaData
 from sqlalchemy.sql.expression import Insert, insert
 
