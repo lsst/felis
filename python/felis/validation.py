@@ -27,7 +27,7 @@ from typing import Any
 
 from pydantic import Field, model_validator
 
-from .datamodel import DESCR_MIN_LENGTH, Column, Schema, Table
+from .datamodel import Column, DescriptionStr, Schema, Table
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +37,8 @@ __all__ = ["RspColumn", "RspSchema", "RspTable", "get_schema"]
 class RspColumn(Column):
     """Column for RSP data validation."""
 
-    description: str = Field(..., min_length=DESCR_MIN_LENGTH)
-    """Redefine description to make it required and non-empty."""
+    description: DescriptionStr
+    """Redefine description to make it required."""
 
 
 class RspTable(Table):
@@ -49,8 +49,8 @@ class RspTable(Table):
     Tables for the RSP must have a TAP table index and a valid description.
     """
 
-    description: str = Field(..., min_length=DESCR_MIN_LENGTH)
-    """Redefine description so that it is required."""
+    description: DescriptionStr
+    """Redefine description to make it required."""
 
     tap_table_index: int = Field(..., alias="tap:table_index")
     """Redefine the TAP_SCHEMA table index so that it is required."""
@@ -76,16 +76,12 @@ class RspSchema(Schema):
     TAP table indexes must be unique across all tables.
     """
 
-    description: str = Field(..., min_length=DESCR_MIN_LENGTH)
-    """Redefine description to make it required and non-empty.
-    """
-
     tables: Sequence[RspTable]
     """Redefine tables to include RSP validation."""
 
     @model_validator(mode="after")  # type: ignore[arg-type]
     @classmethod
-    def check_tap_table_indexes(cls: Any, sch: "RspSchema") -> "RspSchema":
+    def check_tap_table_indexes(cls: Any, sch: RspSchema) -> RspSchema:
         """Check that the TAP table indexes are unique."""
         table_indicies = set()
         for table in sch.tables:
