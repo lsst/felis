@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
@@ -38,6 +38,7 @@ __all__ = (
     "Column",
     "CheckConstraint",
     "Constraint",
+    "DescriptionStr",
     "ForeignKeyConstraint",
     "Index",
     "Schema",
@@ -60,6 +61,10 @@ https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
 DESCR_MIN_LENGTH = 3
 """Minimum length for a description field."""
 
+DescriptionStr: TypeAlias = Annotated[str, Field(min_length=DESCR_MIN_LENGTH)]
+"""Define a type for a description string, which must be three or more
+characters long. Stripping of whitespace is done globally on all str fields."""
+
 
 class BaseObject(BaseModel):
     """Base class for all Felis objects."""
@@ -79,7 +84,7 @@ class BaseObject(BaseModel):
     All Felis database objects must have a unique identifier.
     """
 
-    description: str | None = Field(None, min_length=DESCR_MIN_LENGTH)
+    description: DescriptionStr | None = None
     """A description of the database object.
 
     By default, the description is optional but will be required if
