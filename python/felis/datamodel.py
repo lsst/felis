@@ -455,7 +455,7 @@ class Schema(BaseObject):
         Users should call this method to set the requirement for a description
         when validating schemas, rather than change the flag value directly.
         """
-        logger.debug(f"Setting description requirement to '{rd}'")
+        logger.debug(f"Setting description requirement to: {rd}")
         cls.ValidationConfig._require_description = rd
 
     @classmethod

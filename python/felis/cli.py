@@ -24,8 +24,10 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 import sys
 from collections.abc import Iterable, Mapping, MutableMapping
+from enum import Enum
 from typing import Any
 
 import click
@@ -322,6 +324,155 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
     _dump(normalized)
 
 
+_IGNORE_INPUT_KEYS = ["columns", "tables", "constraints", "indexes", "primaryKey"]
+
+
+class ValidationErrorFormat(str, Enum):
+    """Format options for displaying validation errors."""
+
+    json = "json"
+    """Display the error in JSON format."""
+
+    compact = "compact"
+    """Display the error in a compact, single-line format."""
+
+    verbose = "verbose"
+    """Display the error using Pydantic's built-in formatting."""
+
+
+def _display_validation_error(
+    filename: str | None,
+    validation_error: ValidationError,
+    format: ValidationErrorFormat = ValidationErrorFormat.json,
+    ignore_input_keys: list[str] = _IGNORE_INPUT_KEYS,
+) -> list[Any]:
+    """Display a Pydantic validation error with formatting options.
+
+    Parameters
+    ----------
+    filename: `str`
+        The filename of the schema file being validated
+    validation_error : `ValidationError
+        The validation erro`r to display.
+    format : `ValidationErrorFormat`
+        The format to display the error in
+    ignore_input_keys : `list` of `str`
+        A set of keys in the input to ignore when displaying the error
+
+    Returns
+    -------
+    display_str : str
+        The formatted error string
+    """
+
+    def truncate(s: str, length: int) -> str:
+        """Truncate a string to a specified amount of characters."""
+        return s[:length] + "..." if len(s) > length else s
+
+    lines: list[Any] = []
+    file_path = os.path.abspath(filename) if filename else None
+    for error in validation_error.errors():
+        loc = ".".join(str(loc) for loc in error["loc"])
+        msg = error["msg"]
+        if error["input"]:
+            if isinstance(error["input"], dict):
+                input_dict = {}
+                for k, v in error["input"].items():
+                    if k not in ignore_input_keys:
+                        if k == "description":
+                            v = truncate(v, 20)
+                        input_dict[k] = v
+                input = str(input_dict)
+            else:
+                input = error["input"]
+        if format == ValidationErrorFormat.json:
+            error_dict = {}
+            if file_path:
+                error_dict["file"] = file_path
+            error_dict.update({"location": loc, "error": msg, "input": input})
+            lines.append(error_dict)
+        elif format == ValidationErrorFormat.compact:
+            if file_path:
+                lines.append(f"{file_path}:{loc}: {msg} [{input}]")
+            else:
+                lines.append(f"{loc}: {msg} {input}")
+    return lines
+
+
+def _validate_files(
+    include_filename: bool,
+    output_file: io.TextIOBase,
+    format: ValidationErrorFormat,
+    files: list[io.TextIOBase],
+    schema_class: type[Schema],
+) -> int:
+    """Validate a list of files using the given schema class and options.
+
+    Parameters
+    ----------
+    include_filename : `bool`
+        Whether to include the filename in each error message
+    output_file : `io.TextIOBase`
+        The file to write the validation errors to
+    format : `ValidationErrorFormat`
+        The format to display the error in
+    files : `list` of `io.TextIOBase`
+        The list of files to validate
+    schema_class : `type` of `Schema`
+        The schema class to use for validation
+    """
+    if output_file:
+        logger.info("Validation errors will be written to: " + getattr(output_file, "name", ""))
+
+    if include_filename and format == ValidationErrorFormat.verbose:
+        logger.warning("Ignoring '--include-filename' when using verbose format")
+
+    return_code = 0
+    file_lines: list[str] | None = None
+    if output_file and format == ValidationErrorFormat.json and len(files) > 1:
+        file_lines = []
+        include_filename = True
+        logger.info("Input file name will be included automatically for JSON file output")
+    for file in files:
+        input_file_name = getattr(file, "name", "")
+        logger.info(f"Validating: {input_file_name}")
+        try:
+            schema_class.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
+            logger.info(f"Validation PASSED: {input_file_name}")
+        except ValidationError as validation_error:
+            return_code = 1
+            logger.error(f"{len(validation_error.errors())} validation errors: {input_file_name}")
+            error_display: str
+            if format != ValidationErrorFormat.verbose:
+                error_lines = _display_validation_error(
+                    input_file_name if include_filename else None,
+                    validation_error,
+                    format=ValidationErrorFormat[format],
+                )
+            if format == ValidationErrorFormat.json and not output_file:
+                error_display = json.dumps(error_lines, indent=4)
+            elif format == ValidationErrorFormat.compact:
+                error_display = "\n".join(error_lines)
+            else:
+                error_display = str(validation_error)
+
+            if output_file:
+                if format != ValidationErrorFormat.json:
+                    output_file.write(error_display)
+            else:
+                logger.error("\n" + error_display)
+
+            logger.info(f"Validation FAILED: {input_file_name}")
+
+            if file_lines and format == ValidationErrorFormat.json and output_file:
+                file_lines.extend(error_lines)
+
+    if file_lines:
+        # Dump all lines to an output JSON file.
+        output_file.write(json.dumps(file_lines, indent=4))
+    return return_code
+
+
 @cli.command("validate")
 @click.option(
     "-s",
@@ -330,27 +481,43 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
     type=click.Choice(["RSP", "default"]),
     default="default",
 )
-@click.option("-d", "--require-description", is_flag=True, help="Require description for all objects")
+@click.option(
+    "-d", "--require-description", is_flag=True, help="Require description for all objects", default=False
+)
+@click.option(
+    "-i", "--include-filename", is_flag=True, help="Include the filename in each error message", default=False
+)
+@click.option("--output-file", "-o", type=click.File("w"), help="Output file for validation error messages")
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice([format.value for format in ValidationErrorFormat]),
+    default=ValidationErrorFormat.json.value,
+)
 @click.argument("files", nargs=-1, type=click.File())
-def validate(schema_name: str, require_description: bool, files: Iterable[io.TextIOBase]) -> None:
-    """Validate one or more felis YAML files."""
+def validate(
+    schema_name: str,
+    require_description: bool,
+    include_filename: bool,
+    output_file: io.TextIOBase,
+    format: str,
+    files: Iterable[io.TextIOBase],
+) -> None:
+    """Validate one or more felis YAML files from the command line."""
     schema_class = get_schema(schema_name)
-    logger.info(f"Using schema '{schema_class.__name__}'")
+    logger.debug(f"Using schema type: {schema_class.__name__}")
 
-    if require_description:
-        Schema.require_description(True)
+    schema_class.require_description(require_description)
+    logger.debug(f"Description required: {require_description}")
 
-    rc = 0
-    for file in files:
-        file_name = getattr(file, "name", None)
-        logger.info(f"Validating {file_name}")
-        try:
-            schema_class.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
-        except ValidationError as e:
-            logger.error(e)
-            rc = 1
-    if rc:
-        raise click.exceptions.Exit(rc)
+    logger.debug(f"Validating {len(list(files))} file(s)")
+    return_code = _validate_files(
+        include_filename, output_file, ValidationErrorFormat[format], list(files), schema_class
+    )
+    logger.debug("Done validating file(s)")
+
+    if return_code:
+        raise click.exceptions.Exit(return_code)
 
 
 @cli.command("dump-json")
