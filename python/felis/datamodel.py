@@ -130,7 +130,7 @@ class Column(BaseObject):
     length: int | None = None
     """The length of the column."""
 
-    nullable: bool = True
+    nullable: bool | None = None
     """Whether the column can be `NULL`."""
 
     value: Any = None
