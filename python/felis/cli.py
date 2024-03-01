@@ -45,12 +45,30 @@ from .validation import get_schema
 
 logger = logging.getLogger("felis")
 
+loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+
 
 @click.group()
 @click.version_option(__version__)
-def cli() -> None:
+@click.option(
+    "--log-level",
+    type=click.Choice(loglevel_choices),
+    envvar="FELIS_LOGLEVEL",
+    help="Felis log level",
+    default=logging.getLevelName(logging.INFO),
+)
+@click.option(
+    "--log-file",
+    type=click.Path(),
+    envvar="FELIS_LOGFILE",
+    help="Felis log file path",
+)
+def cli(log_level: str, log_file: str | None) -> None:
     """Felis Command Line Tools."""
-    logging.basicConfig(level=logging.INFO)
+    if log_file:
+        logging.basicConfig(filename=log_file, level=log_level)
+    else:
+        logging.basicConfig(level=log_level)
 
 
 @cli.command("create-all")
