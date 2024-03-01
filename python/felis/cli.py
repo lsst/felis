@@ -38,6 +38,7 @@ from sqlalchemy.engine.mock import MockConnection
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
 from .datamodel import Schema
+from .metadata import SchemaMetaData
 from .sql import SQLVisitor
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
@@ -92,6 +93,33 @@ def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIO
         engine = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump)
         _insert_dump.dialect = engine.dialect
     metadata.create_all(engine)
+
+
+# TODO: add '--echo' to pass to engine for echoing SQL
+@cli.command("create")
+@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL")
+@click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
+@click.option(
+    "--output-file",
+    "-o",
+    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True),
+    help="Output file for generated SQL (only works with '--dry-run')",
+)
+@click.argument("file", type=click.File())
+def create(engine_url: str, dry_run: bool, output_file: io.TextIOBase | None, file: io.TextIOBase) -> None:
+    """Create database objects from the Felis file."""
+    schema = Schema.from_yaml_file(file)
+    metadata = SchemaMetaData(schema)
+    if not dry_run:
+        engine = create_engine(engine_url)
+        metadata.create_all(engine)
+    else:
+        try:
+            of = open(output_file, "w") if output_file else None
+            metadata.dump(engine_url, of)
+        finally:
+            if of:
+                of.close()
 
 
 @cli.command("init-tap")
