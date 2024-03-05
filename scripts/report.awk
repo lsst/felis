@@ -59,7 +59,7 @@ BEGIN {
       }
 
 # Save the ID as a label for the "paragraph"
-/"@id":/ {
+/['"]@id['"]:/ {
         col = $2;
       }
 
