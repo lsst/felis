@@ -22,7 +22,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TextIO
+from io import TextIOBase
+from typing import Any, Literal
 
 import sqlalchemy.schema as sqa_schema
 from sqlalchemy import (
@@ -41,6 +42,8 @@ from sqlalchemy import (
     make_url,
     text,
 )
+from sqlalchemy.engine import reflection
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.types import TypeEngine
 
 from . import datamodel as dm
@@ -55,13 +58,13 @@ class InsertDump:
     """An Insert Dumper for SQL statements which supports writing messages
     to stdout or a file.
 
-    Copied and modified slightly from `cli.py` in Felis. That module may be
+    Copied and modified slightly from `cli.py` in Felis as that class may be
     removed soon.
     """
 
-    dialect: Any = None
-
-    file: TextIO | None = None
+    def __init__(self, file: TextIOBase | None) -> None:
+        self.file = file
+        self.dialect: Any | None = None
 
     def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
         """Dump the SQL statement to a file or stdout."""
@@ -99,7 +102,9 @@ class SchemaMetaData(MetaData):
     `Schema` when the class is instantiated.
     """
 
-    def __init__(self, schema_obj: dm.Schema, schema_name: str | None) -> None:
+    def __init__(
+        self, schema_obj: dm.Schema, schema_name: str | None = None, no_metadata_schema: bool = False
+    ) -> None:
         """Initialize SQA `MetaData` from a `felis.datamodel.Schema` object.
 
         Parameters
@@ -108,8 +113,14 @@ class SchemaMetaData(MetaData):
             The schema object to build the metadata from.
         schema_name : `str`
             Alternate schema name to override the Felis file.
+        no_metadata_schema : `bool`
+            Do not pass the schema name to the MetaData object, e.g., for sqlite driver
         """
-        MetaData.__init__(self, schema=schema_name if schema_name else schema_obj.name)
+        MetaData.__init__(
+            self, schema=None if no_metadata_schema else (schema_name if schema_name else schema_obj.name)
+        )
+        if no_metadata_schema:
+            logger.debug("Schema will not be set on MetaData object")
         self._schema_obj = schema_obj
         self._object_index: dict[str, Any] = {}
         self._build_all()
@@ -172,7 +183,7 @@ class SchemaMetaData(MetaData):
         id = table_obj.id
         description = table_obj.description
         columns = [self._build_column(column) for column in table_obj.columns]
-        table = Table(name, self, *columns, comment=description, **optargs)
+        table = Table(name, self, *columns, comment=description, **optargs)  # type: ignore[arg-type]
 
         # Create the indexes and add them to the table.
         indexes = [self._build_index(index) for index in table_obj.indexes]
@@ -388,7 +399,7 @@ class SchemaMetaData(MetaData):
             raise KeyError(f"Object already exists in MetaData with id: {id}")
         self._object_index[id] = obj
 
-    def dump(self, connection_string: str = "sqlite://", file: TextIO | None = None) -> None:
+    def dump(self, connection_string: str = "sqlite://", file: TextIOBase | None = None) -> None:
         """Dump the metadata to a file or stdout.
 
         Parameters
@@ -400,10 +411,9 @@ class SchemaMetaData(MetaData):
             The file to write the dump to. If `None`, the dump will be written to
             stdout.
         """
-        dumper = InsertDump()
+        dumper = InsertDump(file)
         engine = create_mock_engine(make_url(connection_string), executor=dumper.dump)
         dumper.dialect = engine.dialect
-        dumper.file = file
         self.create_all(engine)
 
     def create_if_not_exists(self, engine: Engine) -> None:
@@ -421,16 +431,54 @@ class SchemaMetaData(MetaData):
         """
         db_type = engine.dialect.name
         schema_name = self.schema
-        if db_type == "mysql":
-            with engine.connect() as connection:
-                logger.info(f"Creating MySQL database: {schema_name}")
-                connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
-        elif db_type == "postgresql":
-            logger.info(f"Creating PostgreSQL schema: {schema_name}")
-            with engine.connect() as connection:
-                if not engine.dialect.has_schema(engine, schema_name):
-                    connection.execute(sqa_schema.CreateSchema(schema_name))
-                else:
-                    logger.info("Schema already exists: {schema_name}")
-        else:
-            raise ValueError("Unsupported database type:" + db_type)
+        try:
+            if db_type == "mysql":
+                with engine.connect() as connection:
+                    logger.info(f"Creating MySQL database: {schema_name}")
+                    connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
+                    connection.commit()
+            elif db_type == "postgresql":
+                with engine.connect() as connection:
+                    inspector = reflection.Inspector.from_engine(engine)
+                    if schema_name not in inspector.get_schema_names():
+                        logger.info(f"Creating PG schema: {schema_name}")
+                        connection.execute(sqa_schema.CreateSchema(schema_name))
+                        connection.commit()
+                    else:
+                        logger.info("PG schema already exists: {schema_name}")
+                logger.debug("Done creating PG schema.")
+            else:
+                raise ValueError("Unsupported database type:" + db_type)
+        except SQLAlchemyError as e:
+            logger.error(f"Error creating schema: {e}")
+            raise
+
+    def drop_if_exists(self, engine: Engine) -> None:
+        """Drop the schema in the database if it exists.
+
+        In MySQL, this will drop a database. In PostgreSQL, it will drop a schema.
+        For other variants, this is unsupported for now.
+
+        Parameters
+        ----------
+        engine: `Engine`
+            The SQLAlchemy engine object.
+        schema_name: `str`
+            The name of the schema (or database) to drop.
+        """
+        db_type = engine.dialect.name
+        schema_name = self.schema
+        try:
+            if db_type == "mysql":
+                with engine.connect() as connection:
+                    logger.info(f"Dropping MySQL database if exists: {schema_name}")
+                    connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+            elif db_type == "postgresql":
+                logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
+                with engine.connect() as connection:
+                    connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
+            else:
+                raise ValueError("Unsupported database type:" + db_type)
+        except SQLAlchemyError as e:
+            logger.error(f"Error dropping schema: {e}")
+            raise

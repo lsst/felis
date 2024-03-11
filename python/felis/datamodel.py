@@ -24,7 +24,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from enum import Enum
+<<<<<<< HEAD
 from typing import Annotated, Any, Literal, TypeAlias
+=======
+from io import TextIOBase
+from typing import Annotated, Any, Literal, TypeAlias
+from urllib.request import urlopen
+>>>>>>> a47ed7b... Fix typing errors and some other simple bugs
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore

@@ -38,6 +38,7 @@ from sqlalchemy.engine.mock import MockConnection
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
 from .datamodel import Schema
+from .metadata import InsertDump as _InsertDump
 from .metadata import SchemaMetaData
 from .sql import SQLVisitor
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
@@ -95,56 +96,59 @@ def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIO
     metadata.create_all(engine)
 
 
-# TODO: add '--echo' to pass to engine for echoing SQL
 @cli.command("create")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL")
+@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.option(
     "--create-if-not-exists", is_flag=True, help="Create the schema in the database if it does not exist"
 )
-@click.option("--echo", is_flag=True, help="Echo database commands as they are executed", default=False)
-@click.option(
-    "--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed", default=False
-)
+@click.option("--drop-if-exists", is_flag=True, help="Drop schema if it already exists in the database")
+@click.option("--echo", is_flag=True, help="Echo database commands as they are executed")
+@click.option("--dry-run", is_flag=True, help="Dry run only to print out commands instead of executing")
 @click.option(
     "--output-file",
     "-o",
-    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True),
-    help="Output file for generated SQL (only works with '--dry-run')",
+    type=click.File(mode="w"),
+    help="Write SQL commands to a file instead of executing",
+    required=False,
 )
 @click.argument("file", type=click.File())
 def create(
     engine_url: str,
     schema_name: str | None,
     create_if_not_exists: bool,
+    drop_if_exists: bool,
     echo: bool,
     dry_run: bool,
     output_file: io.TextIOBase | None,
     file: io.TextIOBase,
 ) -> None:
     """Create database objects from the Felis file."""
-    output_file: io.TextIOBase | None
-    try:
-        schema = Schema.from_yaml_file(file)
-        metadata = SchemaMetaData(schema, schema_name)
-        if not dry_run and not output_file:
-            engine = create_engine(engine_url, echo=echo)
-        else:
-            if dry_run:
-                logger.info("Dry run will be executed")
-            dumper = InsertDump()
-            engine = create_mock_engine(make_url(engine_url), executor=dumper.dump, echo=echo)
-            dumper.dialect = engine.dialect
-            output_file = open(output_file, "w") if output_file else None
-            dumper.file = output_file
-            if output_file:
-                logger.info(f"Writing to {output_file}")
+    schema = Schema.from_yaml_file(file)
+    url_obj = make_url(engine_url)
+    metadata = SchemaMetaData(
+        schema, schema_name, no_metadata_schema=True if url_obj.drivername == "sqlite" else False
+    )
+    logger.debug(f"Created metadata with schema name: {metadata.schema}")
+    engine: Engine | MockConnection
+    if not dry_run and not output_file:
+        engine = create_engine(engine_url, echo=echo)
+        if drop_if_exists:
+            logger.debug("Dropping schema if it exists")
+            metadata.drop_if_exists(engine)
+            create_if_not_exists = True
         if create_if_not_exists:
+            logger.debug("Creating schema if not exists")
             metadata.create_if_not_exists(engine)
-        metadata.create_all(engine)
-    finally:
+    else:
+        if dry_run:
+            logger.info("Dry run will be executed")
+        dumper = _InsertDump(output_file)
+        engine = create_mock_engine(make_url(engine_url), executor=dumper.dump)
+        dumper.dialect = engine.dialect
         if output_file:
-            output_file.close()
+            logger.info("Writing SQL output to: " + getattr(output_file, "name", ""))
+    metadata.create_all(engine)
 
 
 @cli.command("init-tap")
