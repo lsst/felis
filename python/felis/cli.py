@@ -98,7 +98,14 @@ def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIO
 # TODO: add '--echo' to pass to engine for echoing SQL
 @cli.command("create")
 @click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL")
-@click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
+@click.option("--schema-name", help="Alternate schema name to override Felis file")
+@click.option(
+    "--create-if-not-exists", is_flag=True, help="Create the schema in the database if it does not exist"
+)
+@click.option("--echo", is_flag=True, help="Echo database commands as they are executed", default=False)
+@click.option(
+    "--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed", default=False
+)
 @click.option(
     "--output-file",
     "-o",
@@ -106,20 +113,38 @@ def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIO
     help="Output file for generated SQL (only works with '--dry-run')",
 )
 @click.argument("file", type=click.File())
-def create(engine_url: str, dry_run: bool, output_file: io.TextIOBase | None, file: io.TextIOBase) -> None:
+def create(
+    engine_url: str,
+    schema_name: str | None,
+    create_if_not_exists: bool,
+    echo: bool,
+    dry_run: bool,
+    output_file: io.TextIOBase | None,
+    file: io.TextIOBase,
+) -> None:
     """Create database objects from the Felis file."""
-    schema = Schema.from_yaml_file(file)
-    metadata = SchemaMetaData(schema)
-    if not dry_run:
-        engine = create_engine(engine_url)
+    output_file: io.TextIOBase | None
+    try:
+        schema = Schema.from_yaml_file(file)
+        metadata = SchemaMetaData(schema, schema_name)
+        if not dry_run and not output_file:
+            engine = create_engine(engine_url, echo=echo)
+        else:
+            if dry_run:
+                logger.info("Dry run will be executed")
+            dumper = InsertDump()
+            engine = create_mock_engine(make_url(engine_url), executor=dumper.dump, echo=echo)
+            dumper.dialect = engine.dialect
+            output_file = open(output_file, "w") if output_file else None
+            dumper.file = output_file
+            if output_file:
+                logger.info(f"Writing to {output_file}")
+        if create_if_not_exists:
+            metadata.create_if_not_exists(engine)
         metadata.create_all(engine)
-    else:
-        try:
-            of = open(output_file, "w") if output_file else None
-            metadata.dump(engine_url, of)
-        finally:
-            if of:
-                of.close()
+    finally:
+        if output_file:
+            output_file.close()
 
 
 @cli.command("init-tap")

@@ -21,12 +21,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal, TextIO
 
+import sqlalchemy.schema as sqa_schema
 from sqlalchemy import (
     CheckConstraint,
     Column,
     Constraint,
+    Engine,
     ForeignKeyConstraint,
     Index,
     MetaData,
@@ -36,6 +39,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_mock_engine,
     make_url,
+    text,
 )
 from sqlalchemy.types import TypeEngine
 
@@ -43,6 +47,8 @@ from . import datamodel as dm
 from .db import sqltypes
 from .sql import COLUMN_VARIANT_OVERRIDE, _process_variant_override
 from .types import FelisType
+
+logger = logging.getLogger(__name__)
 
 
 class InsertDump:
@@ -93,15 +99,17 @@ class SchemaMetaData(MetaData):
     `Schema` when the class is instantiated.
     """
 
-    def __init__(self, schema_obj: dm.Schema) -> None:
+    def __init__(self, schema_obj: dm.Schema, schema_name: str | None) -> None:
         """Initialize SQA `MetaData` from a `felis.datamodel.Schema` object.
 
         Parameters
         ----------
         schema_obj : `felis.datamodel.Schema`
             The schema object to build the metadata from.
+        schema_name : `str`
+            Alternate schema name to override the Felis file.
         """
-        MetaData.__init__(self, schema=schema_obj.name)
+        MetaData.__init__(self, schema=schema_name if schema_name else schema_obj.name)
         self._schema_obj = schema_obj
         self._object_index: dict[str, Any] = {}
         self._build_all()
@@ -397,3 +405,32 @@ class SchemaMetaData(MetaData):
         dumper.dialect = engine.dialect
         dumper.file = file
         self.create_all(engine)
+
+    def create_if_not_exists(self, engine: Engine) -> None:
+        """Create the schema in the database if it does not exist.
+
+        In MySQL, this will create a new database. In PostgreSQL, it will create a
+        new schema. For other variants, this is unsupported for now.
+
+        Parameters
+        ----------
+        engine: `Engine`
+            The SQLAlchemy engine object.
+        schema_name: `str`
+            The name of the schema (or database) to create.
+        """
+        db_type = engine.dialect.name
+        schema_name = self.schema
+        if db_type == "mysql":
+            with engine.connect() as connection:
+                logger.info(f"Creating MySQL database: {schema_name}")
+                connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
+        elif db_type == "postgresql":
+            logger.info(f"Creating PostgreSQL schema: {schema_name}")
+            with engine.connect() as connection:
+                if not engine.dialect.has_schema(engine, schema_name):
+                    connection.execute(sqa_schema.CreateSchema(schema_name))
+                else:
+                    logger.info("Schema already exists: {schema_name}")
+        else:
+            raise ValueError("Unsupported database type:" + db_type)
