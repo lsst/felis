@@ -147,3 +147,13 @@ target-version = "py311"
 extend-select = [
     "RUF100", # Warn about unused noqa
 ]
+
+[tool.pydeps]
+max_bacon = 2
+no_show = true
+verbose = 0
+pylib = false
+format = "png"
+exclude = [
+    "sqlalchemy"
+]
