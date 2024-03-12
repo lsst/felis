@@ -36,13 +36,14 @@ from sqlalchemy import (
     MetaData,
     Numeric,
     PrimaryKeyConstraint,
+    ResultProxy,
     Table,
     UniqueConstraint,
     create_mock_engine,
     make_url,
     text,
 )
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.types import TypeEngine
 
@@ -52,6 +53,28 @@ from .sql import COLUMN_VARIANT_OVERRIDE, _process_variant_override
 from .types import FelisType
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectionWrapper:
+    """A wrapper for a SQLAlchemy engine or mock connection which provides a
+    consistent interface for executing SQL statements.
+    """
+
+    def __init__(self, engine: Engine | MockConnection):
+        """Initialize the connection wrapper."""
+        self.engine = engine
+
+    def execute(self, statement: Any) -> ResultProxy:
+        """Execute a SQL statement on the engine and return the result."""
+        if isinstance(statement, str):
+            statement = text(statement)
+        if isinstance(self.engine, MockConnection):
+            return self.engine.connect().execute(statement)
+        else:
+            with self.engine.connect() as connection:
+                result = connection.execute(statement)
+                connection.commit()
+                return result
 
 
 class InsertDump:
@@ -416,7 +439,7 @@ class SchemaMetaData(MetaData):
         dumper.dialect = engine.dialect
         self.create_all(engine)
 
-    def create_if_not_exists(self, engine: Engine) -> None:
+    def create_if_not_exists(self, engine: Engine | MockConnection) -> None:
         """Create the schema in the database if it does not exist.
 
         In MySQL, this will create a new database. In PostgreSQL, it will create a
@@ -431,29 +454,21 @@ class SchemaMetaData(MetaData):
         """
         db_type = engine.dialect.name
         schema_name = self.schema
+        connection = ConnectionWrapper(engine)
         try:
             if db_type == "mysql":
-                with engine.connect() as connection:
-                    logger.info(f"Creating MySQL database: {schema_name}")
-                    connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
-                    connection.commit()
+                logger.info(f"Creating MySQL database: {schema_name}")
+                connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
             elif db_type == "postgresql":
-                with engine.connect() as connection:
-                    inspector = reflection.Inspector.from_engine(engine)
-                    if schema_name not in inspector.get_schema_names():
-                        logger.info(f"Creating PG schema: {schema_name}")
-                        connection.execute(sqa_schema.CreateSchema(schema_name))
-                        connection.commit()
-                    else:
-                        logger.info("PG schema already exists: {schema_name}")
-                logger.debug("Done creating PG schema.")
+                logger.info(f"Creating PG schema: {schema_name}")
+                connection.execute(sqa_schema.CreateSchema(schema_name, if_not_exists=True))
             else:
                 raise ValueError("Unsupported database type:" + db_type)
         except SQLAlchemyError as e:
             logger.error(f"Error creating schema: {e}")
             raise
 
-    def drop_if_exists(self, engine: Engine) -> None:
+    def drop_if_exists(self, engine: Engine | MockConnection) -> None:
         """Drop the schema in the database if it exists.
 
         In MySQL, this will drop a database. In PostgreSQL, it will drop a schema.
@@ -468,15 +483,14 @@ class SchemaMetaData(MetaData):
         """
         db_type = engine.dialect.name
         schema_name = self.schema
+        connection = ConnectionWrapper(engine)
         try:
             if db_type == "mysql":
-                with engine.connect() as connection:
-                    logger.info(f"Dropping MySQL database if exists: {schema_name}")
-                    connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+                logger.info(f"Dropping MySQL database if exists: {schema_name}")
+                connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
             elif db_type == "postgresql":
                 logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                with engine.connect() as connection:
-                    connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
+                connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
             else:
                 raise ValueError("Unsupported database type:" + db_type)
         except SQLAlchemyError as e:

@@ -133,13 +133,6 @@ def create(
     engine: Engine | MockConnection
     if not dry_run and not output_file:
         engine = create_engine(engine_url, echo=echo)
-        if drop_if_exists:
-            logger.debug("Dropping schema if it exists")
-            metadata.drop_if_exists(engine)
-            create_if_not_exists = True
-        if create_if_not_exists:
-            logger.debug("Creating schema if not exists")
-            metadata.create_if_not_exists(engine)
     else:
         if dry_run:
             logger.info("Dry run will be executed")
@@ -148,6 +141,13 @@ def create(
         dumper.dialect = engine.dialect
         if output_file:
             logger.info("Writing SQL output to: " + getattr(output_file, "name", ""))
+    if drop_if_exists:
+        logger.debug("Dropping schema if it exists")
+        metadata.drop_if_exists(engine)
+        create_if_not_exists = True
+    if create_if_not_exists:
+        logger.debug("Creating schema if not exists")
+        metadata.create_if_not_exists(engine)
     metadata.create_all(engine)
 
 
