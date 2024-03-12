@@ -125,3 +125,6 @@ gen### SCons template
 python/felis/version.py
 bin/
 tests/.tests/
+
+# This is generated when running pydeps.
+/felis.png
