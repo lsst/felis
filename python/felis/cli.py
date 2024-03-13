@@ -38,9 +38,7 @@ from sqlalchemy.engine.mock import MockConnection
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
 from .datamodel import Schema
-from .metadata import InsertDump as _InsertDump
-from .metadata import SchemaMetaData
-from .sql import SQLVisitor
+from .metadata import InsertDump, SchemaMetaData
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
 from .validation import get_schema
@@ -71,29 +69,6 @@ def cli(log_level: str, log_file: str | None) -> None:
         logging.basicConfig(filename=log_file, level=log_level)
     else:
         logging.basicConfig(level=log_level)
-
-
-@cli.command("create-all")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL")
-@click.option("--schema-name", help="Alternate Schema Name for Felis File")
-@click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
-@click.argument("file", type=click.File())
-def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIOBase) -> None:
-    """Create schema objects from the Felis FILE."""
-    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-    visitor = SQLVisitor(schema_name=schema_name)
-    schema = visitor.visit_schema(schema_obj)
-
-    metadata = schema.metadata
-
-    engine: Engine | MockConnection
-    if not dry_run:
-        engine = create_engine(engine_url)
-    else:
-        _insert_dump = InsertDump()
-        engine = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump)
-        _insert_dump.dialect = engine.dialect
-    metadata.create_all(engine)
 
 
 @cli.command("create")
@@ -136,7 +111,7 @@ def create(
     else:
         if dry_run:
             logger.info("Dry run will be executed")
-        dumper = _InsertDump(output_file)
+        dumper = InsertDump(output_file)
         engine = create_mock_engine(make_url(engine_url), executor=dumper.dump)
         dumper.dialect = engine.dialect
         if output_file:
@@ -459,31 +434,6 @@ def _normalize(schema_obj: Mapping[str, Any], embed: str = "@last") -> MutableMa
     graph = [ReorderingVisitor(add_type=True).visit_schema(schema_obj) for schema_obj in graph]
     compacted["@graph"] = graph if len(graph) > 1 else graph[0]
     return compacted
-
-
-class InsertDump:
-    """An Insert Dumper for SQL statements."""
-
-    dialect: Any = None
-
-    def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
-        compiled = sql.compile(dialect=self.dialect)
-        sql_str = str(compiled) + ";"
-        params_list = [compiled.params]
-        for params in params_list:
-            if not params:
-                print(sql_str)
-                continue
-            new_params = {}
-            for key, value in params.items():
-                if isinstance(value, str):
-                    new_params[key] = f"'{value}'"
-                elif value is None:
-                    new_params[key] = "null"
-                else:
-                    new_params[key] = value
-
-            print(sql_str % new_params)
 
 
 if __name__ == "__main__":
