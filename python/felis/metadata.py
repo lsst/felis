@@ -45,11 +45,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.types import TypeEngine
+
+from felis.db._variants import make_variant_dict
 
 from . import datamodel as dm
 from .db import sqltypes
-from .sql import COLUMN_VARIANT_OVERRIDE, _process_variant_override
 from .types import FelisType
 
 logger = logging.getLogger(__name__)
@@ -238,7 +238,7 @@ class SchemaMetaData(MetaData):
         length = column_obj.length
 
         # Handle variant overrides based on code from Felis `sql` module.
-        variant_dict = SchemaMetaData._make_variant_dict(column_obj)
+        variant_dict = make_variant_dict(column_obj)
         felis_type = FelisType.felis_type(datatype_name)
         datatype_fun = getattr(sqltypes, datatype_name)
         if felis_type.is_sized:
@@ -347,29 +347,6 @@ class SchemaMetaData(MetaData):
         index = Index(index_obj.name, *columns, *expressions)
         self[index_obj.id] = index
         return index
-
-    @classmethod
-    def _make_variant_dict(cls, column_obj: dm.Column) -> dict[str, TypeEngine[Any]]:
-        """Handle variant overrides, based on logic from `sql.py`.
-
-        Parameters
-        ----------
-        column_obj : felis.datamodel.Column
-            The column object from which to build the variant dictionary.
-
-        Returns
-        -------
-        variant_dict : `dict`
-            The dictionary of `str` to `TypeEngine` containing variant datatype
-            information (e.g., for mysql, postgresql, etc).
-        """
-        variant_dict = {}
-        for field_name, value in iter(column_obj):
-            if field_name in COLUMN_VARIANT_OVERRIDE:
-                dialect = COLUMN_VARIANT_OVERRIDE[field_name]
-                variant: TypeEngine = _process_variant_override(dialect, value)
-                variant_dict[dialect] = variant
-        return variant_dict
 
     def __getitem__(self, id: str) -> Any:
         """Get a SQA object by its ID field.
