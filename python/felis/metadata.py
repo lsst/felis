@@ -85,7 +85,7 @@ class InsertDump:
     removed soon.
     """
 
-    def __init__(self, file: TextIOBase | None) -> None:
+    def __init__(self, file: TextIOBase | None = None) -> None:
         self.file = file
         self.dialect: Any | None = None
 
@@ -137,7 +137,7 @@ class SchemaMetaData(MetaData):
         schema_name : `str`
             Alternate schema name to override the Felis file.
         no_metadata_schema : `bool`
-            Do not pass the schema name to the MetaData object, e.g., for sqlite driver
+            Do not pass the schema name to the MetaData object
         """
         MetaData.__init__(
             self, schema=None if no_metadata_schema else (schema_name if schema_name else schema_obj.name)
@@ -408,8 +408,8 @@ class SchemaMetaData(MetaData):
             The connection string to use for dumping the metadata.
 
         file : TextIO | None
-            The file to write the dump to. If `None`, the dump will be written to
-            stdout.
+            The file to write the dump to. If `None`, the dump will be written
+            to stdout.
         """
         dumper = InsertDump(file)
         engine = create_mock_engine(make_url(connection_string), executor=dumper.dump)
@@ -419,8 +419,8 @@ class SchemaMetaData(MetaData):
     def create_if_not_exists(self, engine: Engine | MockConnection) -> None:
         """Create the schema in the database if it does not exist.
 
-        In MySQL, this will create a new database. In PostgreSQL, it will create a
-        new schema. For other variants, this is unsupported for now.
+        In MySQL, this will create a new database. In PostgreSQL, it will
+        create a new schema. For other variants, this is unsupported for now.
 
         Parameters
         ----------
@@ -448,8 +448,8 @@ class SchemaMetaData(MetaData):
     def drop_if_exists(self, engine: Engine | MockConnection) -> None:
         """Drop the schema in the database if it exists.
 
-        In MySQL, this will drop a database. In PostgreSQL, it will drop a schema.
-        For other variants, this is unsupported for now.
+        In MySQL, this will drop a database. In PostgreSQL, it will drop a
+        schema. For other variants, this is unsupported for now.
 
         Parameters
         ----------
