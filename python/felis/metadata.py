@@ -44,8 +44,10 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine.mock import MockConnection
+from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
 
+from felis.datamodel import Schema
 from felis.db._variants import make_variant_dict
 
 from . import datamodel as dm
@@ -53,28 +55,6 @@ from .db import sqltypes
 from .types import FelisType
 
 logger = logging.getLogger(__name__)
-
-
-class ConnectionWrapper:
-    """A wrapper for a SQLAlchemy engine or mock connection which provides a
-    consistent interface for executing SQL statements.
-    """
-
-    def __init__(self, engine: Engine | MockConnection):
-        """Initialize the connection wrapper."""
-        self.engine = engine
-
-    def execute(self, statement: Any) -> ResultProxy:
-        """Execute a SQL statement on the engine and return the result."""
-        if isinstance(statement, str):
-            statement = text(statement)
-        if isinstance(self.engine, MockConnection):
-            return self.engine.connect().execute(statement)
-        else:
-            with self.engine.connect() as connection:
-                result = connection.execute(statement)
-                connection.commit()
-                return result
 
 
 class InsertDump:
@@ -86,11 +66,30 @@ class InsertDump:
     """
 
     def __init__(self, file: TextIOBase | None = None) -> None:
+        """Initialize the insert dumper.
+
+        Parameters
+        ----------
+        file : `TextIOBase` or None, optional
+            The file to write the SQL statements to. If None, the statements
+            will be written to stdout.
+        """
         self.file = file
         self.dialect: Any | None = None
 
     def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
-        """Dump the SQL statement to a file or stdout."""
+        """Dump the SQL statement to a file or stdout.
+
+        Parameters
+        ----------
+        sql : `Any`
+            The SQL statement to dump.
+
+        multiparams : `Any`
+            The multiparams to use for the SQL statement.
+        params : `Any`
+            The params to use for the SQL statement.
+        """
         compiled = sql.compile(dialect=self.dialect)
         sql_str = str(compiled) + ";"
         params_list = [compiled.params]
@@ -109,51 +108,24 @@ class InsertDump:
             print(sql_str % new_params, file=self.file)
 
 
-class SchemaMetaData(MetaData):
-    """A sqlalchemy (SQA) Metadata object derived from the information in a
-    single `felis.datamodel.Schema` object.
+class MetaDataBuilder:
+    """A class for building a `MetaData` object from a `Schema` object."""
 
-    Notes
-    -----
-    The `SchemaMetaData` is built from a schema object which has already been
-    validated. This class is intended as a drop-in replacement when a
-    sqlalchemy `MetaData` object is needed, and it replaces the visitor
-    pattern used previously for building this type of object.
+    def __init__(self, schema: Schema):
+        self.schema = schema
+        self.metadata = MetaData(schema=schema.name)
+        self._objects: dict[str, Any] = {}
 
-    Users should not call any of the build methods themselves, and doing so
-    will result in errors. The object is built automatically from the provided
-    `Schema` when the class is instantiated.
-    """
+    def reset(self, schema: Schema) -> None:
+        self.schema = schema
+        self.metadata = MetaData(schema=self.schema.name)
+        self._objects = {}
 
-    def __init__(
-        self, schema_obj: dm.Schema, schema_name: str | None = None, no_metadata_schema: bool = False
-    ) -> None:
-        """Initialize SQA `MetaData` from a `felis.datamodel.Schema` object.
+    def build(self) -> None:
+        self.build_tables()
+        self.build_constraints()
 
-        Parameters
-        ----------
-        schema_obj : `felis.datamodel.Schema`
-            The schema object to build the metadata from.
-        schema_name : `str`
-            Alternate schema name to override the Felis file.
-        no_metadata_schema : `bool`
-            Do not pass the schema name to the MetaData object
-        """
-        MetaData.__init__(
-            self, schema=None if no_metadata_schema else (schema_name if schema_name else schema_obj.name)
-        )
-        if no_metadata_schema:
-            logger.debug("Schema will not be set on MetaData object")
-        self._schema_obj = schema_obj
-        self._object_index: dict[str, Any] = {}
-        self._build_all()
-
-    def _build_all(self) -> None:
-        """Build metadata from the registered schema into this object."""
-        self._build_tables()
-        self._build_constraints()
-
-    def _build_tables(self) -> None:
+    def build_tables(self) -> None:
         """Build the SQA tables from the schema.
 
         Notes
@@ -162,13 +134,13 @@ class SchemaMetaData(MetaData):
         including objects within tables such as constraints, primary keys,
         and indices, which have their own dedicated sub-functions.
         """
-        for table in self._schema_obj.tables:
-            self._build_table(table)
+        for table in self.schema.tables:
+            self.build_table(table)
             if table.primaryKey:
-                primary_key = self._build_primary_key(table.primaryKey)
-                self[table.id].append_constraint(primary_key)
+                primary_key = self.build_primary_key(table.primaryKey)
+                self._objects[table.id].append_constraint(primary_key)
 
-    def _build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
+    def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
         """Build a SQA `PrimaryKeyConstraint` from a single column ID or a list
         or them.
 
@@ -180,13 +152,13 @@ class SchemaMetaData(MetaData):
         """
         columns: list[Column] = []
         if isinstance(primary_key_columns, str):
-            columns.append(self[primary_key_columns])
+            columns.append(self._objects[primary_key_columns])
         else:
-            columns.extend([self[column_id] for column_id in primary_key_columns])
+            columns.extend([self._objects[column_id] for column_id in primary_key_columns])
         return PrimaryKeyConstraint(*columns)
 
-    def _build_table(self, table_obj: dm.Table) -> None:
-        """Build a SQA table from a `datamodel.Table` object and it to this
+    def build_table(self, table_obj: dm.Table) -> None:
+        """Build a SQA table from a `datamodel.Table` object and it to
         `MetaData` object.
 
         Parameters
@@ -205,18 +177,20 @@ class SchemaMetaData(MetaData):
         name = table_obj.name
         id = table_obj.id
         description = table_obj.description
-        columns = [self._build_column(column) for column in table_obj.columns]
-        table = Table(name, self, *columns, comment=description, **optargs)  # type: ignore[arg-type]
+        columns = [self.build_column(column) for column in table_obj.columns]
+        table = Table(
+            name, self.metadata, *columns, comment=description, schema=self.schema.name, **optargs
+        )  # type: ignore[arg-type]
 
         # Create the indexes and add them to the table.
-        indexes = [self._build_index(index) for index in table_obj.indexes]
+        indexes = [self.build_index(index) for index in table_obj.indexes]
         for index in indexes:
             index._set_parent(table)
             table.indexes.add(index)
 
-        self[id] = table
+        self._objects[id] = table
 
-    def _build_column(self, column_obj: dm.Column) -> Column:
+    def build_column(self, column_obj: dm.Column) -> Column:
         """Build a SQA column from a `felis.datamodel.Column` object.
 
         Parameters
@@ -265,21 +239,21 @@ class SchemaMetaData(MetaData):
             server_default=default,
         )
 
-        self[id] = column
+        self._objects[id] = column
 
         return column
 
-    def _build_constraints(self) -> None:
+    def build_constraints(self) -> None:
         """Build the SQA constraints in the Felis schema and append them to the
         associated `Table`.
         """
-        for table_obj in self._schema_obj.tables:
-            table = self[table_obj.id]
+        for table_obj in self.schema.tables:
+            table = self._objects[table_obj.id]
             for constraint_obj in table_obj.constraints:
-                constraint = self._build_constraint(constraint_obj)
+                constraint = self.build_constraint(constraint_obj)
                 table.append_constraint(constraint)
 
-    def _build_constraint(self, constraint_obj: dm.Constraint) -> Constraint:
+    def build_constraint(self, constraint_obj: dm.Constraint) -> Constraint:
         """Build a SQA `Constraint` from a `felis.datamodel.Constraint` object.
 
         Parameters
@@ -292,20 +266,21 @@ class SchemaMetaData(MetaData):
         constraint: `Constraint`
             The SQA constraint object.
         """
-        args: dict[str, Any] = {}
-        args["name"] = constraint_obj.name if constraint_obj.name else None
-        args["info"] = constraint_obj.description if constraint_obj.description else None
-        args["deferrable"] = constraint_obj.deferrable if constraint_obj.deferrable else None
-        args["initially"] = constraint_obj.initially if constraint_obj.initially else None
-
+        args: dict[str, Any] = {
+            "name": constraint_obj.name if constraint_obj.name else None,
+            "info": constraint_obj.description if constraint_obj.description else None,
+            "deferrable": constraint_obj.deferrable if constraint_obj.deferrable else None,
+            "initially": constraint_obj.initially if constraint_obj.initially else None,
+        }
         constraint: Constraint
         constraint_type = constraint_obj.type
 
         if constraint_type == "ForeignKey":
             if isinstance(constraint_obj, dm.ForeignKeyConstraint):
                 fk_obj: dm.ForeignKeyConstraint = constraint_obj
-                refcolumns = [self[column_id] for column_id in fk_obj.referenced_columns]
-                constraint = ForeignKeyConstraint(refcolumns, refcolumns, **args)
+                columns = [self._objects[column_id] for column_id in fk_obj.columns]
+                refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
+                constraint = ForeignKeyConstraint(columns, refcolumns, **args)
             else:
                 raise TypeError("Unexpected constraint type for ForeignKey: ", type(constraint_obj))
         elif constraint_type == "Check":
@@ -317,19 +292,19 @@ class SchemaMetaData(MetaData):
                 raise TypeError("Unexpected constraint type for CheckConstraint: ", type(constraint_obj))
         elif constraint_type == "Unique":
             if isinstance(constraint_obj, dm.UniqueConstraint):
-                unique_obj: dm.UniqueConstraint = constraint_obj
-                columns = [self[column_id] for column_id in unique_obj.columns]
+                uniq_obj: dm.UniqueConstraint = constraint_obj
+                columns = [self._objects[column_id] for column_id in uniq_obj.columns]
                 constraint = UniqueConstraint(*columns, **args)
             else:
                 raise TypeError("Unexpected constraint type for UniqueConstraint: ", type(constraint_obj))
         else:
             raise ValueError(f"Unexpected constraint type: {constraint_type}")
 
-        self[constraint_obj.id] = constraint
+        self._objects[constraint_obj.id] = constraint
 
         return constraint
 
-    def _build_index(self, index_obj: dm.Index) -> Index:
+    def build_index(self, index_obj: dm.Index) -> Index:
         """Build a SQA `Index` from a `felis.datamodel.Index` object.
 
         Parameters
@@ -342,85 +317,65 @@ class SchemaMetaData(MetaData):
         index: `Index`
             The SQA index object.
         """
-        columns = [self[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
+        columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
         expressions = index_obj.expressions if index_obj.expressions else []
         index = Index(index_obj.name, *columns, *expressions)
-        self[index_obj.id] = index
+        self._objects[index_obj.id] = index
         return index
 
-    def __getitem__(self, id: str) -> Any:
-        """Get a SQA object by its ID field.
+
+class ConnectionWrapper:
+    """A wrapper for a SQLAlchemy engine or mock connection which provides a
+    consistent interface for executing SQL statements.
+    """
+
+    def __init__(self, engine: Engine | MockConnection):
+        """Initialize the connection wrapper.
 
         Parameters
         ----------
-        id : str
-            The ID of the object to retrieve.
-
-        Returns
-        -------
-        obj : Any
-            The object with the given ID.
-
-        Raises
-        ------
-        KeyError
-            If the object is not found in the `MetaData` object.
-
-        Notes
-        -----
-        This function should not interfere with the behavior of the base
-        `MetaData` class, which does not implment `__getitem__`.
+        engine : `Engine` or `MockConnection`
+            The SQLAlchemy engine or mock connection to wrap.
         """
-        if id not in self._object_index:
-            raise KeyError(f"Object not found in MetaData with id: {id}")
-        return self._object_index[id]
+        self.engine = engine
 
-    def __setitem__(self, id: str, obj: Any) -> None:
-        """Register a sqlalchemy object by its ID field.
+    def execute(self, statement: Any) -> ResultProxy:
+        """Execute a SQL statement on the engine and return the result."""
+        if isinstance(statement, str):
+            statement = text(statement)
+        if isinstance(self.engine, MockConnection):
+            return self.engine.connect().execute(statement)
+        else:
+            with self.engine.connect() as connection:
+                result = connection.execute(statement)
+                connection.commit()
+                return result
+
+
+class DatabaseContext:
+    """A class for managing the schema and its database connection."""
+
+    def __init__(self, metadata: MetaData, engine: Engine | MockConnection):
+        """Initialize the database context.
 
         Parameters
         ----------
-        id : str
-            The ID of the object to register.
-        obj : Any
-            The object to register.
+        metadata : `MetaData`
+            The SQLAlchemy metadata object.
 
-        Raises
-        ------
-        KeyError
-            If the object is already found in the `MetaData` object.
-
-        Notes
-        -----
-        This function should not interfere with the behavior of the base
-        `MetaData` class, which does not implment `__setitem__`.
+        engine : `Engine` or `MockConnection`
+            The SQLAlchemy engine or mock connection object.
         """
-        if id in self._object_index:
-            raise KeyError(f"Object already exists in MetaData with id: {id}")
-        self._object_index[id] = obj
+        self.engine = engine
+        self.metadata = metadata
+        self.connection = ConnectionWrapper(engine)
 
-    def dump(self, connection_string: str = "sqlite://", file: TextIOBase | None = None) -> None:
-        """Dump the metadata to a file or stdout.
-
-        Parameters
-        ----------
-        connection_string : str
-            The connection string to use for dumping the metadata.
-
-        file : TextIO | None
-            The file to write the dump to. If `None`, the dump will be written
-            to stdout.
-        """
-        dumper = InsertDump(file)
-        engine = create_mock_engine(make_url(connection_string), executor=dumper.dump)
-        dumper.dialect = engine.dialect
-        self.create_all(engine)
-
-    def create_if_not_exists(self, engine: Engine | MockConnection) -> None:
+    def create_if_not_exists(self) -> None:
         """Create the schema in the database if it does not exist.
 
         In MySQL, this will create a new database. In PostgreSQL, it will
-        create a new schema. For other variants, this is unsupported for now.
+        create a new schema. For other variants, this is an unsupported
+        operation.
 
         Parameters
         ----------
@@ -429,23 +384,22 @@ class SchemaMetaData(MetaData):
         schema_name: `str`
             The name of the schema (or database) to create.
         """
-        db_type = engine.dialect.name
-        schema_name = self.schema
-        connection = ConnectionWrapper(engine)
+        db_type = self.engine.dialect.name
+        schema_name = self.metadata.schema
         try:
             if db_type == "mysql":
                 logger.info(f"Creating MySQL database: {schema_name}")
-                connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
+                self.connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
             elif db_type == "postgresql":
                 logger.info(f"Creating PG schema: {schema_name}")
-                connection.execute(sqa_schema.CreateSchema(schema_name, if_not_exists=True))
+                self.connection.execute(sqa_schema.CreateSchema(schema_name, if_not_exists=True))
             else:
                 raise ValueError("Unsupported database type:" + db_type)
         except SQLAlchemyError as e:
             logger.error(f"Error creating schema: {e}")
             raise
 
-    def drop_if_exists(self, engine: Engine | MockConnection) -> None:
+    def drop_if_exists(self) -> None:
         """Drop the schema in the database if it exists.
 
         In MySQL, this will drop a database. In PostgreSQL, it will drop a
@@ -458,18 +412,39 @@ class SchemaMetaData(MetaData):
         schema_name: `str`
             The name of the schema (or database) to drop.
         """
-        db_type = engine.dialect.name
-        schema_name = self.schema
-        connection = ConnectionWrapper(engine)
+        db_type = self.engine.dialect.name
+        schema_name = self.metadata.schema
         try:
             if db_type == "mysql":
                 logger.info(f"Dropping MySQL database if exists: {schema_name}")
-                connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+                self.connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
             elif db_type == "postgresql":
                 logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
+                self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
             else:
                 raise ValueError("Unsupported database type:" + db_type)
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
+
+    def create_all(self) -> None:
+        """Create all tables in the schema using the metadata object."""
+        self.metadata.create_all(self.engine)
+
+    @staticmethod
+    def create_mock_engine(engine_url: URL, output_file: TextIOBase | None = None) -> MockConnection:
+        """Create a mock engine for testing or dumping DDL statements.
+
+        Parameters
+        ----------
+        engine_url : `URL`
+            The SQLAlchemy engine URL.
+
+        output_file : `TextIOBase` or None, optional
+            The file to write the SQL statements to. If None, the statements
+            will be written to stdout.
+        """
+        dumper = InsertDump(output_file)
+        engine = create_mock_engine(make_url(engine_url), executor=dumper.dump)
+        dumper.dialect = engine.dialect
+        return engine

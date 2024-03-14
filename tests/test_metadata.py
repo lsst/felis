@@ -26,38 +26,19 @@ import yaml
 from sqlalchemy import MetaData, create_engine
 
 from felis.datamodel import Schema
-from felis.metadata import SchemaMetaData
+from felis.metadata import DatabaseContext, MetaDataBuilder
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
-TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
+TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")
 
 
-class DumpTestCase(unittest.TestCase):
-    """Dump the generated DDL for MySQL to an output file."""
-
-    def setUp(self) -> None:
-        os.makedirs(os.path.join(TESTDIR, ".tests"), exist_ok=True)
-        with open(TEST_YAML) as test_yaml:
-            self.yaml_data = yaml.safe_load(test_yaml)
-
-    def test_dump(self) -> None:
-        """Load test file and validate it using the data model.
-
-        Dump the generated DDL for MySQL to an output file.
-        """
-        schema_obj = Schema.model_validate(self.yaml_data)
-        md = SchemaMetaData(schema_obj)
-        with open(os.path.join(TESTDIR, ".tests", "schema_metadata_dump_test.txt"), "w") as dumpfile:
-            md.dump(connection_string="mysql://", file=dumpfile)
-
-
-class SchemaMetaDataTestCase(unittest.TestCase):
-    """Tests for the `SchemaMetaData` class."""
+class MetaDataTestCase(unittest.TestCase):
+    """Test creationg of SQLAlchemy `MetaData` from a `Schema`."""
 
     def setUp(self) -> None:
         """Create an in-memory SQLite database and load the test data."""
         self.engine = create_engine("sqlite://")
-        with open(os.path.join(TESTDIR, "data", "sales.yaml")) as data:
+        with open(TEST_YAML) as data:
             self.yaml_data = yaml.safe_load(data)
 
     def connection(self):
@@ -72,11 +53,16 @@ class SchemaMetaDataTestCase(unittest.TestCase):
         """
         with self.connection() as connection:
             schema = Schema.model_validate(self.yaml_data)
-            md = SchemaMetaData(schema, no_metadata_schema=True)
-            md.create_all(connection)
+            builder = MetaDataBuilder(schema, apply_schema_name=False)
+            builder.build()
+            md = builder.metadata
+
+            ctx = DatabaseContext(md, connection)
+
+            ctx.create_all()
 
             md_db = MetaData()
-            md_db.reflect(connection)
+            md_db.reflect(connection, schema=schema.name)
 
             self.assertEqual(md_db.tables.keys(), md.tables.keys())
 
@@ -90,6 +76,8 @@ class SchemaMetaDataTestCase(unittest.TestCase):
                     self.assertEqual(type(md_column.type), type(md_db_column.type))
                     self.assertEqual(md_column.nullable, md_db_column.nullable)
                     self.assertEqual(md_column.primary_key, md_db_column.primary_key)
+
+            # TODO: Check constraints and indexes
 
 
 if __name__ == "__main__":

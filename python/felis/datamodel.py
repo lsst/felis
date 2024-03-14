@@ -426,6 +426,9 @@ class Schema(BaseObject):
     @model_validator(mode="after")
     def create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects."""
+        if len(self.id_map):
+            logger.debug("ID map was already populated")
+            return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
