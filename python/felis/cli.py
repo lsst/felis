@@ -38,7 +38,7 @@ from sqlalchemy.engine.mock import MockConnection
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
 from .datamodel import Schema
-from .metadata import InsertDump, SchemaMetaData
+from .metadata import DatabaseContext, InsertDump, MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
 from .validation import get_schema
@@ -99,31 +99,41 @@ def create(
     file: io.TextIOBase,
 ) -> None:
     """Create database objects from the Felis file."""
-    schema = Schema.from_yaml_file(file)
+    yaml_data = yaml.safe_load(file)
+    schema = Schema.model_validate(yaml_data)
+    if schema_name:
+        logger.info(f"Overriding schema name with: {schema_name}")
+        schema.name = schema_name
+
     url_obj = make_url(engine_url)
-    metadata = SchemaMetaData(
-        schema, schema_name, no_metadata_schema=True if url_obj.drivername == "sqlite" else False
-    )
+
+    builder = MetaDataBuilder(schema, apply_schema_name=True if url_obj.drivername == "sqlite" else False)
+    builder.build()
+    metadata = builder.metadata
     logger.debug(f"Created metadata with schema name: {metadata.schema}")
+
     engine: Engine | MockConnection
     if not dry_run and not output_file:
         engine = create_engine(engine_url, echo=echo)
     else:
         if dry_run:
             logger.info("Dry run will be executed")
-        dumper = InsertDump(output_file)
-        engine = create_mock_engine(make_url(engine_url), executor=dumper.dump)
-        dumper.dialect = engine.dialect
+        engine = DatabaseContext.create_mock_engine(url_obj, output_file)
         if output_file:
             logger.info("Writing SQL output to: " + getattr(output_file, "name", ""))
+
+    context = DatabaseContext(metadata, engine)
+
     if drop_if_exists:
         logger.debug("Dropping schema if it exists")
-        metadata.drop_if_exists(engine)
-        create_if_not_exists = True
+        context.drop_if_exists()
+        create_if_not_exists = True  # If schema is dropped, it needs to be recreated.
+
     if create_if_not_exists:
         logger.debug("Creating schema if not exists")
-        metadata.create_if_not_exists(engine)
-    metadata.create_all(engine)
+        context.create_if_not_exists(engine)
+
+    context.create_all()
 
 
 @cli.command("init-tap")
