@@ -195,7 +195,7 @@ class Column(BaseObject):
 
         if unit is not None:
             try:
-                units.Unit(unit)
+                units.Unit(unit, format="vounit", parse_strict="raise")
             except ValueError as e:
                 raise ValueError(f"Invalid unit: {e}")
 
