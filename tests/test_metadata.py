@@ -63,7 +63,7 @@ class MetaDataTestCase(unittest.TestCase):
             ctx.create_all()
 
             md_db = MetaData()
-            md_db.reflect(connection)
+            md_db.reflect(connection, schema=schema.name)
 
             self.assertEqual(md_db.tables.keys(), md.tables.keys())
 
