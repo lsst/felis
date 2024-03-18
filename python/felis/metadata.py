@@ -264,20 +264,21 @@ class MetaDataBuilder:
         constraint: `Constraint`
             The SQA constraint object.
         """
-        args: dict[str, Any] = {}
-        args["name"] = constraint_obj.name if constraint_obj.name else None
-        args["info"] = constraint_obj.description if constraint_obj.description else None
-        args["deferrable"] = constraint_obj.deferrable if constraint_obj.deferrable else None
-        args["initially"] = constraint_obj.initially if constraint_obj.initially else None
-
+        args: dict[str, Any] = {
+            "name": constraint_obj.name if constraint_obj.name else None,
+            "info": constraint_obj.description if constraint_obj.description else None,
+            "deferrable": constraint_obj.deferrable if constraint_obj.deferrable else None,
+            "initially": constraint_obj.initially if constraint_obj.initially else None,
+        }
         constraint: Constraint
         constraint_type = constraint_obj.type
 
         if constraint_type == "ForeignKey":
             if isinstance(constraint_obj, dm.ForeignKeyConstraint):
                 fk_obj: dm.ForeignKeyConstraint = constraint_obj
+                columns = [self._objects[column_id] for column_id in fk_obj.columns]
                 refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
-                constraint = ForeignKeyConstraint(refcolumns, refcolumns, **args)
+                constraint = ForeignKeyConstraint(columns, refcolumns, **args)
             else:
                 raise TypeError("Unexpected constraint type for ForeignKey: ", type(constraint_obj))
         elif constraint_type == "Check":
@@ -289,8 +290,8 @@ class MetaDataBuilder:
                 raise TypeError("Unexpected constraint type for CheckConstraint: ", type(constraint_obj))
         elif constraint_type == "Unique":
             if isinstance(constraint_obj, dm.UniqueConstraint):
-                unique_obj: dm.UniqueConstraint = constraint_obj
-                columns = [self._objects[column_id] for column_id in unique_obj.columns]
+                uniq_obj: dm.UniqueConstraint = constraint_obj
+                columns = [self._objects[column_id] for column_id in uniq_obj.columns]
                 constraint = UniqueConstraint(*columns, **args)
             else:
                 raise TypeError("Unexpected constraint type for UniqueConstraint: ", type(constraint_obj))
@@ -410,7 +411,7 @@ class DatabaseContext:
             The name of the schema (or database) to drop.
         """
         db_type = self.engine.dialect.name
-        schema_name = self.schema
+        schema_name = self.metadata.schema
         try:
             if db_type == "mysql":
                 logger.info(f"Dropping MySQL database if exists: {schema_name}")
@@ -424,7 +425,7 @@ class DatabaseContext:
             logger.error(f"Error dropping schema: {e}")
             raise
 
-    def create_all(self):
+    def create_all(self) -> None:
         """Create all tables in the schema using the metadata object."""
         self.metadata.create_all(self.engine)
 
