@@ -53,7 +53,8 @@ class MetaDataTestCase(unittest.TestCase):
         """
         with self.connection() as connection:
             schema = Schema.model_validate(self.yaml_data)
-            builder = MetaDataBuilder(schema, apply_schema_name=False)
+            schema.name = "main"
+            builder = MetaDataBuilder(schema)
             builder.build()
             md = builder.metadata
 
