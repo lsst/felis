@@ -81,11 +81,7 @@ def cli(log_level: str, log_file: str | None) -> None:
 @click.option("--echo", is_flag=True, help="Echo database commands as they are executed")
 @click.option("--dry-run", is_flag=True, help="Dry run only to print out commands instead of executing")
 @click.option(
-    "--output-file",
-    "-o",
-    type=click.File(mode="w"),
-    help="Write SQL commands to a file instead of executing",
-    required=False,
+    "--output-file", "-o", type=click.File(mode="w"), help="Write SQL commands to a file instead of executing"
 )
 @click.argument("file", type=click.File())
 def create(
@@ -101,13 +97,18 @@ def create(
     """Create database objects from the Felis file."""
     yaml_data = yaml.safe_load(file)
     schema = Schema.model_validate(yaml_data)
+    url_obj = make_url(engine_url)
     if schema_name:
         logger.info(f"Overriding schema name with: {schema_name}")
         schema.name = schema_name
+    elif url_obj.drivername == "sqlite":
+        logger.info("Overriding schema name for sqlite with: main")
+        schema.name = "main"
+    if not url_obj.host and not url_obj.drivername == "sqlite":
+        dry_run = True
+        logger.info("Forcing dry run for non-sqlite engine URL with no host")
 
-    url_obj = make_url(engine_url)
-
-    builder = MetaDataBuilder(schema, apply_schema_name=True if url_obj.drivername == "sqlite" else False)
+    builder = MetaDataBuilder(schema)
     builder.build()
     metadata = builder.metadata
     logger.debug(f"Created metadata with schema name: {metadata.schema}")
@@ -131,7 +132,7 @@ def create(
 
     if create_if_not_exists:
         logger.debug("Creating schema if not exists")
-        context.create_if_not_exists(engine)
+        context.create_if_not_exists()
 
     context.create_all()
 
