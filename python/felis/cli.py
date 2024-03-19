@@ -26,7 +26,7 @@ import json
 import logging
 import sys
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any
+from typing import IO, Any
 
 import click
 import yaml
@@ -91,8 +91,8 @@ def create(
     drop_if_exists: bool,
     echo: bool,
     dry_run: bool,
-    output_file: io.TextIOBase | None,
-    file: io.TextIOBase,
+    output_file: IO[str] | None,
+    file: IO,
 ) -> None:
     """Create database objects from the Felis file."""
     yaml_data = yaml.safe_load(file)
@@ -121,7 +121,7 @@ def create(
             logger.info("Dry run will be executed")
         engine = DatabaseContext.create_mock_engine(url_obj, output_file)
         if output_file:
-            logger.info("Writing SQL output to: " + getattr(output_file, "name", ""))
+            logger.info("Writing SQL output to: " + output_file.name)
 
     context = DatabaseContext(metadata, engine)
 

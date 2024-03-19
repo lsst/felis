@@ -22,8 +22,7 @@
 from __future__ import annotations
 
 import logging
-from io import TextIOBase
-from typing import Any, Literal
+from typing import IO, Any, Literal
 
 import sqlalchemy.schema as sqa_schema
 from sqlalchemy import (
@@ -65,7 +64,7 @@ class InsertDump:
     removed soon.
     """
 
-    def __init__(self, file: TextIOBase | None = None) -> None:
+    def __init__(self, file: IO[str] | None = None) -> None:
         """Initialize the insert dumper.
 
         Parameters
@@ -446,7 +445,7 @@ class DatabaseContext:
         self.metadata.create_all(self.engine)
 
     @staticmethod
-    def create_mock_engine(engine_url: URL, output_file: TextIOBase | None = None) -> MockConnection:
+    def create_mock_engine(engine_url: URL, output_file: IO[str] | None = None) -> MockConnection:
         """Create a mock engine for testing or dumping DDL statements.
 
         Parameters
@@ -454,7 +453,7 @@ class DatabaseContext:
         engine_url : `URL`
             The SQLAlchemy engine URL.
 
-        output_file : `TextIOBase` or None, optional
+        output_file : `IO[str]` or None, optional
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
         """
