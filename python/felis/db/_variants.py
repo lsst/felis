@@ -48,12 +48,12 @@ COLUMN_VARIANT_OVERRIDE = {
 
 DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
 
-length_regex = re.compile(r"\((.+)\)")
+_length_regex = re.compile(r"\((\d+)\)")
 
 
 def process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
     """Return variant type for given dialect."""
-    match = length_regex.search(variant_override_str)
+    match = _length_regex.search(variant_override_str)
     dialect = DIALECT_MODULES[dialect_name]
     variant_type_name = variant_override_str.split("(")[0]
 
