@@ -179,8 +179,13 @@ class MetaDataBuilder:
         description = table_obj.description
         columns = [self.build_column(column) for column in table_obj.columns]
         table = Table(
-            name, self.metadata, *columns, comment=description, schema=self.schema.name, **optargs
-        )  # type: ignore[arg-type]
+            name,
+            self.metadata,
+            *columns,
+            comment=description,
+            schema=self.schema.name,
+            **optargs,  # type: ignore[arg-type]
+        )
 
         # Create the indexes and add them to the table.
         indexes = [self.build_index(index) for index in table_obj.indexes]

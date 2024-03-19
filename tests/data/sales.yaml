@@ -22,6 +22,19 @@ tables:
         datatype: string
         description: Customer address
         length: 100
+    indexes:
+      - name: idx_name
+        "@id": "#customers_idx_name"
+        description: Index on customer name
+        columns:
+          - "#customers.name"
+    constraints:
+      - name: uniq_name
+        "@id": "#customers_uniq_name"
+        "@type": "Unique"
+        description: Unique customer name
+        columns:
+          - "#customers.name"
     primaryKey: "#customers.customer_id"
   - name: orders
     "@id": "#orders"
@@ -71,6 +84,12 @@ tables:
         "@id": "#items.quantity"
         datatype: int
         description: Quantity ordered
+    constraints:
+      - name: non_negative_quantity
+        "@id": "#items_non_negative_quantity"
+        "@type": "Check"
+        description: Quantity must be non-negative
+        expression: "quantity >= 0"
     primaryKey: "#items.item_id"
   - name: order_items
     "@id": "#order_items"
