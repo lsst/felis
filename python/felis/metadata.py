@@ -45,6 +45,7 @@ from sqlalchemy import (
 from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.types import TypeEngine
 
 from felis.datamodel import Schema
 from felis.db._variants import make_variant_dict
@@ -59,9 +60,6 @@ logger = logging.getLogger(__name__)
 class InsertDump:
     """An Insert Dumper for SQL statements which supports writing messages
     to stdout or a file.
-
-    Copied and modified slightly from `cli.py` in Felis as that class may be
-    removed soon.
     """
 
     def __init__(self, file: IO[str] | None = None) -> None:
@@ -107,12 +105,49 @@ class InsertDump:
             print(sql_str % new_params, file=self.file)
 
 
+def get_datatype_with_variants(column_obj: dm.Column) -> TypeEngine:
+    """Use the Felis type system to get a SQLAlchemy datatype with variant
+    overrides from the information in a `Column` object.
+
+    Parameters
+    ----------
+    column_obj : `felis.datamodel.Column`
+        The column object from which to get the datatype.
+
+    Raises
+    ------
+    ValueError
+        If the column has a sized type but no length.
+    """
+    variant_dict = make_variant_dict(column_obj)
+    felis_type = FelisType.felis_type(column_obj.datatype)  # type: ignore
+    datatype_fun = getattr(sqltypes, column_obj.datatype)  # type: ignore
+    if felis_type.is_sized:
+        if not column_obj.length:
+            raise ValueError(f"Column {column_obj.name} has sized type '{column_obj.datatype}' but no length")
+        datatype = datatype_fun(column_obj.length, **variant_dict)
+    else:
+        datatype = datatype_fun(**variant_dict)
+    return datatype
+
+
 class MetaDataBuilder:
-    """A class for building a `MetaData` object from a `Schema` object."""
+    """A class for building a `MetaData` object from a Felis `Schema`."""
 
     def __init__(
         self, schema: Schema, apply_schema_to_metadata: bool = True, apply_schema_to_tables: bool = True
     ) -> None:
+        """Initialize the metadata builder.
+
+        Parameters
+        ----------
+        schema : `felis.datamodel.Schema`
+            The schema object from which to build the SQA metadata.
+        apply_schema_to_metadata : `bool`, optional
+            Whether to apply the schema name to the metadata object.
+        apply_schema_to_tables : `bool`, optional
+            Whether to apply the schema name to the tables.
+        """
         self.schema = schema
         if not apply_schema_to_metadata:
             logger.debug("Schema name will not be applied to metadata")
@@ -123,7 +158,13 @@ class MetaDataBuilder:
         self.apply_schema_to_tables = apply_schema_to_tables
 
     def reset(self, schema: Schema) -> None:
-        """Reset the builder with a new schema."""
+        """Reset the builder with a new schema.
+
+        Parameters
+        ----------
+        schema : `felis.datamodel.Schema`
+            The new schema object to build the SQA metadata from.
+        """
         self.schema = schema
         self.metadata = MetaData(schema=self.schema.name)
         self._objects = {}
@@ -141,7 +182,7 @@ class MetaDataBuilder:
         -----
         This is the main function for building the SQA tables from the schema
         including objects within tables such as constraints, primary keys,
-        and indices, which have their own dedicated sub-functions.
+        and indices, which each have their own dedicated sub-functions.
         """
         for table in self.schema.tables:
             self.build_table(table)
@@ -158,6 +199,11 @@ class MetaDataBuilder:
         primary_key_columns : `str` or `list` of `str`
             The column ID or list of column IDs from which to build the primary
             key.
+
+        Returns
+        -------
+        primary_key: `PrimaryKeyConstraint`
+            The SQA primary key constraint object.
         """
         columns: list[Column] = []
         if isinstance(primary_key_columns, str):
@@ -167,7 +213,7 @@ class MetaDataBuilder:
         return PrimaryKeyConstraint(*columns)
 
     def build_table(self, table_obj: dm.Table) -> None:
-        """Build a SQA table from a `datamodel.Table` object and it to
+        """Build a SQA `Table` from a `felis.datamodel.Table` and add it to the
         `MetaData` object.
 
         Parameters
@@ -220,19 +266,11 @@ class MetaDataBuilder:
         # Get basic column attributes.
         name = column_obj.name
         id = column_obj.id
-        datatype_name: str = column_obj.datatype  # type: ignore[assignment]
         description = column_obj.description
         default = column_obj.value
-        length = column_obj.length
 
-        # Handle variant overrides based on code from Felis `sql` module.
-        variant_dict = make_variant_dict(column_obj)
-        felis_type = FelisType.felis_type(datatype_name)
-        datatype_fun = getattr(sqltypes, datatype_name)
-        if felis_type.is_sized:
-            datatype = datatype_fun(length, **variant_dict)
-        else:
-            datatype = datatype_fun(**variant_dict)
+        # Handle variant overrides for the column (e.g., "mysql:datatype").
+        datatype = get_datatype_with_variants(column_obj)
 
         # Set default value of nullable based on column type and then whether
         # it was explicitly provided in the schema data.
@@ -279,6 +317,13 @@ class MetaDataBuilder:
         -------
         constraint: `Constraint`
             The SQA constraint object.
+
+        Raises
+        ------
+        ValueError
+            If the constraint type is not recognized.
+        TypeError
+            If the constraint object is not the expected type.
         """
         args: dict[str, Any] = {
             "name": constraint_obj.name if constraint_obj.name else None,
