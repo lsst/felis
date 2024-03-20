@@ -34,15 +34,16 @@ from sqlalchemy import (
     create_engine,
 )
 
+from felis import datamodel as dm
 from felis.datamodel import Schema
-from felis.metadata import DatabaseContext, MetaDataBuilder
+from felis.metadata import DatabaseContext, MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")
 
 
 class MetaDataTestCase(unittest.TestCase):
-    """Test creationg of SQLAlchemy `MetaData` from a `Schema`."""
+    """Test creation of SQLAlchemy `MetaData` from a `Schema`."""
 
     def setUp(self) -> None:
         """Create an in-memory SQLite database and load the test data."""
@@ -138,11 +139,54 @@ class MetaDataTestCase(unittest.TestCase):
                         self.assertEqual(md_index.name, md_db_index.name)
                         self.assertEqual(md_index.columns.keys(), md_db_index.columns.keys())
 
-    def test_schema_metadata(self):
-        """Test that the `MetaData` object created from the schema is
-        correct.
+    def test_builder(self):
+        """Test that the `MetaData` object created by the `MetaDataBuilder`
+        matches the Felis `Schema` used to build it.
         """
-        pass
+        sch = Schema.model_validate(self.yaml_data)
+        bld = MetaDataBuilder(sch, apply_schema_to_tables=False, apply_schema_to_metadata=False)
+        md = bld.build()
+
+        self.assertEqual(len(sch.tables), len(md.tables))
+        self.assertEqual([table.name for table in sch.tables], list(md.tables.keys()))
+        for table in sch.tables:
+            md_table = md.tables[table.name]
+            self.assertEqual(table.name, md_table.name)
+            self.assertEqual(len(table.columns), len(md_table.columns))
+            for column in table.columns:
+                md_table_column = md_table.columns[column.name]
+                datatype = get_datatype_with_variants(column)
+                self.assertEqual(type(datatype), type(md_table_column.type))
+                if column.nullable is not None:
+                    self.assertEqual(column.nullable, md_table_column.nullable)
+            for constraint in table.constraints:
+                md_constraint = [mdc for mdc in md_table.constraints if mdc.name == constraint.name][0]
+                if isinstance(constraint, dm.ForeignKeyConstraint):
+                    self.assertTrue(isinstance(md_constraint, ForeignKeyConstraint))
+                    self.assertTrue(
+                        sorted([sch[column_id].name for column_id in constraint.columns]),
+                        sorted(md_constraint.columns.keys()),
+                    )
+                elif isinstance(constraint, dm.UniqueConstraint):
+                    self.assertEqual(
+                        sorted([sch[column_id].name for column_id in constraint.columns]),
+                        sorted(md_constraint.columns.keys()),
+                    )
+                elif isinstance(constraint, dm.CheckConstraint):
+                    self.assertEqual(constraint.expression, str(md_constraint.sqltext))
+            for index in table.indexes:
+                md_index = [mdi for mdi in md_table.indexes if mdi.name == index.name][0]
+                self.assertEqual(
+                    sorted([sch[column_id].name for column_id in index.columns]),
+                    sorted(md_index.columns.keys()),
+                )
+            if table.primaryKey:
+                if isinstance(table.primaryKey, str):
+                    primary_keys = [sch[table.primaryKey].name]
+                else:
+                    primary_keys = [sch[pk].name for pk in table.primaryKey]
+                for primary_key in primary_keys:
+                    self.assertTrue(md_table.columns[primary_key].primary_key)
 
 
 if __name__ == "__main__":
