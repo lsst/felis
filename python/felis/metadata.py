@@ -111,17 +111,26 @@ class InsertDump:
 class MetaDataBuilder:
     """A class for building a `MetaData` object from a `Schema` object."""
 
-    def __init__(self, schema: Schema):
+    def __init__(
+        self, schema: Schema, apply_schema_to_metadata: bool = True, apply_schema_to_tables: bool = True
+    ) -> None:
         self.schema = schema
-        self.metadata = MetaData(schema=schema.name)
+        if not apply_schema_to_metadata:
+            logger.debug("Schema name will not be applied to metadata")
+        if not apply_schema_to_tables:
+            logger.debug("Schema name will not be applied to tables")
+        self.metadata = MetaData(schema=schema.name if apply_schema_to_metadata else None)
         self._objects: dict[str, Any] = {}
+        self.apply_schema_to_tables = apply_schema_to_tables
 
     def reset(self, schema: Schema) -> None:
+        """Reset the builder with a new schema."""
         self.schema = schema
         self.metadata = MetaData(schema=self.schema.name)
         self._objects = {}
 
     def build(self) -> None:
+        """Build the SQA tables and constraints from the schema."""
         self.build_tables()
         self.build_constraints()
 
@@ -183,7 +192,7 @@ class MetaDataBuilder:
             self.metadata,
             *columns,
             comment=description,
-            schema=self.schema.name,
+            schema=self.schema.name if self.apply_schema_to_tables else None,
             **optargs,  # type: ignore[arg-type]
         )
 
