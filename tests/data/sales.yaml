@@ -16,6 +16,7 @@ tables:
         datatype: string
         description: Customer name
         length: 30
+        nullable: false
       - name: address
         "@id": "#customers.address"
         datatype: string
