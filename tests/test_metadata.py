@@ -78,8 +78,7 @@ class MetaDataTestCase(unittest.TestCase):
             schema = Schema.model_validate(self.yaml_data)
             schema.name = "main"
             builder = MetaDataBuilder(schema)
-            builder.build()
-            md = builder.metadata
+            md = builder.build()
 
             ctx = DatabaseContext(md, connection)
 

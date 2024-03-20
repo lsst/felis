@@ -128,10 +128,11 @@ class MetaDataBuilder:
         self.metadata = MetaData(schema=self.schema.name)
         self._objects = {}
 
-    def build(self) -> None:
+    def build(self) -> MetaData:
         """Build the SQA tables and constraints from the schema."""
         self.build_tables()
         self.build_constraints()
+        return self.metadata
 
     def build_tables(self) -> None:
         """Build the SQA tables from the schema.
