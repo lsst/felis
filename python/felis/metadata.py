@@ -326,36 +326,27 @@ class MetaDataBuilder:
             If the constraint object is not the expected type.
         """
         args: dict[str, Any] = {
-            "name": constraint_obj.name if constraint_obj.name else None,
-            "info": constraint_obj.description if constraint_obj.description else None,
-            "deferrable": constraint_obj.deferrable if constraint_obj.deferrable else None,
-            "initially": constraint_obj.initially if constraint_obj.initially else None,
+            "name": constraint_obj.name or None,
+            "info": constraint_obj.description or None,
+            "deferrable": constraint_obj.deferrable or None,
+            "initially": constraint_obj.initially or None,
         }
         constraint: Constraint
         constraint_type = constraint_obj.type
 
-        if constraint_type == "ForeignKey":
-            if isinstance(constraint_obj, dm.ForeignKeyConstraint):
-                fk_obj: dm.ForeignKeyConstraint = constraint_obj
-                columns = [self._objects[column_id] for column_id in fk_obj.columns]
-                refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
-                constraint = ForeignKeyConstraint(columns, refcolumns, **args)
-            else:
-                raise TypeError("Unexpected constraint type for ForeignKey: ", type(constraint_obj))
-        elif constraint_type == "Check":
-            if isinstance(constraint_obj, dm.CheckConstraint):
-                check_obj: dm.CheckConstraint = constraint_obj
-                expression = check_obj.expression
-                constraint = CheckConstraint(expression, **args)
-            else:
-                raise TypeError("Unexpected constraint type for CheckConstraint: ", type(constraint_obj))
-        elif constraint_type == "Unique":
-            if isinstance(constraint_obj, dm.UniqueConstraint):
-                uniq_obj: dm.UniqueConstraint = constraint_obj
-                columns = [self._objects[column_id] for column_id in uniq_obj.columns]
-                constraint = UniqueConstraint(*columns, **args)
-            else:
-                raise TypeError("Unexpected constraint type for UniqueConstraint: ", type(constraint_obj))
+        if isinstance(constraint_obj, dm.ForeignKeyConstraint):
+            fk_obj: dm.ForeignKeyConstraint = constraint_obj
+            columns = [self._objects[column_id] for column_id in fk_obj.columns]
+            refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
+            constraint = ForeignKeyConstraint(columns, refcolumns, **args)
+        elif isinstance(constraint_obj, dm.CheckConstraint):
+            check_obj: dm.CheckConstraint = constraint_obj
+            expression = check_obj.expression
+            constraint = CheckConstraint(expression, **args)
+        elif isinstance(constraint_obj, dm.UniqueConstraint):
+            uniq_obj: dm.UniqueConstraint = constraint_obj
+            columns = [self._objects[column_id] for column_id in uniq_obj.columns]
+            constraint = UniqueConstraint(*columns, **args)
         else:
             raise ValueError(f"Unexpected constraint type: {constraint_type}")
 
