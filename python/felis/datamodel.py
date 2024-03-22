@@ -130,7 +130,7 @@ class Column(BaseObject):
     """The length of the column."""
 
     nullable: bool | None = None
-    """Whether the column can be `NULL`.
+    """Whether the column can be ``NULL``.
 
     If `None`, this value was not set explicitly in the YAML data. In this
     case, it will be set to `False` for columns with numeric types and `True`

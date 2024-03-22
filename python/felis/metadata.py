@@ -67,7 +67,7 @@ class InsertDump:
 
         Parameters
         ----------
-        file : `TextIOBase` or None, optional
+        file : `io.TextIOBase` or `None`, optional
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
         """
@@ -77,14 +77,16 @@ class InsertDump:
     def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
         """Dump the SQL statement to a file or stdout.
 
+        Statements with parameters will be formatted with the values
+        inserted into the resultant SQL output.
+
         Parameters
         ----------
-        sql : `Any`
+        sql : `typing.Any`
             The SQL statement to dump.
-
-        multiparams : `Any`
+        multiparams : `typing.Any`
             The multiparams to use for the SQL statement.
-        params : `Any`
+        params : `typing.Any`
             The params to use for the SQL statement.
         """
         compiled = sql.compile(dialect=self.dialect)
@@ -142,7 +144,7 @@ class MetaDataBuilder:
         Parameters
         ----------
         schema : `felis.datamodel.Schema`
-            The schema object from which to build the SQA metadata.
+            The schema object from which to build the SQLAlchemy metadata.
         apply_schema_to_metadata : `bool`, optional
             Whether to apply the schema name to the metadata object.
         apply_schema_to_tables : `bool`, optional
@@ -163,26 +165,26 @@ class MetaDataBuilder:
         Parameters
         ----------
         schema : `felis.datamodel.Schema`
-            The new schema object to build the SQA metadata from.
+            The new schema object to build the SQLAlchemy metadata from.
         """
         self.schema = schema
         self.metadata = MetaData(schema=self.schema.name)
         self._objects = {}
 
     def build(self) -> MetaData:
-        """Build the SQA tables and constraints from the schema."""
+        """Build the SQLAlchemy tables and constraints from the schema."""
         self.build_tables()
         self.build_constraints()
         return self.metadata
 
     def build_tables(self) -> None:
-        """Build the SQA tables from the schema.
+        """Build the SQLAlchemy tables from the schema.
 
         Notes
         -----
-        This is the main function for building the SQA tables from the schema
-        including objects within tables such as constraints, primary keys,
-        and indices, which each have their own dedicated sub-functions.
+        This function builds all the tables by calling ``build_table`` on
+        each Pydantic object. It also calls ``build_primary_key`` to create the
+        primary key constraints.
         """
         for table in self.schema.tables:
             self.build_table(table)
@@ -191,8 +193,12 @@ class MetaDataBuilder:
                 self._objects[table.id].append_constraint(primary_key)
 
     def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
-        """Build a SQA `PrimaryKeyConstraint` from a single column ID or a list
-        or them.
+        """Build a SQLAlchemy `PrimaryKeyConstraint` from a single column ID
+        or a list.
+
+        The `primary_key_columns` are strings or a list of strings representing
+        IDs pointing to columns that will be looked up in the internal object
+        dictionary.
 
         Parameters
         ----------
@@ -202,8 +208,8 @@ class MetaDataBuilder:
 
         Returns
         -------
-        primary_key: `PrimaryKeyConstraint`
-            The SQA primary key constraint object.
+        primary_key: `sqlalchemy.PrimaryKeyConstraint`
+            The SQLAlchemy primary key constraint object.
         """
         columns: list[Column] = []
         if isinstance(primary_key_columns, str):
@@ -213,13 +219,17 @@ class MetaDataBuilder:
         return PrimaryKeyConstraint(*columns)
 
     def build_table(self, table_obj: dm.Table) -> None:
-        """Build a SQA `Table` from a `felis.datamodel.Table` and add it to the
-        `MetaData` object.
+        """Build a `sqlalchemy.Table` from a `felis.datamodel.Table` and add
+        it to the `sqlalchemy.MetaData` object.
+
+        Several MySQL table options are handled by annotations on the table,
+        including the engine and charset. This is not needed for Postgres,
+        which does not have equivalent options.
 
         Parameters
         ----------
         table_obj : `felis.datamodel.Table`
-            The table object to build the SQA table from.
+            The table object to build the SQLAlchemy table from.
         """
         # Process mysql table options.
         optargs = {}
@@ -228,7 +238,7 @@ class MetaDataBuilder:
         if table_obj.mysql_charset:
             optargs["mysql_charset"] = table_obj.mysql_charset
 
-        # Create the SQA table object and its columns.
+        # Create the SQLAlchemy table object and its columns.
         name = table_obj.name
         id = table_obj.id
         description = table_obj.description
@@ -251,17 +261,17 @@ class MetaDataBuilder:
         self._objects[id] = table
 
     def build_column(self, column_obj: dm.Column) -> Column:
-        """Build a SQA column from a `felis.datamodel.Column` object.
+        """Build a SQLAlchemy column from a `felis.datamodel.Column` object.
 
         Parameters
         ----------
         column_obj : `felis.datamodel.Column`
-            The column object from which to build the SQA column.
+            The column object from which to build the SQLAlchemy column.
 
         Returns
         -------
-        column: `Column`
-            The SQA column object.
+        column: `sqlalchemy.Column`
+            The SQLAlchemy column object.
         """
         # Get basic column attributes.
         name = column_obj.name
@@ -296,8 +306,14 @@ class MetaDataBuilder:
         return column
 
     def build_constraints(self) -> None:
-        """Build the SQA constraints in the Felis schema and append them to the
-        associated `Table`.
+        """Build the SQLAlchemy constraints in the Felis schema and append them
+        to the associated `Table`.
+
+        Notes
+        -----
+        This is performed as a separate step after building the tables so that
+        all the referenced objects in the constraints will be present and can
+        be looked up by their ID.
         """
         for table_obj in self.schema.tables:
             table = self._objects[table_obj.id]
@@ -306,17 +322,19 @@ class MetaDataBuilder:
                 table.append_constraint(constraint)
 
     def build_constraint(self, constraint_obj: dm.Constraint) -> Constraint:
-        """Build a SQA `Constraint` from a `felis.datamodel.Constraint` object.
+        """Build a SQLAlchemy `Constraint` from a `felis.datamodel.Constraint`
+        object.
 
         Parameters
         ----------
         constraint_obj : `felis.datamodel.Constraint`
-            The constraint object from which to build the SQA constraint.
+            The constraint object from which to build the SQLAlchemy
+            constraint.
 
         Returns
         -------
-        constraint: `Constraint`
-            The SQA constraint object.
+        constraint: `sqlalchemy.Constraint`
+            The SQLAlchemy constraint object.
 
         Raises
         ------
@@ -348,24 +366,24 @@ class MetaDataBuilder:
             columns = [self._objects[column_id] for column_id in uniq_obj.columns]
             constraint = UniqueConstraint(*columns, **args)
         else:
-            raise ValueError(f"Unexpected constraint type: {constraint_type}")
+            raise ValueError(f"Unknown constraint type: {constraint_type}")
 
         self._objects[constraint_obj.id] = constraint
 
         return constraint
 
     def build_index(self, index_obj: dm.Index) -> Index:
-        """Build a SQA `Index` from a `felis.datamodel.Index` object.
+        """Build a SQLAlchemy `Index` from a `felis.datamodel.Index` object.
 
         Parameters
         ----------
         index_obj : `felis.datamodel.Index`
-            The index object from which to build the SQA index.
+            The index object from which to build the SQLAlchemy index.
 
         Returns
         -------
-        index: `Index`
-            The SQA index object.
+        index: `sqlalchemy.Index`
+            The SQLAlchemy index object.
         """
         columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
         expressions = index_obj.expressions if index_obj.expressions else []
@@ -384,7 +402,7 @@ class ConnectionWrapper:
 
         Parameters
         ----------
-        engine : `Engine` or `MockConnection`
+        engine : `sqlalchemy.Engine` or `sqlalchemy.MockConnection`
             The SQLAlchemy engine or mock connection to wrap.
         """
         self.engine = engine
@@ -410,10 +428,10 @@ class DatabaseContext:
 
         Parameters
         ----------
-        metadata : `MetaData`
+        metadata : `sqlalchemy.MetaData`
             The SQLAlchemy metadata object.
 
-        engine : `Engine` or `MockConnection`
+        engine : `sqlalchemy.Engine` or `sqlalchemy.MockConnection`
             The SQLAlchemy engine or mock connection object.
         """
         self.engine = engine
@@ -429,7 +447,7 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine: `Engine`
+        engine: `sqlalchemy.Engine`
             The SQLAlchemy engine object.
         schema_name: `str`
             The name of the schema (or database) to create.
@@ -457,7 +475,7 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine: `Engine`
+        engine: `sqlalchemy.Engine`
             The SQLAlchemy engine object.
         schema_name: `str`
             The name of the schema (or database) to drop.
@@ -472,7 +490,7 @@ class DatabaseContext:
                 logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
                 self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
             else:
-                raise ValueError("Unsupported database type:" + db_type)
+                raise ValueError(f"Unsupported database type: {db_type}")
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
@@ -487,10 +505,9 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine_url : `URL`
+        engine_url : `sqlalchemy.engine.url.URL`
             The SQLAlchemy engine URL.
-
-        output_file : `IO[str]` or None, optional
+        output_file : `typing.IO` [ `str` ] or `None`, optional
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
         """
