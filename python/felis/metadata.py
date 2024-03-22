@@ -67,7 +67,7 @@ class InsertDump:
 
         Parameters
         ----------
-        file : `TextIOBase` or None, optional
+        file : `io.TextIOBase` or `None`, optional
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
         """
@@ -79,7 +79,7 @@ class InsertDump:
 
         Parameters
         ----------
-        sql : `Any`
+        sql : `typing.Any`
             The SQL statement to dump.
 
         multiparams : `Any`
@@ -260,7 +260,7 @@ class MetaDataBuilder:
 
         Returns
         -------
-        column: `Column`
+        column: `sqlalchemy.Column`
             The SQA column object.
         """
         # Get basic column attributes.
@@ -472,7 +472,7 @@ class DatabaseContext:
                 logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
                 self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
             else:
-                raise ValueError("Unsupported database type:" + db_type)
+                raise ValueError(f"Unsupported database type: {db_type}")
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
@@ -490,7 +490,7 @@ class DatabaseContext:
         engine_url : `URL`
             The SQLAlchemy engine URL.
 
-        output_file : `IO[str]` or None, optional
+        output_file : `typing.IO` [ `str` ] or `None`, optional
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
         """

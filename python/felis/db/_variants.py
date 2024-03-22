@@ -72,13 +72,13 @@ def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
 
     Parameters
     ----------
-    column_obj : felis.datamodel.Column
+    column_obj : `felis.datamodel.Column`
         The column object from which to build the variant dictionary.
 
     Returns
     -------
     variant_dict : `dict`
-        The dictionary of `str` to `TypeEngine` containing variant datatype
+        The dictionary of `str` to `sqlalchemy.types.TypeEngine` containing variant datatype
         information (e.g., for mysql, postgresql, etc).
     """
     variant_dict = {}
