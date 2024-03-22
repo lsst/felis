@@ -82,9 +82,9 @@ class InsertDump:
         sql : `typing.Any`
             The SQL statement to dump.
 
-        multiparams : `Any`
+        multiparams : `typing.Any`
             The multiparams to use for the SQL statement.
-        params : `Any`
+        params : `typing.Any`
             The params to use for the SQL statement.
         """
         compiled = sql.compile(dialect=self.dialect)
@@ -202,7 +202,7 @@ class MetaDataBuilder:
 
         Returns
         -------
-        primary_key: `PrimaryKeyConstraint`
+        primary_key: `sqlalchemy.PrimaryKeyConstraint`
             The SQLAlchemy primary key constraint object.
         """
         columns: list[Column] = []
@@ -213,8 +213,12 @@ class MetaDataBuilder:
         return PrimaryKeyConstraint(*columns)
 
     def build_table(self, table_obj: dm.Table) -> None:
-        """Build a SQLAlchemy `Table` from a `felis.datamodel.Table` and add it to the
-        `MetaData` object.
+        """Build a `sqlalchemy.Table` from a `felis.datamodel.Table` and add
+        it to the `sqlalchemy.MetaData` object.
+
+        Several MySQL table options are handled by annotations on the table,
+        including the engine and charset. This is not needed for Postgres,
+        which does not have equivalent options.
 
         Parameters
         ----------
@@ -296,8 +300,8 @@ class MetaDataBuilder:
         return column
 
     def build_constraints(self) -> None:
-        """Build the SQLAlchemy constraints in the Felis schema and append them to the
-        associated `Table`.
+        """Build the SQLAlchemy constraints in the Felis schema and append them
+        to the associated `Table`.
         """
         for table_obj in self.schema.tables:
             table = self._objects[table_obj.id]
@@ -306,7 +310,8 @@ class MetaDataBuilder:
                 table.append_constraint(constraint)
 
     def build_constraint(self, constraint_obj: dm.Constraint) -> Constraint:
-        """Build a SQLAlchemy `Constraint` from a `felis.datamodel.Constraint` object.
+        """Build a SQLAlchemy `Constraint` from a `felis.datamodel.Constraint`
+        object.
 
         Parameters
         ----------
@@ -315,7 +320,7 @@ class MetaDataBuilder:
 
         Returns
         -------
-        constraint: `Constraint`
+        constraint: `sqlalchemy.Constraint`
             The SQLAlchemy constraint object.
 
         Raises
@@ -364,7 +369,7 @@ class MetaDataBuilder:
 
         Returns
         -------
-        index: `Index`
+        index: `sqlalchemy.Index`
             The SQLAlchemy index object.
         """
         columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
@@ -384,7 +389,7 @@ class ConnectionWrapper:
 
         Parameters
         ----------
-        engine : `Engine` or `MockConnection`
+        engine : `sqlalchemy.Engine` or `sqlalchemy.MockConnection`
             The SQLAlchemy engine or mock connection to wrap.
         """
         self.engine = engine
@@ -410,10 +415,10 @@ class DatabaseContext:
 
         Parameters
         ----------
-        metadata : `MetaData`
+        metadata : `sqlalchemy.MetaData`
             The SQLAlchemy metadata object.
 
-        engine : `Engine` or `MockConnection`
+        engine : `sqlalchemy.Engine` or `sqlalchemy.MockConnection`
             The SQLAlchemy engine or mock connection object.
         """
         self.engine = engine
@@ -429,7 +434,7 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine: `Engine`
+        engine: `sqlalchemy.Engine`
             The SQLAlchemy engine object.
         schema_name: `str`
             The name of the schema (or database) to create.
@@ -457,7 +462,7 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine: `Engine`
+        engine: `sqlalchemy.Engine`
             The SQLAlchemy engine object.
         schema_name: `str`
             The name of the schema (or database) to drop.
@@ -487,7 +492,7 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine_url : `URL`
+        engine_url : `qlalchemy.engine.url.URL`
             The SQLAlchemy engine URL.
 
         output_file : `typing.IO` [ `str` ] or `None`, optional
