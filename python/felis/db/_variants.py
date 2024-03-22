@@ -82,8 +82,8 @@ def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
     Returns
     -------
     variant_dict : `dict`
-        The dictionary of `str` to `sqlalchemy.types.TypeEngine` containing variant datatype
-        information (e.g., for mysql, postgresql, etc).
+        The dictionary of `str` to `sqlalchemy.types.TypeEngine` containing
+        variant datatype information (e.g., for mysql, postgresql, etc).
     """
     variant_dict = {}
     for field_name, value in iter(column_obj):

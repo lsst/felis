@@ -185,9 +185,9 @@ class MetaDataBuilder:
 
         Notes
         -----
-        This is the main function for building the SQLAlchemy tables from the schema
-        including objects within tables such as constraints, primary keys,
-        and indices, which each have their own dedicated sub-functions.
+        This is the main function for building the SQLAlchemy tables from the
+        schema including objects within tables such as constraints, primary
+        keys, and indices, which each have their own builder sub-functions.
         """
         for table in self.schema.tables:
             self.build_table(table)
@@ -196,8 +196,12 @@ class MetaDataBuilder:
                 self._objects[table.id].append_constraint(primary_key)
 
     def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
-        """Build a SQLAlchemy `PrimaryKeyConstraint` from a single column ID or a list
-        or them.
+        """Build a SQLAlchemy `PrimaryKeyConstraint` from a single column ID
+        or a list.
+
+        The `primary_key_columns` are strings or a list of strings representing
+        IDs pointing to columns that will be looked up in the internal object
+        dictionary.
 
         Parameters
         ----------
@@ -318,7 +322,8 @@ class MetaDataBuilder:
         Parameters
         ----------
         constraint_obj : `felis.datamodel.Constraint`
-            The constraint object from which to build the SQLAlchemy constraint.
+            The constraint object from which to build the SQLAlchemy
+            constraint.
 
         Returns
         -------
@@ -494,7 +499,7 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine_url : `qlalchemy.engine.url.URL`
+        engine_url : `sqlalchemy.engine.url.URL`
             The SQLAlchemy engine URL.
 
         output_file : `typing.IO` [ `str` ] or `None`, optional
