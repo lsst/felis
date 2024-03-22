@@ -49,11 +49,11 @@ COLUMN_VARIANT_OVERRIDE = {
 DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
 
 _length_regex = re.compile(r"\((\d+)\)")
+"""A regular expression that is looking for numbers within parentheses."""
 
 
 def process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
     """Return variant type for given dialect."""
-    match = _length_regex.search(variant_override_str)
     dialect = DIALECT_MODULES[dialect_name]
     variant_type_name = variant_override_str.split("(")[0]
 
@@ -62,7 +62,7 @@ def process_variant_override(dialect_name: str, variant_override_str: str) -> ty
         raise ValueError(f"Type {variant_type_name} not found in dialect {dialect_name}")
     variant_type = getattr(dialect, variant_type_name)
     length_params = []
-    if match:
+    if match := _length_regex.search(variant_override_str):
         length_params.extend([int(i) for i in match.group(1).split(",")])
     return variant_type(*length_params)
 
