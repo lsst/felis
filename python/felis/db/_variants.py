@@ -68,7 +68,11 @@ def process_variant_override(dialect_name: str, variant_override_str: str) -> ty
 
 
 def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
-    """Handle variant overrides, based on logic from `sql.py`.
+    """Handle variant overrides for a `felis.datamodel.Column`.
+
+    This function will return a dictionary of `str` to
+    `sqlalchemy.types.TypeEngine` containing variant datatype information
+    (e.g., for mysql, postgresql, etc).
 
     Parameters
     ----------

@@ -351,7 +351,7 @@ class MetaDataBuilder:
             columns = [self._objects[column_id] for column_id in uniq_obj.columns]
             constraint = UniqueConstraint(*columns, **args)
         else:
-            raise ValueError(f"Unexpected constraint type: {constraint_type}")
+            raise ValueError(f"Unknown constraint type: {constraint_type}")
 
         self._objects[constraint_obj.id] = constraint
 
