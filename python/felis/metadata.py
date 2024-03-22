@@ -79,6 +79,9 @@ class InsertDump:
     def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
         """Dump the SQL statement to a file or stdout.
 
+        Statements with parameters will be formatted with the values
+        inserted into the resultant SQL output.
+
         Parameters
         ----------
         sql : `typing.Any`
