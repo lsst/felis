@@ -142,7 +142,7 @@ class MetaDataBuilder:
         Parameters
         ----------
         schema : `felis.datamodel.Schema`
-            The schema object from which to build the SQA metadata.
+            The schema object from which to build the SQLAlchemy metadata.
         apply_schema_to_metadata : `bool`, optional
             Whether to apply the schema name to the metadata object.
         apply_schema_to_tables : `bool`, optional
@@ -163,24 +163,24 @@ class MetaDataBuilder:
         Parameters
         ----------
         schema : `felis.datamodel.Schema`
-            The new schema object to build the SQA metadata from.
+            The new schema object to build the SQLAlchemy metadata from.
         """
         self.schema = schema
         self.metadata = MetaData(schema=self.schema.name)
         self._objects = {}
 
     def build(self) -> MetaData:
-        """Build the SQA tables and constraints from the schema."""
+        """Build the SQLAlchemy tables and constraints from the schema."""
         self.build_tables()
         self.build_constraints()
         return self.metadata
 
     def build_tables(self) -> None:
-        """Build the SQA tables from the schema.
+        """Build the SQLAlchemy tables from the schema.
 
         Notes
         -----
-        This is the main function for building the SQA tables from the schema
+        This is the main function for building the SQLAlchemy tables from the schema
         including objects within tables such as constraints, primary keys,
         and indices, which each have their own dedicated sub-functions.
         """
@@ -191,7 +191,7 @@ class MetaDataBuilder:
                 self._objects[table.id].append_constraint(primary_key)
 
     def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
-        """Build a SQA `PrimaryKeyConstraint` from a single column ID or a list
+        """Build a SQLAlchemy `PrimaryKeyConstraint` from a single column ID or a list
         or them.
 
         Parameters
@@ -203,7 +203,7 @@ class MetaDataBuilder:
         Returns
         -------
         primary_key: `PrimaryKeyConstraint`
-            The SQA primary key constraint object.
+            The SQLAlchemy primary key constraint object.
         """
         columns: list[Column] = []
         if isinstance(primary_key_columns, str):
@@ -213,13 +213,13 @@ class MetaDataBuilder:
         return PrimaryKeyConstraint(*columns)
 
     def build_table(self, table_obj: dm.Table) -> None:
-        """Build a SQA `Table` from a `felis.datamodel.Table` and add it to the
+        """Build a SQLAlchemy `Table` from a `felis.datamodel.Table` and add it to the
         `MetaData` object.
 
         Parameters
         ----------
         table_obj : `felis.datamodel.Table`
-            The table object to build the SQA table from.
+            The table object to build the SQLAlchemy table from.
         """
         # Process mysql table options.
         optargs = {}
@@ -228,7 +228,7 @@ class MetaDataBuilder:
         if table_obj.mysql_charset:
             optargs["mysql_charset"] = table_obj.mysql_charset
 
-        # Create the SQA table object and its columns.
+        # Create the SQLAlchemy table object and its columns.
         name = table_obj.name
         id = table_obj.id
         description = table_obj.description
@@ -251,17 +251,17 @@ class MetaDataBuilder:
         self._objects[id] = table
 
     def build_column(self, column_obj: dm.Column) -> Column:
-        """Build a SQA column from a `felis.datamodel.Column` object.
+        """Build a SQLAlchemy column from a `felis.datamodel.Column` object.
 
         Parameters
         ----------
         column_obj : `felis.datamodel.Column`
-            The column object from which to build the SQA column.
+            The column object from which to build the SQLAlchemy column.
 
         Returns
         -------
         column: `sqlalchemy.Column`
-            The SQA column object.
+            The SQLAlchemy column object.
         """
         # Get basic column attributes.
         name = column_obj.name
@@ -296,7 +296,7 @@ class MetaDataBuilder:
         return column
 
     def build_constraints(self) -> None:
-        """Build the SQA constraints in the Felis schema and append them to the
+        """Build the SQLAlchemy constraints in the Felis schema and append them to the
         associated `Table`.
         """
         for table_obj in self.schema.tables:
@@ -306,17 +306,17 @@ class MetaDataBuilder:
                 table.append_constraint(constraint)
 
     def build_constraint(self, constraint_obj: dm.Constraint) -> Constraint:
-        """Build a SQA `Constraint` from a `felis.datamodel.Constraint` object.
+        """Build a SQLAlchemy `Constraint` from a `felis.datamodel.Constraint` object.
 
         Parameters
         ----------
         constraint_obj : `felis.datamodel.Constraint`
-            The constraint object from which to build the SQA constraint.
+            The constraint object from which to build the SQLAlchemy constraint.
 
         Returns
         -------
         constraint: `Constraint`
-            The SQA constraint object.
+            The SQLAlchemy constraint object.
 
         Raises
         ------
@@ -355,17 +355,17 @@ class MetaDataBuilder:
         return constraint
 
     def build_index(self, index_obj: dm.Index) -> Index:
-        """Build a SQA `Index` from a `felis.datamodel.Index` object.
+        """Build a SQLAlchemy `Index` from a `felis.datamodel.Index` object.
 
         Parameters
         ----------
         index_obj : `felis.datamodel.Index`
-            The index object from which to build the SQA index.
+            The index object from which to build the SQLAlchemy index.
 
         Returns
         -------
         index: `Index`
-            The SQA index object.
+            The SQLAlchemy index object.
         """
         columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
         expressions = index_obj.expressions if index_obj.expressions else []
