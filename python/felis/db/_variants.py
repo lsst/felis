@@ -49,6 +49,7 @@ COLUMN_VARIANT_OVERRIDE = {
 DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
 
 _length_regex = re.compile(r"\((\d+)\)")
+"""A regular expression that is looking for numbers within parentheses."""
 
 
 def process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
