@@ -43,6 +43,7 @@ from sqlalchemy import (
     make_url,
     text,
 )
+from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
@@ -73,7 +74,7 @@ class InsertDump:
             will be written to stdout.
         """
         self.file = file
-        self.dialect: Any | None = None
+        self.dialect: Dialect | None = None
 
     def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
         """Dump the SQL statement to a file or stdout.
