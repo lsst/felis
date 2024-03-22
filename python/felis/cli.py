@@ -81,11 +81,7 @@ def cli(log_level: str, log_file: str | None) -> None:
 @click.option("--echo", is_flag=True, help="Echo database commands as they are executed")
 @click.option("--dry-run", is_flag=True, help="Dry run only to print out commands instead of executing")
 @click.option(
-    "--output-file",
-    "-o",
-    type=click.File(mode="w"),
-    help="Write SQL commands to a file instead of executing",
-    required=False,
+    "--output-file", "-o", type=click.File(mode="w"), help="Write SQL commands to a file instead of executing"
 )
 @click.argument("file", type=click.File())
 def create(
