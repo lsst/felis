@@ -25,6 +25,7 @@ import logging
 from typing import IO, Any, Literal
 
 import sqlalchemy.schema as sqa_schema
+from lsst.utils.iteration import ensure_iterable
 from sqlalchemy import (
     CheckConstraint,
     Column,
@@ -211,12 +212,9 @@ class MetaDataBuilder:
         primary_key: `sqlalchemy.PrimaryKeyConstraint`
             The SQLAlchemy primary key constraint object.
         """
-        columns: list[Column] = []
-        if isinstance(primary_key_columns, str):
-            columns.append(self._objects[primary_key_columns])
-        else:
-            columns.extend([self._objects[column_id] for column_id in primary_key_columns])
-        return PrimaryKeyConstraint(*columns)
+        return PrimaryKeyConstraint(
+            *[self._objects[column_id] for column_id in ensure_iterable(primary_key_columns)]
+        )
 
     def build_table(self, table_obj: dm.Table) -> None:
         """Build a `sqlalchemy.Table` from a `felis.datamodel.Table` and add
