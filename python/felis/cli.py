@@ -26,7 +26,7 @@ import json
 import logging
 import sys
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any
+from typing import IO, Any
 
 import click
 import yaml
@@ -38,7 +38,7 @@ from sqlalchemy.engine.mock import MockConnection
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
 from .check import CheckingVisitor
 from .datamodel import Schema
-from .sql import SQLVisitor
+from .metadata import DatabaseContext, InsertDump, MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .utils import ReorderingVisitor
 from .validation import get_schema
@@ -71,27 +71,70 @@ def cli(log_level: str, log_file: str | None) -> None:
         logging.basicConfig(level=log_level)
 
 
-@cli.command("create-all")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL")
-@click.option("--schema-name", help="Alternate Schema Name for Felis File")
-@click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
+@cli.command("create")
+@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
+@click.option("--schema-name", help="Alternate schema name to override Felis file")
+@click.option(
+    "--create-if-not-exists", is_flag=True, help="Create the schema in the database if it does not exist"
+)
+@click.option("--drop-if-exists", is_flag=True, help="Drop schema if it already exists in the database")
+@click.option("--echo", is_flag=True, help="Echo database commands as they are executed")
+@click.option("--dry-run", is_flag=True, help="Dry run only to print out commands instead of executing")
+@click.option(
+    "--output-file", "-o", type=click.File(mode="w"), help="Write SQL commands to a file instead of executing"
+)
 @click.argument("file", type=click.File())
-def create_all(engine_url: str, schema_name: str, dry_run: bool, file: io.TextIOBase) -> None:
-    """Create schema objects from the Felis FILE."""
-    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-    visitor = SQLVisitor(schema_name=schema_name)
-    schema = visitor.visit_schema(schema_obj)
+def create(
+    engine_url: str,
+    schema_name: str | None,
+    create_if_not_exists: bool,
+    drop_if_exists: bool,
+    echo: bool,
+    dry_run: bool,
+    output_file: IO[str] | None,
+    file: IO,
+) -> None:
+    """Create database objects from the Felis file."""
+    yaml_data = yaml.safe_load(file)
+    schema = Schema.model_validate(yaml_data)
+    url_obj = make_url(engine_url)
+    if schema_name:
+        logger.info(f"Overriding schema name with: {schema_name}")
+        schema.name = schema_name
+    elif url_obj.drivername == "sqlite":
+        logger.info("Overriding schema name for sqlite with: main")
+        schema.name = "main"
+    if not url_obj.host and not url_obj.drivername == "sqlite":
+        dry_run = True
+        logger.info("Forcing dry run for non-sqlite engine URL with no host")
 
-    metadata = schema.metadata
+    builder = MetaDataBuilder(schema)
+    builder.build()
+    metadata = builder.metadata
+    logger.debug(f"Created metadata with schema name: {metadata.schema}")
 
     engine: Engine | MockConnection
-    if not dry_run:
-        engine = create_engine(engine_url)
+    if not dry_run and not output_file:
+        engine = create_engine(engine_url, echo=echo)
     else:
-        _insert_dump = InsertDump()
-        engine = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump)
-        _insert_dump.dialect = engine.dialect
-    metadata.create_all(engine)
+        if dry_run:
+            logger.info("Dry run will be executed")
+        engine = DatabaseContext.create_mock_engine(url_obj, output_file)
+        if output_file:
+            logger.info("Writing SQL output to: " + output_file.name)
+
+    context = DatabaseContext(metadata, engine)
+
+    if drop_if_exists:
+        logger.debug("Dropping schema if it exists")
+        context.drop_if_exists()
+        create_if_not_exists = True  # If schema is dropped, it needs to be recreated.
+
+    if create_if_not_exists:
+        logger.debug("Creating schema if not exists")
+        context.create_if_not_exists()
+
+    context.create_all()
 
 
 @cli.command("init-tap")
@@ -402,31 +445,6 @@ def _normalize(schema_obj: Mapping[str, Any], embed: str = "@last") -> MutableMa
     graph = [ReorderingVisitor(add_type=True).visit_schema(schema_obj) for schema_obj in graph]
     compacted["@graph"] = graph if len(graph) > 1 else graph[0]
     return compacted
-
-
-class InsertDump:
-    """An Insert Dumper for SQL statements."""
-
-    dialect: Any = None
-
-    def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
-        compiled = sql.compile(dialect=self.dialect)
-        sql_str = str(compiled) + ";"
-        params_list = [compiled.params]
-        for params in params_list:
-            if not params:
-                print(sql_str)
-                continue
-            new_params = {}
-            for key, value in params.items():
-                if isinstance(value, str):
-                    new_params[key] = f"'{value}'"
-                elif value is None:
-                    new_params[key] = "null"
-                else:
-                    new_params[key] = value
-
-            print(sql_str % new_params)
 
 
 if __name__ == "__main__":

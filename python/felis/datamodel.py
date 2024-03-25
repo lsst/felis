@@ -31,7 +31,6 @@ from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 __all__ = (
     "BaseObject",
@@ -130,8 +129,13 @@ class Column(BaseObject):
     length: int | None = None
     """The length of the column."""
 
-    nullable: bool = True
-    """Whether the column can be `NULL`."""
+    nullable: bool | None = None
+    """Whether the column can be `NULL`.
+
+    If `None`, this value was not set explicitly in the YAML data. In this
+    case, it will be set to `False` for columns with numeric types and `True`
+    otherwise.
+    """
 
     value: Any = None
     """The default value of the column."""
@@ -427,6 +431,9 @@ class Schema(BaseObject):
     @model_validator(mode="after")
     def create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects."""
+        if len(self.id_map):
+            logger.debug("ID map was already populated")
+            return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
