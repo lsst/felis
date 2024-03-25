@@ -50,7 +50,7 @@ __all__ = (
 CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
-    use_enum_values=True,  # Use enum values instead of names.
+    # use_enum_values=True,  # Use enum values instead of names.
     validate_assignment=True,  # Validate assignments after model is created.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
 )
@@ -171,6 +171,9 @@ class Column(BaseObject):
     votable_xtype: str | None = Field(None, alias="votable:xtype")
     """The VOTable xtype (extended type) of the column."""
 
+    votable_datatype: str | None = Field(None, alias="votable:datatype")
+    """The VOTable datatype of the column."""
+
     @field_validator("ivoa_ucd")
     @classmethod
     def check_ivoa_ucd(cls, ivoa_ucd: str) -> str:
@@ -283,7 +286,7 @@ class Table(BaseObject):
     primaryKey: str | list[str] | None = None
     """The primary key of the table."""
 
-    tap_table_index: int | None = Field(None, alias="tap:table_index")
+    tap_table_index: int = Field(0, alias="tap:table_index")
     """The IVOA TAP_SCHEMA table index of the table."""
 
     mysql_engine: str | None = Field(None, alias="mysql:engine")
@@ -412,6 +415,9 @@ class Schema(BaseObject):
 
     tables: Sequence[Table]
     """The tables in the schema."""
+
+    tap_schema_index: int = Field(0, alias="tap:schema_index")
+    """The IVOA TAP_SCHEMA index of the schema."""
 
     id_map: dict[str, Any] = Field(default_factory=dict, exclude=True)
     """Map of IDs to objects."""
