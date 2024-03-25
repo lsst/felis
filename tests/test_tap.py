@@ -29,8 +29,7 @@ from typing import Any
 import sqlalchemy
 import yaml
 
-from felis import DEFAULT_FRAME
-from felis.cli import _normalize
+from felis.datamodel import Schema
 from felis.tap import Tap11Base, TapLoadingVisitor, init_tables
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -45,8 +44,8 @@ class VisitorTestCase(unittest.TestCase):
     def setUp(self) -> None:
         """Load data from test file."""
         with open(TEST_YAML) as test_yaml:
-            self.schema_obj = yaml.load(test_yaml, Loader=yaml.SafeLoader)
-            self.schema_obj.update(DEFAULT_FRAME)
+            yaml_data = yaml.load(test_yaml, Loader=yaml.SafeLoader)
+            self.schema_obj = Schema.model_validate(yaml_data)
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
 
     def tearDown(self) -> None:
@@ -60,12 +59,8 @@ class VisitorTestCase(unittest.TestCase):
         Tap11Base.metadata.create_all(engine)
 
         # This repeats logic from cli.py.
-        normalized = _normalize(self.schema_obj, embed="@always")
-        if isinstance(normalized["@graph"], dict):
-            normalized["@graph"] = [normalized["@graph"]]
-        for schema in normalized["@graph"]:
-            tap_visitor = TapLoadingVisitor(engine, tap_tables=tap_tables)
-            tap_visitor.visit_schema(schema)
+        tap_visitor = TapLoadingVisitor(engine, tap_tables=tap_tables)
+        tap_visitor.visit_schema(self.schema_obj)
 
 
 if __name__ == "__main__":
