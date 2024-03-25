@@ -92,22 +92,8 @@ class InsertDump:
         params : `typing.Any`
             The params to use for the SQL statement.
         """
-        compiled = sql.compile(dialect=self.dialect)
-        sql_str = str(compiled) + ";"
-        params_list = [compiled.params]
-        for params in params_list:
-            if not params:
-                print(sql_str, file=self.file)
-                continue
-            new_params = {}
-            for key, value in params.items():
-                if isinstance(value, str):
-                    new_params[key] = f"'{value}'"
-                elif value is None:
-                    new_params[key] = "null"
-                else:
-                    new_params[key] = value
-            print(sql_str % new_params, file=self.file)
+        compiled = sql.compile(dialect=self.dialect, compile_kwargs={"literal_binds": True})
+        print(str(compiled), file=self.file)
 
 
 def get_datatype_with_variants(column_obj: dm.Column) -> TypeEngine:
@@ -129,7 +115,9 @@ def get_datatype_with_variants(column_obj: dm.Column) -> TypeEngine:
     datatype_fun = getattr(sqltypes, column_obj.datatype)  # type: ignore
     if felis_type.is_sized:
         if not column_obj.length:
-            raise ValueError(f"Column {column_obj.name} has sized type '{column_obj.datatype}' but no length")
+            raise ValueError(
+                f"Column '{column_obj.name}' has sized type '{column_obj.datatype}' but no length"
+            )
         datatype = datatype_fun(column_obj.length, **variant_dict)
     else:
         datatype = datatype_fun(**variant_dict)
