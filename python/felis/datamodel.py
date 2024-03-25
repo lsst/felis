@@ -93,18 +93,20 @@ class BaseObject(BaseModel):
     description: DescriptionStr | None = None
     """A description of the database object."""
 
-    @model_validator(mode="after")  # type: ignore[arg-type]
-    @classmethod
-    def check_description(cls, object: BaseObject, info: ValidationInfo) -> BaseObject:
+    votable_utype: str | None = Field(None, alias="votable:utype")
+    """The VOTable utype (usage-specific or unique type) of the object."""
+
+    @model_validator(mode="after")
+    def check_description(self, info: ValidationInfo) -> BaseObject:
         """Check that the description is present if required."""
         context = info.context
         if not context or not context.get("require_description", False):
-            return object
-        if object.description is None or object.description == "":
+            return self
+        if self.description is None or self.description == "":
             raise ValueError("Description is required and must be non-empty")
-        if len(object.description) < DESCR_MIN_LENGTH:
+        if len(self.description) < DESCR_MIN_LENGTH:
             raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
-        return object
+        return self
 
 
 class DataType(StrEnum):
@@ -222,11 +224,11 @@ class Column(BaseObject):
     """TAP_SCHEMA indication that this column is defined by an IVOA standard.
     """
 
-    votable_utype: str | None = Field(None, alias="votable:utype")
-    """The VOTable utype (usage-specific or unique type) of the column."""
-
     votable_xtype: str | None = Field(None, alias="votable:xtype")
     """The VOTable xtype (extended type) of the column."""
+
+    votable_datatype: str | None = Field(None, alias="votable:datatype")
+    """The VOTable datatype of the column."""
 
     @field_validator("ivoa_ucd")
     @classmethod
@@ -391,7 +393,7 @@ class Table(BaseObject):
     primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """The primary key of the table."""
 
-    tap_table_index: int | None = Field(None, alias="tap:table_index")
+    tap_table_index: int = Field(0, alias="tap:table_index")
     """The IVOA TAP_SCHEMA table index of the table."""
 
     mysql_engine: str | None = Field(None, alias="mysql:engine")
