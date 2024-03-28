@@ -146,6 +146,9 @@ class Column(BaseObject):
     mysql_datatype: str | None = Field(None, alias="mysql:datatype")
     """The MySQL datatype of the column."""
 
+    postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
+    """The PostgreSQL datatype of the column."""
+
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
     """The IVOA UCD of the column."""
 
