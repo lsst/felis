@@ -413,9 +413,8 @@ class ConnectionWrapper:
         if isinstance(self.engine, MockConnection):
             return self.engine.connect().execute(statement)
         else:
-            with self.engine.connect() as connection:
+            with self.engine.begin() as connection:
                 result = connection.execute(statement)
-                connection.commit()
                 return result
 
 
