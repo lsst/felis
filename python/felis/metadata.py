@@ -271,8 +271,9 @@ class MetaDataBuilder:
 
         # Set default value of nullable based on column type and then whether
         # it was explicitly provided in the schema data.
-        nullable_default = False if isinstance(datatype, Numeric) else True
-        nullable = column_obj.nullable if column_obj.nullable is not None else nullable_default
+        nullable = column_obj.nullable
+        if nullable is None:
+            nullable = False if isinstance(datatype, Numeric) else True
 
         # Set autoincrement depending on if it was provided explicitly.
         autoincrement: Literal["auto", "ignore_fk"] | bool = (
