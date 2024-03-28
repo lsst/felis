@@ -276,7 +276,7 @@ class MetaDataBuilder:
             nullable = False if isinstance(datatype, Numeric) else True
 
         # Set autoincrement depending on if it was provided explicitly.
-        autoincrement: Literal["auto", "ignore_fk"] | bool = (
+        autoincrement: Literal["auto"] | bool = (
             column_obj.autoincrement if column_obj.autoincrement is not None else "auto"
         )
 
