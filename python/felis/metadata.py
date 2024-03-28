@@ -288,7 +288,7 @@ class MetaDataBuilder:
 
         # Set autoincrement depending on if it was provided explicitly.
         autoincrement: Literal["auto", "ignore_fk"] | bool = (
-            column_obj.autoincrement if column_obj.autoincrement else "auto"
+            column_obj.autoincrement if column_obj.autoincrement is None else "auto"
         )
 
         column: Column = Column(
