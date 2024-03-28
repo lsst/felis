@@ -161,18 +161,6 @@ class MetaDataBuilder:
         self._objects: dict[str, Any] = {}
         self.apply_schema_to_tables = apply_schema_to_tables
 
-    def reset(self, schema: Schema) -> None:
-        """Reset the builder with a new schema.
-
-        Parameters
-        ----------
-        schema : `felis.datamodel.Schema`
-            The new schema object to build the SQLAlchemy metadata from.
-        """
-        self.schema = schema
-        self.metadata = MetaData(schema=self.schema.name)
-        self._objects = {}
-
     def build(self) -> MetaData:
         """Build the SQLAlchemy tables and constraints from the schema."""
         self.build_tables()
@@ -288,7 +276,7 @@ class MetaDataBuilder:
 
         # Set autoincrement depending on if it was provided explicitly.
         autoincrement: Literal["auto", "ignore_fk"] | bool = (
-            column_obj.autoincrement if column_obj.autoincrement is None else "auto"
+            column_obj.autoincrement if column_obj.autoincrement is not None else "auto"
         )
 
         column: Column = Column(
