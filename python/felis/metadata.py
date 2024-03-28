@@ -124,8 +124,8 @@ def get_datatype_with_variants(column_obj: dm.Column) -> TypeEngine:
         If the column has a sized type but no length.
     """
     variant_dict = make_variant_dict(column_obj)
-    felis_type = FelisType.felis_type(column_obj.datatype)  # type: ignore
-    datatype_fun = getattr(sqltypes, column_obj.datatype)  # type: ignore
+    felis_type = FelisType.felis_type(column_obj.datatype.value)
+    datatype_fun = getattr(sqltypes, column_obj.datatype.value)
     if felis_type.is_sized:
         if not column_obj.length:
             raise ValueError(f"Column {column_obj.name} has sized type '{column_obj.datatype}' but no length")

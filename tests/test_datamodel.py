@@ -75,14 +75,14 @@ class ColumnTestCase(unittest.TestCase):
         col = Column(name="testColumn", id="#test_id", datatype="string")
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.datatype, DataType.STRING.value, "datatype should be 'DataType.STRING'")
+        self.assertEqual(col.datatype, DataType.STRING, "datatype should be 'DataType.STRING'")
 
         # Creating from data dictionary should work and load data correctly.
         data = {"name": "testColumn", "id": "#test_id", "datatype": "string"}
         col = Column(**data)
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.datatype, DataType.STRING.value, "datatype should be 'DataType.STRING'")
+        self.assertEqual(col.datatype, DataType.STRING, "datatype should be 'DataType.STRING'")
 
         # Setting a bad IVOA UCD should throw an error.
         with self.assertRaises(ValidationError):
