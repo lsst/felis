@@ -178,8 +178,8 @@ class MetaDataBuilder:
         """
         for table in self.schema.tables:
             self.build_table(table)
-            if table.primaryKey:
-                primary_key = self.build_primary_key(table.primaryKey)
+            if table.primary_key:
+                primary_key = self.build_primary_key(table.primary_key)
                 self._objects[table.id].append_constraint(primary_key)
 
     def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:

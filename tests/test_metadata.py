@@ -180,11 +180,11 @@ class MetaDataTestCase(unittest.TestCase):
                     sorted([sch[column_id].name for column_id in index.columns]),
                     sorted(md_index.columns.keys()),
                 )
-            if table.primaryKey:
-                if isinstance(table.primaryKey, str):
-                    primary_keys = [sch[table.primaryKey].name]
+            if table.primary_key:
+                if isinstance(table.primary_key, str):
+                    primary_keys = [sch[table.primary_key].name]
                 else:
-                    primary_keys = [sch[pk].name for pk in table.primaryKey]
+                    primary_keys = [sch[pk].name for pk in table.primary_key]
                 for primary_key in primary_keys:
                     self.assertTrue(md_table.columns[primary_key].primary_key)
 

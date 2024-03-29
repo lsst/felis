@@ -286,7 +286,7 @@ class Table(BaseObject):
     indexes: list[Index] = Field(default_factory=list)
     """The indexes on the table."""
 
-    primaryKey: str | list[str] | None = None
+    primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """The primary key of the table."""
 
     tap_table_index: int | None = Field(None, alias="tap:table_index")
