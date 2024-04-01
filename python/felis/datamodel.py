@@ -31,7 +31,6 @@ from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 __all__ = (
     "BaseObject",
@@ -50,7 +49,6 @@ __all__ = (
 CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
-    use_enum_values=True,  # Use enum values instead of names.
     validate_assignment=True,  # Validate assignments after model is created.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
 )
@@ -130,8 +128,13 @@ class Column(BaseObject):
     length: int | None = None
     """The length of the column."""
 
-    nullable: bool = True
-    """Whether the column can be `NULL`."""
+    nullable: bool | None = None
+    """Whether the column can be ``NULL``.
+
+    If `None`, this value was not set explicitly in the YAML data. In this
+    case, it will be set to `False` for columns with numeric types and `True`
+    otherwise.
+    """
 
     value: Any = None
     """The default value of the column."""
@@ -141,6 +144,9 @@ class Column(BaseObject):
 
     mysql_datatype: str | None = Field(None, alias="mysql:datatype")
     """The MySQL datatype of the column."""
+
+    postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
+    """The PostgreSQL datatype of the column."""
 
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
     """The IVOA UCD of the column."""
@@ -280,7 +286,7 @@ class Table(BaseObject):
     indexes: list[Index] = Field(default_factory=list)
     """The indexes on the table."""
 
-    primaryKey: str | list[str] | None = None
+    primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """The primary key of the table."""
 
     tap_table_index: int | None = Field(None, alias="tap:table_index")
@@ -427,6 +433,9 @@ class Schema(BaseObject):
     @model_validator(mode="after")
     def create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects."""
+        if len(self.id_map):
+            logger.debug("ID map was already populated")
+            return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
         logger.debug(f"ID map contains {len(self.id_map.keys())} objects")

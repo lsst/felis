@@ -1,0 +1,107 @@
+---
+name: sales
+"@id": "#sales"
+description: Simple sales schema
+tables:
+  - name: customers
+    "@id": "#customers"
+    description: Customer information
+    columns:
+      - name: customer_id
+        "@id": "#customers.customer_id"
+        datatype: int
+        description: Unique customer identifier
+      - name: name
+        "@id": "#customers.name"
+        datatype: string
+        description: Customer name
+        length: 30
+        nullable: false
+      - name: address
+        "@id": "#customers.address"
+        datatype: string
+        description: Customer address
+        length: 100
+    indexes:
+      - name: idx_name
+        "@id": "#customers_idx_name"
+        description: Index on customer name
+        columns:
+          - "#customers.name"
+    constraints:
+      - name: uniq_name
+        "@id": "#customers_uniq_name"
+        "@type": "Unique"
+        description: Unique customer name
+        columns:
+          - "#customers.name"
+    primaryKey: "#customers.customer_id"
+  - name: orders
+    "@id": "#orders"
+    description: Customer orders
+    columns:
+      - name: order_id
+        "@id": "#orders.order_id"
+        datatype: int
+        description: Unique order identifier
+      - name: customer_id
+        "@id": "#orders.customer_id"
+        datatype: int
+        description: Customer identifier
+      - name: order_date
+        "@id": "#orders.order_date"
+        datatype: timestamp
+        description: Order date
+    constraints:
+      - name: fk_customer_id
+        "@id": "#orders_fk_customer_id"
+        "@type": "ForeignKey"
+        description: Foreign key to customers
+        columns:
+          - "#orders.customer_id"
+        referencedColumns:
+          - "#customers.customer_id"
+    primaryKey: "#orders.order_id"
+  - name: items
+    "@id": "#items"
+    description: Items
+    columns:
+      - name: item_id
+        "@id": "#items.item_id"
+        datatype: int
+        description: Unique item identifier
+        mysql:datatype: INT
+        tap:principal: 1
+      - name: order_id
+        "@id": "#items.order_id"
+        datatype: int
+        description: Order identifier
+      - name: product_id
+        "@id": "#items.product_id"
+        datatype: int
+        description: Product identifier
+      - name: quantity
+        "@id": "#items.quantity"
+        datatype: int
+        description: Quantity ordered
+    constraints:
+      - name: non_negative_quantity
+        "@id": "#items_non_negative_quantity"
+        "@type": "Check"
+        description: Quantity must be non-negative
+        expression: "quantity >= 0"
+    primaryKey: "#items.item_id"
+  - name: order_items
+    "@id": "#order_items"
+    description: Order items
+    columns:
+      - name: order_id
+        "@id": "#order_items.order_id"
+        datatype: int
+        description: Order identifier
+        tap:principal: 1
+      - name: item_id
+        "@id": "#order_items.item_id"
+        datatype: int
+        description: Item identifier
+    primaryKey: "#order_items.order_id"

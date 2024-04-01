@@ -54,25 +54,25 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_create_all(self) -> None:
-        """Test for create-all command."""
+        """Test for create command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
 
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["create-all", "--schema-name=main", f"--engine-url={url}", TEST_YAML],
+            ["create", "--schema-name=main", f"--engine-url={url}", TEST_YAML],
             catch_exceptions=False,
         )
         self.assertEqual(result.exit_code, 0)
 
     def test_create_all_dry_run(self) -> None:
-        """Test for create-all --dry-run command."""
+        """Test for create --dry-run command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
 
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["create-all", "--schema-name=main", f"--engine-url={url}", "--dry-run", TEST_YAML],
+            ["create", "--schema-name=main", f"--engine-url={url}", "--dry-run", TEST_YAML],
             catch_exceptions=False,
         )
         self.assertEqual(result.exit_code, 0)
