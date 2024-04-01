@@ -52,7 +52,7 @@ from sqlalchemy.types import TypeEngine
 from felis.datamodel import Schema
 from felis.db._variants import make_variant_dict
 
-from . import datamodel as dm
+from . import datamodel
 from .db import sqltypes
 from .types import FelisType
 
@@ -109,7 +109,7 @@ class InsertDump:
             print(sql_str % new_params, file=self.file)
 
 
-def get_datatype_with_variants(column_obj: dm.Column) -> TypeEngine:
+def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     """Use the Felis type system to get a SQLAlchemy datatype with variant
     overrides from the information in a `Column` object.
 
@@ -205,7 +205,7 @@ class MetaDataBuilder:
             *[self._objects[column_id] for column_id in ensure_iterable(primary_key_columns)]
         )
 
-    def build_table(self, table_obj: dm.Table) -> None:
+    def build_table(self, table_obj: datamodel.Table) -> None:
         """Build a `sqlalchemy.Table` from a `felis.datamodel.Table` and add
         it to the `sqlalchemy.MetaData` object.
 
@@ -247,7 +247,7 @@ class MetaDataBuilder:
 
         self._objects[id] = table
 
-    def build_column(self, column_obj: dm.Column) -> Column:
+    def build_column(self, column_obj: datamodel.Column) -> Column:
         """Build a SQLAlchemy column from a `felis.datamodel.Column` object.
 
         Parameters
@@ -309,7 +309,7 @@ class MetaDataBuilder:
                 constraint = self.build_constraint(constraint_obj)
                 table.append_constraint(constraint)
 
-    def build_constraint(self, constraint_obj: dm.Constraint) -> Constraint:
+    def build_constraint(self, constraint_obj: datamodel.Constraint) -> Constraint:
         """Build a SQLAlchemy `Constraint` from a `felis.datamodel.Constraint`
         object.
 
@@ -340,17 +340,17 @@ class MetaDataBuilder:
         constraint: Constraint
         constraint_type = constraint_obj.type
 
-        if isinstance(constraint_obj, dm.ForeignKeyConstraint):
-            fk_obj: dm.ForeignKeyConstraint = constraint_obj
+        if isinstance(constraint_obj, datamodel.ForeignKeyConstraint):
+            fk_obj: datamodel.ForeignKeyConstraint = constraint_obj
             columns = [self._objects[column_id] for column_id in fk_obj.columns]
             refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
             constraint = ForeignKeyConstraint(columns, refcolumns, **args)
-        elif isinstance(constraint_obj, dm.CheckConstraint):
-            check_obj: dm.CheckConstraint = constraint_obj
+        elif isinstance(constraint_obj, datamodel.CheckConstraint):
+            check_obj: datamodel.CheckConstraint = constraint_obj
             expression = check_obj.expression
             constraint = CheckConstraint(expression, **args)
-        elif isinstance(constraint_obj, dm.UniqueConstraint):
-            uniq_obj: dm.UniqueConstraint = constraint_obj
+        elif isinstance(constraint_obj, datamodel.UniqueConstraint):
+            uniq_obj: datamodel.UniqueConstraint = constraint_obj
             columns = [self._objects[column_id] for column_id in uniq_obj.columns]
             constraint = UniqueConstraint(*columns, **args)
         else:
@@ -360,7 +360,7 @@ class MetaDataBuilder:
 
         return constraint
 
-    def build_index(self, index_obj: dm.Index) -> Index:
+    def build_index(self, index_obj: datamodel.Index) -> Index:
         """Build a SQLAlchemy `Index` from a `felis.datamodel.Index` object.
 
         Parameters
