@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from typing import Annotated, Any, Literal, TypeAlias
@@ -29,6 +30,11 @@ from typing import Annotated, Any, Literal, TypeAlias
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy.dialects import mysql
+from sqlalchemy.engine import create_mock_engine
+
+from .db.sqltypes import get_type_func
+from .types import FelisType
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +125,9 @@ class DataType(Enum):
     TIMESTAMP = "timestamp"
 
 
+_MYSQL_DIALECT = create_mock_engine("mysql://", executor=None).dialect
+
+
 class Column(BaseObject):
     """A column in a table."""
 
@@ -205,6 +214,58 @@ class Column(BaseObject):
             except ValueError as e:
                 raise ValueError(f"Invalid unit: {e}")
 
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_redundant_datatypes(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Check for redundant datatypes on columns."""
+        if not Schema.ValidationConfig.check_redundant_datatypes:
+            return values
+        if "mysql:datatype" not in values and "postgresql:datatype" not in values:
+            return values
+
+        datatype = values.get("datatype")
+        length = values.get("length") or None
+
+        datatype_func = get_type_func(datatype)
+        felis_type = FelisType.felis_type(datatype)
+        if felis_type.is_sized:
+            if length is None:
+                raise ValueError(f"Length must be provided for '{datatype}' datatype")
+            datatype_obj = datatype_func(length)
+        else:
+            datatype_obj = datatype_func()
+
+        if "mysql:datatype" in values:
+            mysql_datatype = values.get("mysql:datatype")
+            if "(" in mysql_datatype:
+                mysql_length_match = re.search((r"\((\d+)\)"), mysql_datatype)
+                if mysql_length_match:
+                    mysql_length = int(mysql_length_match.group(1))
+                else:
+                    mysql_length = None
+                mysql_datatype_match = re.match(r"([^\(]+)", mysql_datatype)
+                mysql_datatype = mysql_datatype_match.group(1)
+            mysql_datatype_func = getattr(mysql, mysql_datatype, None)
+            if not mysql_datatype_func:
+                raise ValueError("Unknown MySQL datatype: ", mysql_datatype)
+            if felis_type.is_sized:
+                mysql_datatype_obj = mysql_datatype_func(length=mysql_length or length)
+            else:
+                mysql_datatype_obj = mysql_datatype_func()
+            print(datatype_obj.compile())
+            print(mysql_datatype_obj.compile(_MYSQL_DIALECT))
+            if datatype_obj.compile() == mysql_datatype_obj.compile(_MYSQL_DIALECT):
+                print("Different type")
+                raise ValueError(
+                    "'mysql:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
+                        values["mysql:datatype"], values["datatype"], values["@id"]
+                    )
+                )
+            else:
+                print("Same type")
+            print("")
         return values
 
 
@@ -411,6 +472,13 @@ class Schema(BaseObject):
         """Flag to require a description for all objects.
 
         This is set by the `require_description` class method.
+        """
+
+        check_redundant_datatypes = True
+        """Flag to enable checking for redundant datatypes on columns.
+
+        An example would be providing both 'mysql:datatype: DOUBLE' and
+        'datatype: DOUBLE' as MySQL would have used that type by default.
         """
 
     version: SchemaVersion | str | None = None
