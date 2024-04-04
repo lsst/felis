@@ -147,7 +147,7 @@ class CliTestCase(unittest.TestCase):
             raise e
         finally:
             # Turn the flag off so it does not effect subsequent tests.
-            Schema.require_description(False)
+            Schema.ValidationConfig.require_description = False
 
         self.assertEqual(result.exit_code, 0)
 

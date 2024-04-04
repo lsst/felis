@@ -56,6 +56,12 @@ class DataModelTestCase(unittest.TestCase):
 class ColumnTestCase(unittest.TestCase):
     """Test the `Column` class."""
 
+    def setUp(self) -> None:
+        """Set up the test by turning off the description requirement in case
+        it was turned on by another test.
+        """
+        Schema.ValidationConfig.require_description = False
+
     def test_validation(self) -> None:
         """Test validation of the `Column` class."""
         # Default initialization should throw an exception.
@@ -124,11 +130,7 @@ class ColumnTestCase(unittest.TestCase):
     def test_require_description(self) -> None:
         """Test the require_description flag for the `Column` class."""
         # Turn on description requirement for this test.
-        Schema.require_description(True)
-
-        # Make sure that setting the flag for description requirement works
-        # correctly.
-        self.assertTrue(Schema.is_description_required(), "description should be required")
+        Schema.ValidationConfig.require_description = True
 
         # Creating a column without a description when required should throw an
         # error.
@@ -154,9 +156,6 @@ class ColumnTestCase(unittest.TestCase):
         # throw.
         with self.assertRaises(ValidationError):
             Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": "xy"})
-
-        # Turn off flag or it will affect subsequent tests.
-        Schema.require_description(False)
 
 
 class ConstraintTestCase(unittest.TestCase):

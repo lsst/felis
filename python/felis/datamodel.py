@@ -93,7 +93,7 @@ class BaseObject(BaseModel):
     @classmethod
     def check_description(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Check that the description is present if required."""
-        if Schema.is_description_required():
+        if Schema.ValidationConfig.require_description:
             if "description" not in values or not values["description"]:
                 raise ValueError("Description is required and must be non-empty")
             if len(values["description"].strip()) < DESCR_MIN_LENGTH:
@@ -407,7 +407,7 @@ class Schema(BaseObject):
     class ValidationConfig:
         """Validation configuration which is specific to Felis."""
 
-        _require_description = False
+        require_description = False
         """Flag to require a description for all objects.
 
         This is set by the `require_description` class method.
@@ -454,20 +454,3 @@ class Schema(BaseObject):
     def __contains__(self, id: str) -> bool:
         """Check if an object with the given ID is in the schema."""
         return id in self.id_map
-
-    @classmethod
-    def require_description(cls, rd: bool = True) -> None:
-        """Set whether a description is required for all objects.
-
-        This includes the schema, tables, columns, and constraints.
-
-        Users should call this method to set the requirement for a description
-        when validating schemas, rather than change the flag value directly.
-        """
-        logger.debug(f"Setting description requirement to '{rd}'")
-        cls.ValidationConfig._require_description = rd
-
-    @classmethod
-    def is_description_required(cls) -> bool:
-        """Return whether a description is required for all objects."""
-        return cls.ValidationConfig._require_description
