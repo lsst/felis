@@ -30,8 +30,10 @@ from typing import Annotated, Any, Literal, TypeAlias
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy.dialects import mysql
+from sqlalchemy import dialects
+from sqlalchemy import types as sqa_types
 from sqlalchemy.engine import create_mock_engine
+from sqlalchemy.engine.interfaces import Dialect
 
 from .db.sqltypes import get_type_func
 from .types import FelisType
@@ -125,7 +127,47 @@ class DataType(Enum):
     TIMESTAMP = "timestamp"
 
 
-_MYSQL_DIALECT = create_mock_engine("mysql://", executor=None).dialect
+_DIALECTS = {
+    "mysql": create_mock_engine("mysql://", executor=None).dialect,
+    "postgresql": create_mock_engine("postgresql://", executor=None).dialect,
+}
+"""Dictionary of dialect names to SQLAlchemy dialects."""
+
+_DIALECT_MODULES = {"mysql": getattr(dialects, "mysql"), "postgresql": getattr(dialects, "postgresql")}
+"""Dictionary of dialect names to SQLAlchemy dialect modules."""
+
+_DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
+"""Regular expression to match data types in the form "type(length)"""
+
+
+def string_to_typeengine(type_string: str, dialect: Dialect = None, length: int = None):
+    match = _DATATYPE_REGEXP.search(type_string)
+    if not match:
+        raise ValueError(f"Invalid type string: {type_string}")
+
+    type_name, _, params = match.groups()
+    if dialect is None:
+        type_class = getattr(sqa_types, type_name.upper(), None)
+    else:
+        try:
+            dialect_module = _DIALECT_MODULES[dialect.name]
+        except KeyError:
+            raise ValueError(f"Unsupported dialect: {dialect}")
+        type_class = getattr(dialect_module, type_name.upper(), None)
+
+    if not type_class:
+        raise ValueError(f"Unsupported type: {type_class}")
+
+    if params:
+        params = [int(param) if param.isdigit() else param for param in params.split(",")]
+        type_obj = type_class(*params)
+    else:
+        type_obj = type_class()
+
+    if hasattr(type_obj, "length") and getattr(type_obj, "length") is None and length is not None:
+        type_obj.length = length
+
+    return type_obj
 
 
 class Column(BaseObject):
@@ -222,7 +264,7 @@ class Column(BaseObject):
         """Check for redundant datatypes on columns."""
         if not Schema.ValidationConfig.check_redundant_datatypes:
             return values
-        if "mysql:datatype" not in values and "postgresql:datatype" not in values:
+        if all(f"{dialect}:datatype" not in values for dialect in _DIALECTS.keys()):
             return values
 
         datatype = values.get("datatype")
@@ -230,40 +272,29 @@ class Column(BaseObject):
 
         datatype_func = get_type_func(datatype)
         felis_type = FelisType.felis_type(datatype)
-        if felis_type.is_sized:
-            if length is None:
-                raise ValueError(f"Length must be provided for '{datatype}' datatype")
+        if felis_type.is_sized and length is not None:
             datatype_obj = datatype_func(length)
         else:
             datatype_obj = datatype_func()
 
-        if "mysql:datatype" in values:
-            mysql_datatype = values.get("mysql:datatype")
-            mysql_length = None
-            if "(" in mysql_datatype:
-                mysql_length_match = re.search((r"\((\d+)\)"), mysql_datatype)
-                if mysql_length_match:
-                    mysql_length = int(mysql_length_match.group(1))
-                mysql_datatype_match = re.match(r"([^\(]+)", mysql_datatype)
-                mysql_datatype = mysql_datatype_match.group(1)
-            mysql_datatype_func = getattr(mysql, mysql_datatype, None)
-            if not mysql_datatype_func:
-                raise ValueError("Unknown MySQL datatype: ", mysql_datatype)
-            if felis_type.is_sized:
-                mysql_datatype_obj = mysql_datatype_func(length=mysql_length or length)
-            else:
-                mysql_datatype_obj = mysql_datatype_func()
-            print(datatype_obj.compile(_MYSQL_DIALECT))
-            print(mysql_datatype_obj.compile(_MYSQL_DIALECT))
-            if datatype_obj.compile(_MYSQL_DIALECT) == mysql_datatype_obj.compile(_MYSQL_DIALECT):
-                print("Same type\n")
-                raise ValueError(
-                    "'mysql:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
-                        values["mysql:datatype"], values["datatype"], values["@id"]
-                    )
-                )
-            else:
-                print("Different type\n")
+        for dialect_name, dialect in _DIALECTS.items():
+            if f"{dialect_name}:datatype" in values:
+                datatype_string = values[f"{dialect_name}:datatype"]
+                db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
+                try:  # DEBUG
+                    print(f"datatype: {datatype_obj.compile(dialect)}")  # DEBUG
+                    print(f"{dialect_name}:datatype: {db_datatype_obj.compile(dialect)}")  # DEBUG
+                    if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
+                        print("Same type")
+                        raise ValueError(
+                            "'{}:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
+                                dialect_name, datatype_string, values["datatype"], values["@id"]
+                            )
+                        )
+                    else:  # DEBUG
+                        print("Different type")  # DEBUG
+                finally:  # DEBUG
+                    print()  # DEBUG
         return values
 
 
