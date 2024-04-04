@@ -239,12 +239,11 @@ class Column(BaseObject):
 
         if "mysql:datatype" in values:
             mysql_datatype = values.get("mysql:datatype")
+            mysql_length = None
             if "(" in mysql_datatype:
                 mysql_length_match = re.search((r"\((\d+)\)"), mysql_datatype)
                 if mysql_length_match:
                     mysql_length = int(mysql_length_match.group(1))
-                else:
-                    mysql_length = None
                 mysql_datatype_match = re.match(r"([^\(]+)", mysql_datatype)
                 mysql_datatype = mysql_datatype_match.group(1)
             mysql_datatype_func = getattr(mysql, mysql_datatype, None)
@@ -254,9 +253,9 @@ class Column(BaseObject):
                 mysql_datatype_obj = mysql_datatype_func(length=mysql_length or length)
             else:
                 mysql_datatype_obj = mysql_datatype_func()
-            print(datatype_obj.compile())
+            print(datatype_obj.compile(_MYSQL_DIALECT))
             print(mysql_datatype_obj.compile(_MYSQL_DIALECT))
-            if datatype_obj.compile() == mysql_datatype_obj.compile(_MYSQL_DIALECT):
+            if datatype_obj.compile(_MYSQL_DIALECT) == mysql_datatype_obj.compile(_MYSQL_DIALECT):
                 print("Same type\n")
                 raise ValueError(
                     "'mysql:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
