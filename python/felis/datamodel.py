@@ -257,15 +257,14 @@ class Column(BaseObject):
             print(datatype_obj.compile())
             print(mysql_datatype_obj.compile(_MYSQL_DIALECT))
             if datatype_obj.compile() == mysql_datatype_obj.compile(_MYSQL_DIALECT):
-                print("Different type")
+                print("Same type\n")
                 raise ValueError(
                     "'mysql:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
                         values["mysql:datatype"], values["datatype"], values["@id"]
                     )
                 )
             else:
-                print("Same type")
-            print("")
+                print("Different type\n")
         return values
 
 
