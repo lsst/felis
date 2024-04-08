@@ -281,20 +281,13 @@ class Column(BaseObject):
             if f"{dialect_name}:datatype" in values:
                 datatype_string = values[f"{dialect_name}:datatype"]
                 db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
-                try:  # DEBUG
-                    print(f"datatype: {datatype_obj.compile(dialect)}")  # DEBUG
-                    print(f"{dialect_name}:datatype: {db_datatype_obj.compile(dialect)}")  # DEBUG
-                    if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
-                        print("Same type")
-                        raise ValueError(
-                            "'{}:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
-                                dialect_name, datatype_string, values["datatype"], values["@id"]
-                            )
+                if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
+                    raise ValueError(
+                        "'{}:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
+                            dialect_name, datatype_string, values["datatype"], values["@id"]
                         )
-                    else:  # DEBUG
-                        print("Different type")  # DEBUG
-                finally:  # DEBUG
-                    print()  # DEBUG
+                    )
+
         return values
 
 
