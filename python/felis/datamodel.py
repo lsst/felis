@@ -287,6 +287,12 @@ class Column(BaseObject):
                             dialect_name, datatype_string, values["datatype"], values["@id"]
                         )
                     )
+                else:
+                    logger.debug(
+                        "'{}:datatype: {}' is a valid override of 'datatype: {}' in column '{}'".format(
+                            dialect_name, datatype_string, values["datatype"], values["@id"]
+                        )
+                    )
 
         return values
 
