@@ -272,8 +272,13 @@ class Column(BaseObject):
 
         datatype_func = get_type_func(datatype)
         felis_type = FelisType.felis_type(datatype)
-        if felis_type.is_sized and length is not None:
-            datatype_obj = datatype_func(length)
+        if felis_type.is_sized:
+            if length is not None:
+                datatype_obj = datatype_func(length)
+            else:
+                raise ValueError(
+                    f"Length must be provided for sized type '{datatype}' in column '{values['@id']}'"
+                )
         else:
             datatype_obj = datatype_func()
 
