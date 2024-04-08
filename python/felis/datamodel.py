@@ -520,20 +520,28 @@ class Schema(BaseObject):
             raise ValueError("Table names must be unique")
         return tables
 
-    @model_validator(mode="after")
-    def create_id_map(self: Schema) -> Schema:
-        """Create a map of IDs to objects."""
+    def _create_id_map(self: Schema) -> Schema:
+        """Create a map of IDs to objects.
+
+        This method should not be called by users. It is called automatically
+        by the `model_post_init` method. If the ID map is already populated,
+        this method will return immediately.
+        """
         if len(self.id_map):
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")
             return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
-        logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
+        logger.debug(f"Created schema ID map with {len(self.id_map.keys())} objects")
         if len(visitor.duplicates):
             raise ValueError(
                 "Duplicate IDs found in schema:\n    " + "\n    ".join(visitor.duplicates) + "\n"
             )
         return self
+
+    def model_post_init(self, ctx: Any) -> None:
+        """Post-initialization hook for the model."""
+        self._create_id_map()
 
     def __getitem__(self, id: str) -> BaseObject:
         """Get an object by its ID."""
