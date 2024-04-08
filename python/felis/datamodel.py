@@ -299,8 +299,13 @@ class Column(BaseObject):
                     )
                 else:
                     logger.debug(
-                        "'{}:datatype: {}' is a valid override of 'datatype: {}' in column '{}'".format(
-                            dialect_name, datatype_string, values["datatype"], values["@id"]
+                        "Valid type override of 'datatype: {}' with '{}:datatype: {}' in column '{}'".format(
+                            values["datatype"], dialect_name, datatype_string, values["@id"]
+                        )
+                    )
+                    logger.debug(
+                        "Compiled datatype '{}' with {} compiled override '{}'".format(
+                            datatype_obj.compile(dialect), dialect_name, db_datatype_obj.compile(dialect)
                         )
                     )
 
