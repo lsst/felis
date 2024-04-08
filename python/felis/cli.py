@@ -388,7 +388,8 @@ def validate(
 ) -> None:
     """Validate one or more felis YAML files."""
     schema_class = get_schema(schema_name)
-    logger.info(f"Using schema '{schema_class.__name__}'")
+    if schema_name != "default":
+        logger.info(f"Using schema '{schema_class.__name__}'")
 
     schema_class.Config.require_description = require_description
     if require_description:
