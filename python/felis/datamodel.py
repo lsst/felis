@@ -496,7 +496,7 @@ class Schema(BaseObject):
         This is set by the `require_description` class method.
         """
 
-        check_redundant_datatypes = True
+        check_redundant_datatypes = False
         """Flag to enable checking for redundant datatypes on columns.
 
         An example would be providing both 'mysql:datatype: DOUBLE' and
@@ -524,7 +524,7 @@ class Schema(BaseObject):
     def create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects."""
         if len(self.id_map):
-            logger.debug("ID map was already populated")
+            logger.debug("Ignoring call to create_id_map() - ID map was already populated")
             return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
