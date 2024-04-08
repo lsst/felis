@@ -34,6 +34,7 @@ from sqlalchemy import dialects
 from sqlalchemy import types as sqa_types
 from sqlalchemy.engine import create_mock_engine
 from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.types import TypeEngine
 
 from .db.sqltypes import get_type_func
 from .types import FelisType
@@ -140,7 +141,9 @@ _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
 """Regular expression to match data types in the form "type(length)"""
 
 
-def string_to_typeengine(type_string: str, dialect: Dialect = None, length: int = None):
+def string_to_typeengine(
+    type_string: str, dialect: Dialect | None = None, length: int | None = None
+) -> TypeEngine:
     match = _DATATYPE_REGEXP.search(type_string)
     if not match:
         raise ValueError(f"Invalid type string: {type_string}")
@@ -267,8 +270,10 @@ class Column(BaseObject):
         if all(f"{dialect}:datatype" not in values for dialect in _DIALECTS.keys()):
             return values
 
-        datatype = values.get("datatype")
-        length = values.get("length") or None
+        datatype: str | None = values.get("datatype") or None
+        if datatype is None:
+            raise ValueError(f"Datatype must be provided for column '{values['@id']}'")
+        length: int | None = values.get("length") or None
 
         datatype_func = get_type_func(datatype)
         felis_type = FelisType.felis_type(datatype)
