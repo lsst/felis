@@ -60,7 +60,7 @@ class ColumnTestCase(unittest.TestCase):
         """Set up the test by turning off the description requirement in case
         it was turned on by another test.
         """
-        Schema.ValidationConfig.require_description = False
+        Schema.Config.require_description = False
 
     def test_validation(self) -> None:
         """Test validation of the `Column` class."""
@@ -130,7 +130,7 @@ class ColumnTestCase(unittest.TestCase):
     def test_require_description(self) -> None:
         """Test the require_description flag for the `Column` class."""
         # Turn on description requirement for this test.
-        Schema.ValidationConfig.require_description = True
+        Schema.Config.require_description = True
 
         # Creating a column without a description when required should throw an
         # error.

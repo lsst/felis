@@ -101,7 +101,7 @@ class BaseObject(BaseModel):
     @classmethod
     def check_description(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Check that the description is present if required."""
-        if Schema.ValidationConfig.require_description:
+        if Schema.Config.require_description:
             if "description" not in values or not values["description"]:
                 raise ValueError("Description is required and must be non-empty")
             if len(values["description"].strip()) < DESCR_MIN_LENGTH:
@@ -262,7 +262,7 @@ class Column(BaseObject):
     @classmethod
     def check_redundant_datatypes(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Check for redundant datatypes on columns."""
-        if not Schema.ValidationConfig.check_redundant_datatypes:
+        if not Schema.Config.check_redundant_datatypes:
             return values
         if all(f"{dialect}:datatype" not in values for dialect in _DIALECTS.keys()):
             return values
@@ -487,7 +487,7 @@ class SchemaIdVisitor:
 class Schema(BaseObject):
     """The database schema containing the tables."""
 
-    class ValidationConfig:
+    class Config:
         """Validation configuration which is specific to Felis."""
 
         require_description = False

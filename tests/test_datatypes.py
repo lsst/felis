@@ -51,7 +51,7 @@ class RedundantDatatypesTest(unittest.TestCase):
 
     def test_mysql_datatypes(self) -> None:
         """Test that redundant datatype definitions raise an error."""
-        Schema.ValidationConfig.check_redundant_datatypes = True
+        Schema.Config.check_redundant_datatypes = True
 
         coldata = ColumnGenerator("test_col", "#test_col_id", "mysql")
 
@@ -113,7 +113,7 @@ class RedundantDatatypesTest(unittest.TestCase):
             coldata.col("unicode", "CHAR", length=32)
 
         finally:
-            Schema.ValidationConfig.check_redundant_datatypes = False
+            Schema.Config.check_redundant_datatypes = False
 
 
 if __name__ == "__main__":

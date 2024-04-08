@@ -382,7 +382,7 @@ def validate(schema_name: str, require_description: bool, files: Iterable[io.Tex
     schema_class = get_schema(schema_name)
     logger.info(f"Using schema '{schema_class.__name__}'")
 
-    schema_class.ValidationConfig.require_description = require_description
+    schema_class.Config.require_description = require_description
 
     rc = 0
     for file in files:
