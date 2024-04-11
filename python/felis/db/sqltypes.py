@@ -115,10 +115,12 @@ unicode_map: _TypeMap = {
     POSTGRES: postgresql.VARCHAR,
 }
 
-text_map: _TypeMap = {
-    MYSQL: mysql.LONGTEXT,
+# text() method wants to pass length argument to the type, but mysql
+# LONGTEXT and postgres TEXT do not support it.
+text_map: dict[str, Any] = {
+    MYSQL: lambda length: mysql.LONGTEXT(),
     ORACLE: oracle.CLOB,
-    POSTGRES: postgresql.TEXT,
+    POSTGRES: lambda length: postgresql.TEXT(),
 }
 
 binary_map: _TypeMap = {
@@ -203,7 +205,7 @@ def _vary(
     variants.update(overrides)
     for dialect, variant in variants.items():
         # If this is a class and not an instance, instantiate
-        if isinstance(variant, type):
+        if callable(variant):
             variant = variant(*args)
         type_ = type_.with_variant(variant, dialect)
     return type_

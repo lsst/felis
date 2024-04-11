@@ -40,10 +40,10 @@ TABLE_OPTS = {
 }
 
 COLUMN_VARIANT_OVERRIDE = {
-    "mysql:datatype": "mysql",
-    "oracle:datatype": "oracle",
-    "postgresql:datatype": "postgresql",
-    "sqlite:datatype": "sqlite",
+    "mysql_datatype": "mysql",
+    "oracle_datatype": "oracle",
+    "postgresql_datatype": "postgresql",
+    "sqlite_datatype": "sqlite",
 }
 
 DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
@@ -87,7 +87,7 @@ def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
     """
     variant_dict = {}
     for field_name, value in iter(column_obj):
-        if field_name in COLUMN_VARIANT_OVERRIDE:
+        if field_name in COLUMN_VARIANT_OVERRIDE and value is not None:
             dialect = COLUMN_VARIANT_OVERRIDE[field_name]
             variant: TypeEngine = process_variant_override(dialect, value)
             variant_dict[dialect] = variant

@@ -35,7 +35,7 @@ from sqlalchemy import (
 )
 
 from felis import datamodel as dm
-from felis.datamodel import Schema
+from felis.datamodel import Column, Schema, Table
 from felis.metadata import DatabaseContext, MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -187,6 +187,29 @@ class MetaDataTestCase(unittest.TestCase):
                     primary_keys = [sch[pk].name for pk in table.primary_key]
                 for primary_key in primary_keys:
                     self.assertTrue(md_table.columns[primary_key].primary_key)
+
+    def test_sized_types(self):
+        """Test for handling of column data type which require length."""
+        for datatype in ("text", "binary", "string", "unicode", "char"):
+            column = Column(id="#column", name="column", datatype=datatype)
+            table = Table(id="#table", name="table", columns=[column])
+            schema = Schema(id="#schema", name="schema", tables=[table])
+
+            bld = MetaDataBuilder(schema, apply_schema_to_tables=False, apply_schema_to_metadata=False)
+
+            # If length is missing we expect an exception.
+            with self.assertRaisesRegex(ValueError, "Column .* has sized type 'DataType.*' but no length"):
+                bld.build()
+
+            # Specify column size, this should succeed.
+            column.length = 1024
+            bld.build()
+
+            # Specify overrides and see what happens, this needs new builder.
+            bld = MetaDataBuilder(schema, apply_schema_to_tables=False, apply_schema_to_metadata=False)
+            column.mysql_datatype = "TEXT"
+            column.postgresql_datatype = "CITEXT"
+            bld.build()
 
 
 if __name__ == "__main__":
