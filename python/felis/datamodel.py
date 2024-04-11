@@ -520,8 +520,8 @@ class Schema(BaseObject):
         check_redundant_datatypes = False
         """Flag to enable checking for redundant datatypes on columns.
 
-        An example would be providing both 'mysql:datatype: DOUBLE' and
-        'datatype: DOUBLE' as MySQL would have used that type by default.
+        An example would be providing both ``mysql:datatype: DOUBLE`` and
+        ``datatype: double`` as MySQL would have used that type by default.
         """
 
     version: SchemaVersion | str | None = None
