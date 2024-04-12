@@ -178,9 +178,9 @@ def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.NVARCHAR(length), unicode_map, kwargs, length)
 
 
-def text(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+def text(**kwargs: Any) -> types.TypeEngine:
     """Return SQLAlchemy type for text."""
-    return _vary(types.CLOB(length), text_map, kwargs, length)
+    return _vary(types.TEXT(), text_map, kwargs)
 
 
 def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
