@@ -198,7 +198,7 @@ def _vary(
     variants.update(overrides)
     for dialect, variant in variants.items():
         # If this is a class and not an instance, instantiate
-        if isinstance(variant, type):
+        if callable(variant):
             variant = variant(*args)
         type_ = type_.with_variant(variant, dialect)
     return type_
