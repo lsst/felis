@@ -70,8 +70,6 @@ tables:
         "@id": "#items.item_id"
         datatype: int
         description: Unique item identifier
-        mysql:datatype: INT
-        tap:principal: 1
       - name: order_id
         "@id": "#items.order_id"
         datatype: int
