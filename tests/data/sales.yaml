@@ -52,6 +52,10 @@ tables:
         "@id": "#orders.order_date"
         datatype: timestamp
         description: Order date
+      - name: special_instructions
+        "@id": "#orders.special_instructions"
+        datatype: text
+        description: Special instructions
     constraints:
       - name: fk_customer_id
         "@id": "#orders_fk_customer_id"
@@ -70,7 +74,6 @@ tables:
         "@id": "#items.item_id"
         datatype: int
         description: Unique item identifier
-        mysql:datatype: INT
         tap:principal: 1
       - name: order_id
         "@id": "#items.order_id"
