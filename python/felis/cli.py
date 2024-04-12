@@ -373,30 +373,15 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
     type=click.Choice(["RSP", "default"]),
     default="default",
 )
-@click.option(
-    "-d", "--require-description", is_flag=True, help="Require description for all objects", default=False
-)
-@click.option(
-    "-t", "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
-)
+@click.option("-d", "--require-description", is_flag=True, help="Require description for all objects")
 @click.argument("files", nargs=-1, type=click.File())
-def validate(
-    schema_name: str,
-    require_description: bool,
-    check_redundant_datatypes: bool,
-    files: Iterable[io.TextIOBase],
-) -> None:
+def validate(schema_name: str, require_description: bool, files: Iterable[io.TextIOBase]) -> None:
     """Validate one or more felis YAML files."""
     schema_class = get_schema(schema_name)
-    if schema_name != "default":
-        logger.info(f"Using schema '{schema_class.__name__}'")
+    logger.info(f"Using schema '{schema_class.__name__}'")
 
-    schema_class.Config.require_description = require_description
     if require_description:
-        logger.info("Requiring descriptions for all objects")
-    schema_class.Config.check_redundant_datatypes = check_redundant_datatypes
-    if check_redundant_datatypes:
-        logger.info("Checking for redundant datatypes")
+        Schema.require_description(True)
 
     rc = 0
     for file in files:
