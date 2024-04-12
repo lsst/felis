@@ -21,9 +21,9 @@
 
 import builtins
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Callable
 
-from sqlalchemy import Float, SmallInteger, types
+from sqlalchemy import SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql
 from sqlalchemy.ext.compiler import compiles
 
@@ -39,22 +39,10 @@ class TINYINT(SmallInteger):
     __visit_name__ = "TINYINT"
 
 
-class DOUBLE(Float):
-    """The non-standard DOUBLE type."""
-
-    __visit_name__ = "DOUBLE"
-
-
 @compiles(TINYINT)
 def compile_tinyint(type_: Any, compiler: Any, **kw: Any) -> str:
     """Return type name for TINYINT."""
     return "TINYINT"
-
-
-@compiles(DOUBLE)
-def compile_double(type_: Any, compiler: Any, **kw: Any) -> str:
-    """Return type name for double precision type."""
-    return "DOUBLE"
 
 
 _TypeMap = Mapping[str, types.TypeEngine | type[types.TypeEngine]]
@@ -160,7 +148,7 @@ def float(**kwargs: Any) -> types.TypeEngine:
 
 def double(**kwargs: Any) -> types.TypeEngine:
     """Return SQLAlchemy type for double precision float."""
-    return _vary(DOUBLE(), double_map, kwargs)
+    return _vary(types.DOUBLE(), double_map, kwargs)
 
 
 def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
@@ -191,6 +179,13 @@ def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
 def timestamp(**kwargs: Any) -> types.TypeEngine:
     """Return SQLAlchemy type for timestamp."""
     return types.TIMESTAMP()
+
+
+def get_type_func(type_name: str) -> Callable:
+    """Return the function for the type with the given name."""
+    if type_name not in globals():
+        raise ValueError(f"Unknown type: {type_name}")
+    return globals()[type_name]
 
 
 def _vary(
