@@ -23,7 +23,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from felis.datamodel import Column, Schema
+from felis.datamodel import Column
 
 
 class ColumnGenerator:
@@ -33,16 +33,18 @@ class ColumnGenerator:
         self.name = name
         self.id = id
         self.db_name = db_name
+        self.context = {"check_redundant_datatypes": True}
 
     def col(self, datatype: str, db_datatype: str, length=None):
-        return Column(
-            **{
+        return Column.model_validate(
+            {
                 "name": self.name,
                 "@id": self.id,
                 "datatype": datatype,
                 f"{self.db_name}:datatype": db_datatype,
                 "length": length,
-            }
+            },
+            context=self.context,
         )
 
 
@@ -51,69 +53,63 @@ class RedundantDatatypesTest(unittest.TestCase):
 
     def test_mysql_datatypes(self) -> None:
         """Test that redundant datatype definitions raise an error."""
-        Schema.Config.check_redundant_datatypes = True
-
         coldata = ColumnGenerator("test_col", "#test_col_id", "mysql")
 
-        try:
-            with self.assertRaises(ValidationError):
-                coldata.col("double", "DOUBLE")
+        with self.assertRaises(ValidationError):
+            coldata.col("double", "DOUBLE")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("int", "INTEGER")
+        with self.assertRaises(ValidationError):
+            coldata.col("int", "INTEGER")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("boolean", "BIT(1)")
+        with self.assertRaises(ValidationError):
+            coldata.col("boolean", "BIT(1)")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("float", "FLOAT")
+        with self.assertRaises(ValidationError):
+            coldata.col("float", "FLOAT")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("char", "CHAR", length=8)
+        with self.assertRaises(ValidationError):
+            coldata.col("char", "CHAR", length=8)
 
-            with self.assertRaises(ValidationError):
-                coldata.col("string", "VARCHAR", length=32)
+        with self.assertRaises(ValidationError):
+            coldata.col("string", "VARCHAR", length=32)
 
-            with self.assertRaises(ValidationError):
-                coldata.col("byte", "TINYINT")
+        with self.assertRaises(ValidationError):
+            coldata.col("byte", "TINYINT")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("short", "SMALLINT")
+        with self.assertRaises(ValidationError):
+            coldata.col("short", "SMALLINT")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("long", "BIGINT")
+        with self.assertRaises(ValidationError):
+            coldata.col("long", "BIGINT")
 
-            # These look equivalent but default is actually ``BIT(1)``.
-            coldata.col("boolean", "BOOLEAN")
+        # These look like they should be equivalent, but the default is actually ``BIT(1)`` for MySQL.
+        coldata.col("boolean", "BOOLEAN")
 
-            with self.assertRaises(ValidationError):
-                coldata.col("unicode", "NVARCHAR", length=32)
+        with self.assertRaises(ValidationError):
+            coldata.col("unicode", "NVARCHAR", length=32)
 
-            with self.assertRaises(ValidationError):
-                coldata.col("timestamp", "TIMESTAMP")
+        with self.assertRaises(ValidationError):
+            coldata.col("timestamp", "TIMESTAMP")
 
-            # DM-42257: Felis does not handle unbounded text types properly.
-            # coldata.col("text", "TEXT", length=32)
+        # DM-42257: Felis does not handle unbounded text types properly.
+        # coldata.col("text", "TEXT", length=32)
 
-            with self.assertRaises(ValidationError):
-                coldata.col("binary", "LONGBLOB", length=1024)
+        with self.assertRaises(ValidationError):
+            coldata.col("binary", "LONGBLOB", length=1024)
 
-            with self.assertRaises(ValidationError):
-                # Same type and length
-                coldata.col("string", "VARCHAR(128)", length=128)
+        with self.assertRaises(ValidationError):
+            # Same type and length
+            coldata.col("string", "VARCHAR(128)", length=128)
 
-            # Different types, which is okay
-            coldata.col("double", "FLOAT")
+        # Different types, which is okay
+        coldata.col("double", "FLOAT")
 
-            # Same base type with different lengths, which is okay
-            coldata.col("string", "VARCHAR(128)", length=32)
+        # Same base type with different lengths, which is okay
+        coldata.col("string", "VARCHAR(128)", length=32)
 
-            # Different string types, which is okay
-            coldata.col("string", "CHAR", length=32)
-            coldata.col("unicode", "CHAR", length=32)
-
-        finally:
-            Schema.Config.check_redundant_datatypes = False
+        # Different string types, which is okay
+        coldata.col("string", "CHAR", length=32)
+        coldata.col("unicode", "CHAR", length=32)
 
 
 if __name__ == "__main__":

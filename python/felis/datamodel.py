@@ -24,12 +24,12 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Mapping, Sequence
-from enum import Enum
+from enum import StrEnum, auto
 from typing import Annotated, Any, Literal, TypeAlias
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from sqlalchemy import dialects
 from sqlalchemy import types as sqa_types
 from sqlalchemy.engine import create_mock_engine
@@ -58,7 +58,6 @@ __all__ = (
 CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
-    validate_assignment=True,  # Validate assignments after model is created.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
 )
 """Pydantic model configuration as described in:
@@ -92,40 +91,38 @@ class BaseObject(BaseModel):
     """
 
     description: DescriptionStr | None = None
-    """A description of the database object.
+    """A description of the database object."""
 
-    By default, the description is optional but will be required if
-    `BaseObject.Config.require_description` is set to `True` by the user.
-    """
-
-    @model_validator(mode="before")
+    @model_validator(mode="after")  # type: ignore[arg-type]
     @classmethod
-    def check_description(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def check_description(cls, object: BaseObject, info: ValidationInfo) -> BaseObject:
         """Check that the description is present if required."""
-        if Schema.Config.require_description:
-            if "description" not in values or not values["description"]:
-                raise ValueError("Description is required and must be non-empty")
-            if len(values["description"].strip()) < DESCR_MIN_LENGTH:
-                raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
-        return values
+        context = info.context
+        if not context or not context.get("require_description", False):
+            return object
+        if object.description is None or object.description == "":
+            raise ValueError("Description is required and must be non-empty")
+        if len(object.description) < DESCR_MIN_LENGTH:
+            raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
+        return object
 
 
-class DataType(Enum):
+class DataType(StrEnum):
     """`Enum` representing the data types supported by Felis."""
 
-    BOOLEAN = "boolean"
-    BYTE = "byte"
-    SHORT = "short"
-    INT = "int"
-    LONG = "long"
-    FLOAT = "float"
-    DOUBLE = "double"
-    CHAR = "char"
-    STRING = "string"
-    UNICODE = "unicode"
-    TEXT = "text"
-    BINARY = "binary"
-    TIMESTAMP = "timestamp"
+    boolean = auto()
+    byte = auto()
+    short = auto()
+    int = auto()
+    long = auto()
+    float = auto()
+    double = auto()
+    char = auto()
+    string = auto()
+    unicode = auto()
+    text = auto()
+    binary = auto()
+    timestamp = auto()
 
 
 _DIALECTS = {
@@ -261,19 +258,18 @@ class Column(BaseObject):
 
         return values
 
-    @model_validator(mode="before")
+    @model_validator(mode="after")  # type: ignore[arg-type]
     @classmethod
-    def check_redundant_datatypes(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def validate_datatypes(cls, col: Column, info: ValidationInfo) -> Column:
         """Check for redundant datatypes on columns."""
-        if not Schema.Config.check_redundant_datatypes:
-            return values
-        if all(f"{dialect}:datatype" not in values for dialect in _DIALECTS.keys()):
-            return values
+        context = info.context
+        if not context or not context.get("check_redundant_datatypes", False):
+            return col
+        if all(getattr(col, f"{dialect}:datatype", None) is not None for dialect in _DIALECTS.keys()):
+            return col
 
-        datatype: str | None = values.get("datatype") or None
-        if datatype is None:
-            raise ValueError(f"Datatype must be provided for column '{values['@id']}'")
-        length: int | None = values.get("length") or None
+        datatype = col.datatype
+        length: int | None = col.length or None
 
         datatype_func = get_type_func(datatype)
         felis_type = FelisType.felis_type(datatype)
@@ -281,26 +277,24 @@ class Column(BaseObject):
             if length is not None:
                 datatype_obj = datatype_func(length)
             else:
-                raise ValueError(
-                    f"Length must be provided for sized type '{datatype}' in column '{values['@id']}'"
-                )
+                raise ValueError(f"Length must be provided for sized type '{datatype}' in column '{col.id}'")
         else:
             datatype_obj = datatype_func()
 
         for dialect_name, dialect in _DIALECTS.items():
-            if f"{dialect_name}:datatype" in values:
-                datatype_string = values[f"{dialect_name}:datatype"]
+            db_annotation = f"{dialect_name}_datatype"
+            if datatype_string := col.model_dump().get(db_annotation):
                 db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
                 if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
                     raise ValueError(
-                        "'{}:datatype: {}' is the same as 'datatype: {}' in column '{}'".format(
-                            dialect_name, datatype_string, values["datatype"], values["@id"]
+                        "'{}: {}' is the same as 'datatype: {}' in column '{}'".format(
+                            db_annotation, datatype_string, col.datatype, col.id
                         )
                     )
                 else:
                     logger.debug(
-                        "Valid type override of 'datatype: {}' with '{}:datatype: {}' in column '{}'".format(
-                            values["datatype"], dialect_name, datatype_string, values["@id"]
+                        "Valid type override of 'datatype: {}' with '{}: {}' in column '{}'".format(
+                            col.datatype, db_annotation, datatype_string, col.id
                         )
                     )
                     logger.debug(
@@ -309,7 +303,7 @@ class Column(BaseObject):
                         )
                     )
 
-        return values
+        return col
 
 
 class Constraint(BaseObject):
@@ -508,22 +502,6 @@ class SchemaIdVisitor:
 class Schema(BaseObject):
     """The database schema containing the tables."""
 
-    class Config:
-        """Validation configuration which is specific to Felis."""
-
-        require_description = False
-        """Flag to require a description for all objects.
-
-        This is set by the `require_description` class method.
-        """
-
-        check_redundant_datatypes = False
-        """Flag to enable checking for redundant datatypes on columns.
-
-        An example would be providing both ``mysql:datatype: DOUBLE`` and
-        ``datatype: double`` as MySQL would have used that type by default.
-        """
-
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
@@ -545,8 +523,8 @@ class Schema(BaseObject):
         """Create a map of IDs to objects.
 
         This method should not be called by users. It is called automatically
-        by the `model_post_init` method. If the ID map is already populated,
-        this method will return immediately.
+        by the ``model_post_init()`` method. If the ID map is already
+        populated, this method will return immediately.
         """
         if len(self.id_map):
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")

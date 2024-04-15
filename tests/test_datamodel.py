@@ -56,12 +56,6 @@ class DataModelTestCase(unittest.TestCase):
 class ColumnTestCase(unittest.TestCase):
     """Test the `Column` class."""
 
-    def setUp(self) -> None:
-        """Set up the test by turning off the description requirement in case
-        it was turned on by another test.
-        """
-        Schema.Config.require_description = False
-
     def test_validation(self) -> None:
         """Test validation of the `Column` class."""
         # Default initialization should throw an exception.
@@ -81,14 +75,14 @@ class ColumnTestCase(unittest.TestCase):
         col = Column(name="testColumn", id="#test_id", datatype="string")
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.datatype, DataType.STRING, "datatype should be 'DataType.STRING'")
+        self.assertEqual(col.datatype, DataType.string, "datatype should be 'DataType.string'")
 
         # Creating from data dictionary should work and load data correctly.
         data = {"name": "testColumn", "id": "#test_id", "datatype": "string"}
         col = Column(**data)
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.datatype, DataType.STRING, "datatype should be 'DataType.STRING'")
+        self.assertEqual(col.datatype, DataType.string, "datatype should be 'DataType.string'")
 
         # Setting a bad IVOA UCD should throw an error.
         with self.assertRaises(ValidationError):
@@ -129,9 +123,6 @@ class ColumnTestCase(unittest.TestCase):
 
     def test_require_description(self) -> None:
         """Test the require_description flag for the `Column` class."""
-        # Turn on description requirement for this test.
-        Schema.Config.require_description = True
-
         # Creating a column without a description when required should throw an
         # error.
         with self.assertRaises(ValidationError):
@@ -140,22 +131,47 @@ class ColumnTestCase(unittest.TestCase):
                     "name": "testColumn",
                     "@id": "#test_col_id",
                     "datatype": "string",
+                    "require_description": True,
                 }
             )
 
         # Creating a column with a None description when required should throw.
         with self.assertRaises(ValidationError):
-            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": None})
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "require_description": True,
+                    "description": None,
+                }
+            )
 
         # Creating a column with an empty description when required should
         # throw.
         with self.assertRaises(ValidationError):
-            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": ""})
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "require_description": True,
+                    "description": "",
+                }
+            )
 
         # Creating a column with a description that is not long enough should
         # throw.
         with self.assertRaises(ValidationError):
-            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": "xy"})
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "require_description": True,
+                    "description": "xy",
+                }
+            )
 
 
 class ConstraintTestCase(unittest.TestCase):

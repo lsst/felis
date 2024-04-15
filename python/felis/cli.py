@@ -391,19 +391,19 @@ def validate(
     if schema_name != "default":
         logger.info(f"Using schema '{schema_class.__name__}'")
 
-    schema_class.Config.require_description = require_description
-    if require_description:
-        logger.info("Requiring descriptions for all objects")
-    schema_class.Config.check_redundant_datatypes = check_redundant_datatypes
-    if check_redundant_datatypes:
-        logger.info("Checking for redundant datatypes")
-
     rc = 0
     for file in files:
         file_name = getattr(file, "name", None)
         logger.info(f"Validating {file_name}")
         try:
-            schema_class.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
+            data = yaml.load(file, Loader=yaml.SafeLoader)
+            schema_class.model_validate(
+                data,
+                context={
+                    "check_redundant_datatypes": check_redundant_datatypes,
+                    "require_description": require_description,
+                },
+            )
         except ValidationError as e:
             logger.error(e)
             rc = 1
