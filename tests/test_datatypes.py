@@ -82,7 +82,8 @@ class RedundantDatatypesTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             coldata.col("long", "BIGINT")
 
-        # These look like they should be equivalent, but the default is actually ``BIT(1)`` for MySQL.
+        # These look like they should be equivalent, but the default is
+        # actually ``BIT(1)`` for MySQL.
         coldata.col("boolean", "BOOLEAN")
 
         with self.assertRaises(ValidationError):

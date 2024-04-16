@@ -123,59 +123,74 @@ class ColumnTestCase(unittest.TestCase):
 
     def test_require_description(self) -> None:
         """Test the require_description flag for the `Column` class."""
-        # Creating a column without a description when required should throw an
-        # error.
-        with self.assertRaises(ValidationError):
-            Column(
-                **{
-                    "name": "testColumn",
-                    "@id": "#test_col_id",
-                    "datatype": "string",
-                    "require_description": True,
-                }
+
+        class MockValidationInfo:
+            """Mock context object for passing to validation method."""
+
+            def __init__(self):
+                self.context = {"require_description": True}
+
+        info = MockValidationInfo()
+
+        def _check_description(col: Column):
+            Schema.check_description(col, info)
+
+        # Creating a column without a description should throw.
+        with self.assertRaises(ValueError):
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                    }
+                )
             )
 
-        # Creating a column with a None description when required should throw.
-        with self.assertRaises(ValidationError):
-            Column(
-                **{
-                    "name": "testColumn",
-                    "@id": "#test_col_id",
-                    "datatype": "string",
-                    "require_description": True,
-                    "description": None,
-                }
+        # Creating a column with a description of 'None' should throw.
+        with self.assertRaises(ValueError):
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                        "description": None,
+                    }
+                )
             )
 
-        # Creating a column with an empty description when required should
-        # throw.
-        with self.assertRaises(ValidationError):
-            Column(
-                **{
-                    "name": "testColumn",
-                    "@id": "#test_col_id",
-                    "datatype": "string",
-                    "require_description": True,
-                    "description": "",
-                }
+        # Creating a column with an empty description should throw.
+        with self.assertRaises(ValueError):
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                        "require_description": True,
+                        "description": "",
+                    }
+                )
             )
 
-        # Creating a column with a description that is not long enough should
-        # throw.
+        # Creating a column with a description that is too short should throw.
         with self.assertRaises(ValidationError):
-            Column(
-                **{
-                    "name": "testColumn",
-                    "@id": "#test_col_id",
-                    "datatype": "string",
-                    "require_description": True,
-                    "description": "xy",
-                }
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                        "require_description": True,
+                        "description": "xy",
+                    }
+                )
             )
 
 
 class ConstraintTestCase(unittest.TestCase):
-    """Test the `UniqueConstraint`, `Index`, `CheckCosntraint`, and
+    """Test the `UniqueConstraint`, `Index`, `CheckConstraint`, and
     `ForeignKeyConstraint` classes.
     """
 
