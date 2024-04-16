@@ -75,14 +75,14 @@ class ColumnTestCase(unittest.TestCase):
         col = Column(name="testColumn", id="#test_id", datatype="string")
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.datatype, DataType.STRING, "datatype should be 'DataType.STRING'")
+        self.assertEqual(col.datatype, DataType.string, "datatype should be 'DataType.string'")
 
         # Creating from data dictionary should work and load data correctly.
         data = {"name": "testColumn", "id": "#test_id", "datatype": "string"}
         col = Column(**data)
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.datatype, DataType.STRING, "datatype should be 'DataType.STRING'")
+        self.assertEqual(col.datatype, DataType.string, "datatype should be 'DataType.string'")
 
         # Setting a bad IVOA UCD should throw an error.
         with self.assertRaises(ValidationError):
@@ -123,44 +123,74 @@ class ColumnTestCase(unittest.TestCase):
 
     def test_require_description(self) -> None:
         """Test the require_description flag for the `Column` class."""
-        # Turn on description requirement for this test.
-        Schema.require_description(True)
 
-        # Make sure that setting the flag for description requirement works
-        # correctly.
-        self.assertTrue(Schema.is_description_required(), "description should be required")
+        class MockValidationInfo:
+            """Mock context object for passing to validation method."""
 
-        # Creating a column without a description when required should throw an
-        # error.
-        with self.assertRaises(ValidationError):
-            Column(
-                **{
-                    "name": "testColumn",
-                    "@id": "#test_col_id",
-                    "datatype": "string",
-                }
+            def __init__(self):
+                self.context = {"require_description": True}
+
+        info = MockValidationInfo()
+
+        def _check_description(col: Column):
+            Schema.check_description(col, info)
+
+        # Creating a column without a description should throw.
+        with self.assertRaises(ValueError):
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                    }
+                )
             )
 
-        # Creating a column with a None description when required should throw.
-        with self.assertRaises(ValidationError):
-            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": None})
+        # Creating a column with a description of 'None' should throw.
+        with self.assertRaises(ValueError):
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                        "description": None,
+                    }
+                )
+            )
 
-        # Creating a column with an empty description when required should
-        # throw.
-        with self.assertRaises(ValidationError):
-            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": ""})
+        # Creating a column with an empty description should throw.
+        with self.assertRaises(ValueError):
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                        "require_description": True,
+                        "description": "",
+                    }
+                )
+            )
 
-        # Creating a column with a description that is not long enough should
-        # throw.
+        # Creating a column with a description that is too short should throw.
         with self.assertRaises(ValidationError):
-            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "string", "description": "xy"})
-
-        # Turn off flag or it will affect subsequent tests.
-        Schema.require_description(False)
+            _check_description(
+                Column(
+                    **{
+                        "name": "testColumn",
+                        "@id": "#test_col_id",
+                        "datatype": "string",
+                        "require_description": True,
+                        "description": "xy",
+                    }
+                )
+            )
 
 
 class ConstraintTestCase(unittest.TestCase):
-    """Test the `UniqueConstraint`, `Index`, `CheckCosntraint`, and
+    """Test the `UniqueConstraint`, `Index`, `CheckConstraint`, and
     `ForeignKeyConstraint` classes.
     """
 

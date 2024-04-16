@@ -373,22 +373,37 @@ def merge(files: Iterable[io.TextIOBase]) -> None:
     type=click.Choice(["RSP", "default"]),
     default="default",
 )
-@click.option("-d", "--require-description", is_flag=True, help="Require description for all objects")
+@click.option(
+    "-d", "--require-description", is_flag=True, help="Require description for all objects", default=False
+)
+@click.option(
+    "-t", "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
+)
 @click.argument("files", nargs=-1, type=click.File())
-def validate(schema_name: str, require_description: bool, files: Iterable[io.TextIOBase]) -> None:
+def validate(
+    schema_name: str,
+    require_description: bool,
+    check_redundant_datatypes: bool,
+    files: Iterable[io.TextIOBase],
+) -> None:
     """Validate one or more felis YAML files."""
     schema_class = get_schema(schema_name)
-    logger.info(f"Using schema '{schema_class.__name__}'")
-
-    if require_description:
-        Schema.require_description(True)
+    if schema_name != "default":
+        logger.info(f"Using schema '{schema_class.__name__}'")
 
     rc = 0
     for file in files:
         file_name = getattr(file, "name", None)
         logger.info(f"Validating {file_name}")
         try:
-            schema_class.model_validate(yaml.load(file, Loader=yaml.SafeLoader))
+            data = yaml.load(file, Loader=yaml.SafeLoader)
+            schema_class.model_validate(
+                data,
+                context={
+                    "check_redundant_datatypes": check_redundant_datatypes,
+                    "require_description": require_description,
+                },
+            )
         except ValidationError as e:
             logger.error(e)
             rc = 1

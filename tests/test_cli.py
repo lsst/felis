@@ -29,7 +29,6 @@ from typing import Any
 from click.testing import CliRunner
 
 from felis.cli import cli
-from felis.datamodel import Schema
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
@@ -145,9 +144,6 @@ class CliTestCase(unittest.TestCase):
         except Exception as e:
             # Reraise exception.
             raise e
-        finally:
-            # Turn the flag off so it does not effect subsequent tests.
-            Schema.require_description(False)
 
         self.assertEqual(result.exit_code, 0)
 

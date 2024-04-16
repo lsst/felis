@@ -22,13 +22,22 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
-from enum import Enum
+from enum import StrEnum, auto
 from typing import Annotated, Any, Literal, TypeAlias
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from sqlalchemy import dialects
+from sqlalchemy import types as sqa_types
+from sqlalchemy.engine import create_mock_engine
+from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.types import TypeEngine
+
+from .db.sqltypes import get_type_func
+from .types import FelisType
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +58,6 @@ __all__ = (
 CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
-    validate_assignment=True,  # Validate assignments after model is created.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
 )
 """Pydantic model configuration as described in:
@@ -83,40 +91,83 @@ class BaseObject(BaseModel):
     """
 
     description: DescriptionStr | None = None
-    """A description of the database object.
+    """A description of the database object."""
 
-    By default, the description is optional but will be required if
-    `BaseObject.Config.require_description` is set to `True` by the user.
-    """
-
-    @model_validator(mode="before")
+    @model_validator(mode="after")  # type: ignore[arg-type]
     @classmethod
-    def check_description(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def check_description(cls, object: BaseObject, info: ValidationInfo) -> BaseObject:
         """Check that the description is present if required."""
-        if Schema.is_description_required():
-            if "description" not in values or not values["description"]:
-                raise ValueError("Description is required and must be non-empty")
-            if len(values["description"].strip()) < DESCR_MIN_LENGTH:
-                raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
-        return values
+        context = info.context
+        if not context or not context.get("require_description", False):
+            return object
+        if object.description is None or object.description == "":
+            raise ValueError("Description is required and must be non-empty")
+        if len(object.description) < DESCR_MIN_LENGTH:
+            raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
+        return object
 
 
-class DataType(Enum):
+class DataType(StrEnum):
     """`Enum` representing the data types supported by Felis."""
 
-    BOOLEAN = "boolean"
-    BYTE = "byte"
-    SHORT = "short"
-    INT = "int"
-    LONG = "long"
-    FLOAT = "float"
-    DOUBLE = "double"
-    CHAR = "char"
-    STRING = "string"
-    UNICODE = "unicode"
-    TEXT = "text"
-    BINARY = "binary"
-    TIMESTAMP = "timestamp"
+    boolean = auto()
+    byte = auto()
+    short = auto()
+    int = auto()
+    long = auto()
+    float = auto()
+    double = auto()
+    char = auto()
+    string = auto()
+    unicode = auto()
+    text = auto()
+    binary = auto()
+    timestamp = auto()
+
+
+_DIALECTS = {
+    "mysql": create_mock_engine("mysql://", executor=None).dialect,
+    "postgresql": create_mock_engine("postgresql://", executor=None).dialect,
+}
+"""Dictionary of dialect names to SQLAlchemy dialects."""
+
+_DIALECT_MODULES = {"mysql": getattr(dialects, "mysql"), "postgresql": getattr(dialects, "postgresql")}
+"""Dictionary of dialect names to SQLAlchemy dialect modules."""
+
+_DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
+"""Regular expression to match data types in the form "type(length)"""
+
+
+def string_to_typeengine(
+    type_string: str, dialect: Dialect | None = None, length: int | None = None
+) -> TypeEngine:
+    match = _DATATYPE_REGEXP.search(type_string)
+    if not match:
+        raise ValueError(f"Invalid type string: {type_string}")
+
+    type_name, _, params = match.groups()
+    if dialect is None:
+        type_class = getattr(sqa_types, type_name.upper(), None)
+    else:
+        try:
+            dialect_module = _DIALECT_MODULES[dialect.name]
+        except KeyError:
+            raise ValueError(f"Unsupported dialect: {dialect}")
+        type_class = getattr(dialect_module, type_name.upper(), None)
+
+    if not type_class:
+        raise ValueError(f"Unsupported type: {type_class}")
+
+    if params:
+        params = [int(param) if param.isdigit() else param for param in params.split(",")]
+        type_obj = type_class(*params)
+    else:
+        type_obj = type_class()
+
+    if hasattr(type_obj, "length") and getattr(type_obj, "length") is None and length is not None:
+        type_obj.length = length
+
+    return type_obj
 
 
 class Column(BaseObject):
@@ -206,6 +257,53 @@ class Column(BaseObject):
                 raise ValueError(f"Invalid unit: {e}")
 
         return values
+
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    @classmethod
+    def validate_datatypes(cls, col: Column, info: ValidationInfo) -> Column:
+        """Check for redundant datatypes on columns."""
+        context = info.context
+        if not context or not context.get("check_redundant_datatypes", False):
+            return col
+        if all(getattr(col, f"{dialect}:datatype", None) is not None for dialect in _DIALECTS.keys()):
+            return col
+
+        datatype = col.datatype
+        length: int | None = col.length or None
+
+        datatype_func = get_type_func(datatype)
+        felis_type = FelisType.felis_type(datatype)
+        if felis_type.is_sized:
+            if length is not None:
+                datatype_obj = datatype_func(length)
+            else:
+                raise ValueError(f"Length must be provided for sized type '{datatype}' in column '{col.id}'")
+        else:
+            datatype_obj = datatype_func()
+
+        for dialect_name, dialect in _DIALECTS.items():
+            db_annotation = f"{dialect_name}_datatype"
+            if datatype_string := col.model_dump().get(db_annotation):
+                db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
+                if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
+                    raise ValueError(
+                        "'{}: {}' is the same as 'datatype: {}' in column '{}'".format(
+                            db_annotation, datatype_string, col.datatype, col.id
+                        )
+                    )
+                else:
+                    logger.debug(
+                        "Valid type override of 'datatype: {}' with '{}: {}' in column '{}'".format(
+                            col.datatype, db_annotation, datatype_string, col.id
+                        )
+                    )
+                    logger.debug(
+                        "Compiled datatype '{}' with {} compiled override '{}'".format(
+                            datatype_obj.compile(dialect), dialect_name, db_datatype_obj.compile(dialect)
+                        )
+                    )
+
+        return col
 
 
 class Constraint(BaseObject):
@@ -404,15 +502,6 @@ class SchemaIdVisitor:
 class Schema(BaseObject):
     """The database schema containing the tables."""
 
-    class ValidationConfig:
-        """Validation configuration which is specific to Felis."""
-
-        _require_description = False
-        """Flag to require a description for all objects.
-
-        This is set by the `require_description` class method.
-        """
-
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
@@ -430,20 +519,28 @@ class Schema(BaseObject):
             raise ValueError("Table names must be unique")
         return tables
 
-    @model_validator(mode="after")
-    def create_id_map(self: Schema) -> Schema:
-        """Create a map of IDs to objects."""
+    def _create_id_map(self: Schema) -> Schema:
+        """Create a map of IDs to objects.
+
+        This method should not be called by users. It is called automatically
+        by the ``model_post_init()`` method. If the ID map is already
+        populated, this method will return immediately.
+        """
         if len(self.id_map):
-            logger.debug("ID map was already populated")
+            logger.debug("Ignoring call to create_id_map() - ID map was already populated")
             return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
-        logger.debug(f"ID map contains {len(self.id_map.keys())} objects")
+        logger.debug(f"Created schema ID map with {len(self.id_map.keys())} objects")
         if len(visitor.duplicates):
             raise ValueError(
                 "Duplicate IDs found in schema:\n    " + "\n    ".join(visitor.duplicates) + "\n"
             )
         return self
+
+    def model_post_init(self, ctx: Any) -> None:
+        """Post-initialization hook for the model."""
+        self._create_id_map()
 
     def __getitem__(self, id: str) -> BaseObject:
         """Get an object by its ID."""
@@ -454,20 +551,3 @@ class Schema(BaseObject):
     def __contains__(self, id: str) -> bool:
         """Check if an object with the given ID is in the schema."""
         return id in self.id_map
-
-    @classmethod
-    def require_description(cls, rd: bool = True) -> None:
-        """Set whether a description is required for all objects.
-
-        This includes the schema, tables, columns, and constraints.
-
-        Users should call this method to set the requirement for a description
-        when validating schemas, rather than change the flag value directly.
-        """
-        logger.debug(f"Setting description requirement to '{rd}'")
-        cls.ValidationConfig._require_description = rd
-
-    @classmethod
-    def is_description_required(cls) -> bool:
-        """Return whether a description is required for all objects."""
-        return cls.ValidationConfig._require_description
