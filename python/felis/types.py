@@ -125,7 +125,7 @@ class Unicode(FelisType, felis_name="unicode", votable_name="unicodeChar", is_si
     """Felis definition of unicode string type."""
 
 
-class Text(FelisType, felis_name="text", votable_name="unicodeChar", is_sized=True):
+class Text(FelisType, felis_name="text", votable_name="char"):
     """Felis definition of text type."""
 
 

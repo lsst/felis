@@ -166,9 +166,9 @@ def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
     return _vary(types.NVARCHAR(length), unicode_map, kwargs, length)
 
 
-def text(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
+def text(**kwargs: Any) -> types.TypeEngine:
     """Return SQLAlchemy type for text."""
-    return _vary(types.CLOB(length), text_map, kwargs, length)
+    return _vary(types.TEXT(), text_map, kwargs)
 
 
 def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
@@ -198,7 +198,7 @@ def _vary(
     variants.update(overrides)
     for dialect, variant in variants.items():
         # If this is a class and not an instance, instantiate
-        if isinstance(variant, type):
+        if callable(variant):
             variant = variant(*args)
         type_ = type_.with_variant(variant, dialect)
     return type_
