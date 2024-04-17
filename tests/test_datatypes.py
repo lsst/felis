@@ -62,9 +62,6 @@ class RedundantDatatypesTest(unittest.TestCase):
             coldata.col("int", "INTEGER")
 
         with self.assertRaises(ValidationError):
-            coldata.col("boolean", "BIT(1)")
-
-        with self.assertRaises(ValidationError):
             coldata.col("float", "FLOAT")
 
         with self.assertRaises(ValidationError):
@@ -82,9 +79,8 @@ class RedundantDatatypesTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             coldata.col("long", "BIGINT")
 
-        # These look like they should be equivalent, but the default is
-        # actually ``BIT(1)`` for MySQL.
-        coldata.col("boolean", "BOOLEAN")
+        with self.assertRaises(ValidationError):
+            coldata.col("boolean", "BOOLEAN")
 
         with self.assertRaises(ValidationError):
             coldata.col("unicode", "NVARCHAR", length=32)
@@ -101,6 +97,9 @@ class RedundantDatatypesTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             # Same type and length
             coldata.col("string", "VARCHAR(128)", length=128)
+
+        # Check the old type mapping for MySQL, which is now okay
+        coldata.col("boolean", "BIT(1)")
 
         # Different types, which is okay
         coldata.col("double", "FLOAT")

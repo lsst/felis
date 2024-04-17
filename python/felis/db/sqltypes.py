@@ -47,7 +47,7 @@ def compile_tinyint(type_: Any, compiler: Any, **kw: Any) -> str:
 
 _TypeMap = Mapping[str, types.TypeEngine | type[types.TypeEngine]]
 
-boolean_map: _TypeMap = {MYSQL: mysql.BIT(1), ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
+boolean_map: _TypeMap = {MYSQL: mysql.BOOLEAN, ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
 
 byte_map: _TypeMap = {
     MYSQL: mysql.TINYINT(),
