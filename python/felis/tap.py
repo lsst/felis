@@ -153,6 +153,7 @@ class TapLoadingVisitor:
         catalog_name: str | None = None,
         schema_name: str | None = None,
         tap_tables: MutableMapping[str, Any] | None = None,
+        tap_schema_index: int | None = None,
     ):
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
@@ -160,6 +161,7 @@ class TapLoadingVisitor:
         self.engine = engine
         self._mock_connection: MockConnection | None = None
         self.tables = tap_tables or init_tables()
+        self.tap_schema_index = tap_schema_index
 
     @classmethod
     def from_mock_connection(
@@ -168,9 +170,11 @@ class TapLoadingVisitor:
         catalog_name: str | None = None,
         schema_name: str | None = None,
         tap_tables: MutableMapping[str, Any] | None = None,
+        tap_schema_index: int | None = None,
     ) -> TapLoadingVisitor:
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection
+        visitor.tap_schema_index = tap_schema_index
         return visitor
 
     def visit_schema(self, schema_obj: Schema) -> None:
@@ -181,7 +185,8 @@ class TapLoadingVisitor:
         schema.schema_name = self._schema_name()
         schema.description = schema_obj.description
         schema.utype = schema_obj.votable_utype
-        schema.schema_index = schema_obj.tap_schema_index
+        schema.schema_index = self.tap_schema_index
+        logger.debug("Set TAP_SCHEMA index: {}".format(self.tap_schema_index))
 
         if self.engine is not None:
             session: Session = sessionmaker(self.engine)()

@@ -183,6 +183,7 @@ def init_tap(
 @click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
 @click.option("--tap-keys-table", help="Alt Table Name for TAP_SCHEMA.keys")
 @click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
+@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema")
 @click.argument("file", type=click.File())
 def load_tap(
     engine_url: str,
@@ -196,6 +197,7 @@ def load_tap(
     tap_columns_table: str,
     tap_keys_table: str,
     tap_key_columns_table: str,
+    tap_schema_index: int,
     file: io.TextIOBase,
 ) -> None:
     """Load TAP metadata from a Felis FILE.
@@ -228,6 +230,7 @@ def load_tap(
             catalog_name=catalog_name,
             schema_name=schema_name,
             tap_tables=tap_tables,
+            tap_schema_index=tap_schema_index,
         )
         tap_visitor.visit_schema(schema)
     else:
@@ -241,6 +244,7 @@ def load_tap(
             catalog_name=catalog_name,
             schema_name=schema_name,
             tap_tables=tap_tables,
+            tap_schema_index=tap_schema_index,
         )
         tap_visitor.visit_schema(schema)
 
