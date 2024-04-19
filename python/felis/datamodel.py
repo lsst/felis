@@ -287,22 +287,26 @@ class Column(BaseObject):
                 db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
                 if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
                     raise ValueError(
-                        "'{}: {}' is the same as 'datatype: {}' in column '{}'".format(
-                            db_annotation, datatype_string, col.datatype, col.id
+                        "'{}: {}' is a redundant override of 'datatype: {}' in column '{}'{}".format(
+                            db_annotation,
+                            datatype_string,
+                            col.datatype,
+                            col.id,
+                            "" if length is None else f" with length {length}",
                         )
                     )
                 else:
                     logger.debug(
-                        "Valid type override of 'datatype: {}' with '{}: {}' in column '{}'".format(
-                            col.datatype, db_annotation, datatype_string, col.id
+                        "Type override of 'datatype: {}' with '{}: {}' in column '{}' "
+                        "compiled to '{}' and '{}'".format(
+                            col.datatype,
+                            db_annotation,
+                            datatype_string,
+                            col.id,
+                            datatype_obj.compile(dialect),
+                            db_datatype_obj.compile(dialect),
                         )
                     )
-                    logger.debug(
-                        "Compiled datatype '{}' with {} compiled override '{}'".format(
-                            datatype_obj.compile(dialect), dialect_name, db_datatype_obj.compile(dialect)
-                        )
-                    )
-
         return col
 
 
