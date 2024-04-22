@@ -39,6 +39,9 @@ dynamic = ["version"]
 test = [
     "pytest >= 3.2"
 ]
+dev = [
+    "documenteer[guide]"
+]
 
 [tool.pytest.ini_options]
 
