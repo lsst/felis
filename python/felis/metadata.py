@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import IO, Any, Literal
 
@@ -133,6 +134,9 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     else:
         datatype = datatype_fun(**variant_dict)
     return datatype
+
+
+_VALID_SERVER_DEFAULTS = ("CURRENT_TIMESTAMP", "NOW()", "LOCALTIMESTAMP", "NULL")
 
 
 class MetaDataBuilder:
@@ -264,7 +268,7 @@ class MetaDataBuilder:
         name = column_obj.name
         id = column_obj.id
         description = column_obj.description
-        default = column_obj.value
+        value = column_obj.value
 
         # Handle variant overrides for the column (e.g., "mysql:datatype").
         datatype = get_datatype_with_variants(column_obj)
@@ -280,13 +284,24 @@ class MetaDataBuilder:
             column_obj.autoincrement if column_obj.autoincrement is not None else "auto"
         )
 
+        # Make sure the default value is properly quoted if it is a string but
+        # ignored if it is a known SQL function. Also use None for zero length
+        # strings because there is not a good use case for them as the default.
+        server_default = value
+        if isinstance(server_default, str):
+            if not len(server_default):
+                server_default = None
+                logger.warning(f"Column '{id}' has zero length default value which will be ignored")
+            elif server_default not in _VALID_SERVER_DEFAULTS:
+                server_default = json.dumps(value)
+
         column: Column = Column(
             name,
             datatype,
             comment=description,
             autoincrement=autoincrement,
             nullable=nullable,
-            server_default=default,
+            server_default=text(str(server_default)) if server_default else None,
         )
 
         self._objects[id] = column
