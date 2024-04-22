@@ -18,44 +18,37 @@ name: Build and upload documentation
     types: [published]
 
 jobs:
-  build_sphinx_docs:
+  docs:
+
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          # Need to clone everything for the git tags.
-          fetch-depth: 0
+          fetch-depth: 0  # full history for setuptools_scm
 
-      - name: Set up Python
-        uses: actions/setup-python@v3
+      - name: Install Graphviz
+        run: sudo apt-get install graphviz
+
+      - name: Run tox
+        uses: lsst-sqre/run-tox@v1
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: "3.12"
+          tox-envs: "docs"
+          # Add docs-linkcheck when the docs and PyPI package are published
+          # tox-envs: "docs,docs-linkcheck"
+          tox-plugins: tox-uv
 
-      - name: Update pip/wheel infrastructure
-        run: |
-          python -m pip install --upgrade pip
-          pip install wheel
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Build and install
-        run: pip install --no-deps -v .
-
-      - name: Install documenteer
-        # Pin to a compatible version of documenteer
-        run: pip install 'documenteer[pipelines]==0.8.2'
-
-      - name: Build documentation
-        run: package-docs build -n -W
-
+      # Only attempt documentation uploads for tagged releases and pull
+      # requests from ticket branches in the same repository.  This avoids
+      # version clutter in the docs and failures when a PR doesn't have access
+      # to secrets.
       - name: Upload to LSST the Docs
         uses: lsst-sqre/ltd-upload@v1
         with:
-          project: felis
-          dir: doc/_build/html
+          project: "felis"
+          dir: "docs/_build/html"
           username: ${{ secrets.LTD_USERNAME }}
           password: ${{ secrets.LTD_PASSWORD }}
         if: >
