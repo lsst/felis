@@ -34,7 +34,6 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     MetaData,
-    Numeric,
     PrimaryKeyConstraint,
     ResultProxy,
     Table,
@@ -265,17 +264,12 @@ class MetaDataBuilder:
         id = column_obj.id
         description = column_obj.description
         default = column_obj.value
+        nullable = column_obj.nullable
 
-        # Handle variant overrides for the column (e.g., "mysql:datatype").
+        # Get datatype, handling variant overrides such as "mysql:datatype".
         datatype = get_datatype_with_variants(column_obj)
 
-        # Set default value of nullable based on column type and then whether
-        # it was explicitly provided in the schema data.
-        nullable = column_obj.nullable
-        if nullable is None:
-            nullable = False if isinstance(datatype, Numeric) else True
-
-        # Set autoincrement depending on if it was provided explicitly.
+        # Set autoincrement, depending on if it was provided explicitly.
         autoincrement: Literal["auto"] | bool = (
             column_obj.autoincrement if column_obj.autoincrement is not None else "auto"
         )
