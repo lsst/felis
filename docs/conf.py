@@ -3,4 +3,4 @@
 This configuration only affects single-package Sphinx documenation builds.
 """
 
-from documenteer.conf.guide import *  # noqa: F403
+from documenteer.conf.guide import *  # noqa: F403,F401
