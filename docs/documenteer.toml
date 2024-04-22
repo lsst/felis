@@ -3,4 +3,4 @@ title = "Felis"
 copyright = "2020-2022 The Board of Trustees of the Leland Stanford Junior University, through SLAC National Accelerator Laboratory"
 
 [project.python]
-package = "felis"
+package = "lsst-felis"
