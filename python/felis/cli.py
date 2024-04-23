@@ -183,6 +183,7 @@ def init_tap(
 @click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
 @click.option("--tap-keys-table", help="Alt Table Name for TAP_SCHEMA.keys")
 @click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
+@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema")
 @click.argument("file", type=click.File())
 def load_tap(
     engine_url: str,
@@ -196,6 +197,7 @@ def load_tap(
     tap_columns_table: str,
     tap_keys_table: str,
     tap_key_columns_table: str,
+    tap_schema_index: int,
     file: io.TextIOBase,
 ) -> None:
     """Load TAP metadata from a Felis FILE.
@@ -203,28 +205,8 @@ def load_tap(
     This command loads the associated TAP metadata from a Felis FILE
     to the TAP_SCHEMA tables.
     """
-    top_level_object = yaml.load(file, Loader=yaml.SafeLoader)
-    schema_obj: dict
-    if isinstance(top_level_object, dict):
-        schema_obj = top_level_object
-        if "@graph" not in schema_obj:
-            schema_obj["@type"] = "felis:Schema"
-        schema_obj["@context"] = DEFAULT_CONTEXT
-    elif isinstance(top_level_object, list):
-        schema_obj = {"@context": DEFAULT_CONTEXT, "@graph": top_level_object}
-    else:
-        logger.error("Schema object not of recognizable type")
-        raise click.exceptions.Exit(1)
-
-    normalized = _normalize(schema_obj, embed="@always")
-    if len(normalized["@graph"]) > 1 and (schema_name or catalog_name):
-        logger.error("--schema-name and --catalog-name incompatible with multiple schemas")
-        raise click.exceptions.Exit(1)
-
-    # Force normalized["@graph"] to a list, which is what happens when there's
-    # multiple schemas
-    if isinstance(normalized["@graph"], dict):
-        normalized["@graph"] = [normalized["@graph"]]
+    yaml_data = yaml.load(file, Loader=yaml.SafeLoader)
+    schema = Schema.model_validate(yaml_data)
 
     tap_tables = init_tables(
         tap_schema_name,
@@ -243,28 +225,28 @@ def load_tap(
             # In Memory SQLite - Mostly used to test
             Tap11Base.metadata.create_all(engine)
 
-        for schema in normalized["@graph"]:
-            tap_visitor = TapLoadingVisitor(
-                engine,
-                catalog_name=catalog_name,
-                schema_name=schema_name,
-                tap_tables=tap_tables,
-            )
-            tap_visitor.visit_schema(schema)
+        tap_visitor = TapLoadingVisitor(
+            engine,
+            catalog_name=catalog_name,
+            schema_name=schema_name,
+            tap_tables=tap_tables,
+            tap_schema_index=tap_schema_index,
+        )
+        tap_visitor.visit_schema(schema)
     else:
         _insert_dump = InsertDump()
         conn = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump, paramstyle="pyformat")
         # After the engine is created, update the executor with the dialect
         _insert_dump.dialect = conn.dialect
 
-        for schema in normalized["@graph"]:
-            tap_visitor = TapLoadingVisitor.from_mock_connection(
-                conn,
-                catalog_name=catalog_name,
-                schema_name=schema_name,
-                tap_tables=tap_tables,
-            )
-            tap_visitor.visit_schema(schema)
+        tap_visitor = TapLoadingVisitor.from_mock_connection(
+            conn,
+            catalog_name=catalog_name,
+            schema_name=schema_name,
+            tap_tables=tap_tables,
+            tap_schema_index=tap_schema_index,
+        )
+        tap_visitor.visit_schema(schema)
 
 
 @cli.command("modify-tap")
