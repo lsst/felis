@@ -393,7 +393,7 @@ class Table(BaseObject):
     primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """The primary key of the table."""
 
-    tap_table_index: int = Field(0, alias="tap:table_index")
+    tap_table_index: int | None = Field(None, alias="tap:table_index")
     """The IVOA TAP_SCHEMA table index of the table."""
 
     mysql_engine: str | None = Field(None, alias="mysql:engine")

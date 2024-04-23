@@ -245,7 +245,7 @@ class TapLoadingVisitor:
         table.table_type = "table"
         table.utype = table_obj.votable_utype
         table.description = table_obj.description
-        table.table_index = table_obj.tap_table_index
+        table.table_index = 0 if table_obj.tap_table_index is None else table_obj.tap_table_index
 
         columns = [self.visit_column(c, table_obj) for c in table_obj.columns]
         self.visit_primary_key(table_obj.primary_key, table_obj)
