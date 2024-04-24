@@ -33,11 +33,15 @@ requires-python = ">=3.11.0"
 dynamic = ["version"]
 
 [project.urls]
-"Homepage" = "https://github.com/lsst/felis"
+Homepage = "https://felis.lsst.io"
+Source = "https://github.com/lsst/felis"
 
 [project.optional-dependencies]
 test = [
     "pytest >= 3.2"
+]
+dev = [
+    "documenteer[guide]"
 ]
 
 [tool.pytest.ini_options]
