@@ -294,15 +294,10 @@ class Column(BaseObject):
                     )
                 else:
                     logger.debug(
-                        "Type override of 'datatype: {}' with '{}: {}' in column '{}' "
-                        "compiled to '{}' and '{}'".format(
-                            col.datatype,
-                            db_annotation,
-                            datatype_string,
-                            col.id,
-                            datatype_obj.compile(dialect),
-                            db_datatype_obj.compile(dialect),
-                        )
+                        f"Type override of 'datatype: {col.datatype}' "
+                        f"with '{db_annotation}: {datatype_string}' in column '{col.id}' "
+                        f"compiled to '{datatype_obj.compile(dialect)}' and "
+                        f"'{db_datatype_obj.compile(dialect)}'"
                     )
         return col
 
@@ -459,7 +454,7 @@ class SchemaIdVisitor:
 
     def __init__(self) -> None:
         """Create a new SchemaVisitor."""
-        self.schema: "Schema" | None = None
+        self.schema: Schema | None = None
         self.duplicates: set[str] = set()
 
     def add(self, obj: BaseObject) -> None:
@@ -472,7 +467,7 @@ class SchemaIdVisitor:
                 else:
                     self.schema.id_map[obj_id] = obj
 
-    def visit_schema(self, schema: "Schema") -> None:
+    def visit_schema(self, schema: Schema) -> None:
         """Visit the schema object that was added during initialization.
 
         This will set an internal variable pointing to the schema object.
