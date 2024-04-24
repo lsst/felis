@@ -21,6 +21,7 @@
 
 import os
 import unittest
+from collections import defaultdict
 
 import yaml
 from pydantic import ValidationError
@@ -168,7 +169,6 @@ class ColumnTestCase(unittest.TestCase):
                         "name": "testColumn",
                         "@id": "#test_col_id",
                         "datatype": "string",
-                        "require_description": True,
                         "description": "",
                     }
                 )
@@ -182,11 +182,87 @@ class ColumnTestCase(unittest.TestCase):
                         "name": "testColumn",
                         "@id": "#test_col_id",
                         "datatype": "string",
-                        "require_description": True,
                         "description": "xy",
                     }
                 )
             )
+
+    def test_values(self):
+        """Test the `value` field of the `Column` class."""
+
+        # Define a function to return the default column data
+        def default_coldata():
+            return defaultdict(str, {"name": "testColumn", "@id": "#test_col_id"})
+
+        # Setting both value and autoincrement should throw.
+        autoincr_coldata = default_coldata()
+        autoincr_coldata["datatype"] = "int"
+        autoincr_coldata["autoincrement"] = True
+        autoincr_coldata["value"] = 1
+        with self.assertRaises(ValueError):
+            Column(**autoincr_coldata)
+
+        # Setting an invalid default on a column with an integer type should
+        # throw.
+        bad_numeric_coldata = default_coldata()
+        for datatype in ["int", "long", "short", "byte"]:
+            for value in ["bad", "1.0", "1", 1.1]:
+                bad_numeric_coldata["datatype"] = datatype
+                bad_numeric_coldata["value"] = value
+                with self.assertRaises(ValueError):
+                    Column(**bad_numeric_coldata)
+
+        # Setting an invalid default on a column with a decimal type should
+        # throw.
+        bad_numeric_coldata = default_coldata()
+        for datatype in ["double", "float"]:
+            for value in ["bad", "1.0", "1", 1]:
+                bad_numeric_coldata["datatype"] = datatype
+                bad_numeric_coldata["value"] = value
+                with self.assertRaises(ValueError):
+                    Column(**bad_numeric_coldata)
+
+        # Setting a bad default on a string column should throw.
+        bad_str_coldata = default_coldata()
+        bad_str_coldata["value"] = 1
+        bad_str_coldata["length"] = 256
+        for datatype in ["string", "char", "unicode", "text"]:
+            for value in [1, 1.1, True, "", " ", "    ", "\n", "\t"]:
+                bad_str_coldata["datatype"] = datatype
+                bad_str_coldata["value"] = value
+                with self.assertRaises(ValueError):
+                    Column(**bad_str_coldata)
+
+        # Setting a non-boolean value on a boolean column should throw.
+        bool_coldata = default_coldata()
+        bool_coldata["datatype"] = "boolean"
+        bool_coldata["value"] = "bad"
+        with self.assertRaises(ValueError):
+            for value in ["bad", 1, 1.1]:
+                bool_coldata["value"] = value
+                Column(**bool_coldata)
+
+        # Setting a valid value on a string column should be okay.
+        str_coldata = default_coldata()
+        str_coldata["value"] = 1
+        str_coldata["length"] = 256
+        str_coldata["value"] = "okay"
+        for datatype in ["string", "char", "unicode", "text"]:
+            str_coldata["datatype"] = datatype
+            Column(**str_coldata)
+
+        # Setting an integer value on a column with an int type should be okay.
+        int_coldata = default_coldata()
+        int_coldata["value"] = 1
+        for datatype in ["int", "long", "short", "byte"]:
+            int_coldata["datatype"] = datatype
+            Column(**int_coldata)
+
+        # Setting a decimal value on a column with a float type should be okay.
+        bool_coldata = default_coldata()
+        bool_coldata["datatype"] = "boolean"
+        bool_coldata["value"] = True
+        Column(**bool_coldata)
 
 
 class ConstraintTestCase(unittest.TestCase):

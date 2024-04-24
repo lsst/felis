@@ -37,7 +37,7 @@ from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.types import TypeEngine
 
 from .db.sqltypes import get_type_func
-from .types import FelisType
+from .types import Boolean, Byte, Char, Double, FelisType, Float, Int, Long, Short, String, Text, Unicode
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +184,7 @@ class Column(BaseObject):
     nullable: bool = True
     """Whether the column can be ``NULL``."""
 
-    value: Any = None
+    value: str | int | float | bool | None = None
     """The default value of the column."""
 
     autoincrement: bool | None = None
@@ -224,6 +224,27 @@ class Column(BaseObject):
 
     votable_datatype: str | None = Field(None, alias="votable:datatype")
     """The VOTable datatype of the column."""
+
+    @model_validator(mode="after")
+    def check_value(self) -> Column:
+        """Check that the default value is valid."""
+        if (value := self.value) is not None:
+            if value is not None and self.autoincrement is True:
+                raise ValueError("Column cannot have both a default value and be autoincremented")
+            felis_type = FelisType.felis_type(self.datatype)
+            if felis_type.is_numeric:
+                if felis_type in (Byte, Short, Int, Long) and not isinstance(value, int):
+                    raise ValueError("Default value must be an int for integer type columns")
+                elif felis_type in (Float, Double) and not isinstance(value, float):
+                    raise ValueError("Default value must be a decimal number for float and double columns")
+            elif felis_type in (String, Char, Unicode, Text):
+                if not isinstance(value, str):
+                    raise ValueError("Default value must be a string for string columns")
+                if not len(value):
+                    raise ValueError("Default value must be a non-empty string for string columns")
+            elif felis_type is Boolean and not isinstance(value, bool):
+                raise ValueError("Default value must be a boolean for boolean columns")
+        return self
 
     @field_validator("ivoa_ucd")
     @classmethod

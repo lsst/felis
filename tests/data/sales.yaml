@@ -52,6 +52,12 @@ tables:
         "@id": "#orders.order_date"
         datatype: timestamp
         description: Order date
+        value: CURRENT_TIMESTAMP
+      - name: note
+        "@id": "#orders.note"
+        description: Order note
+        datatype: string
+        length: 256
     constraints:
       - name: fk_customer_id
         "@id": "#orders_fk_customer_id"
@@ -82,6 +88,13 @@ tables:
         "@id": "#items.quantity"
         datatype: int
         description: Quantity ordered
+        value: 1
+      - name: note
+        "@id": "#items.note"
+        description: Item note
+        datatype: string
+        length: 256
+        value: "No note"
     constraints:
       - name: non_negative_quantity
         "@id": "#items_non_negative_quantity"
