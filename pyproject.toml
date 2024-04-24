@@ -147,11 +147,6 @@ select = [
     "D",  # pydocstyle
 ]
 target-version = "py311"
-# Commented out to suppress "unused noqa" in jenkins which has older ruff not
-# generating E721.
-extend-select = [
-    "RUF100", # Warn about unused noqa
-]
 
 [tool.pydeps]
 max_bacon = 2
