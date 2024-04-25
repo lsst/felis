@@ -46,12 +46,6 @@ class CliTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_basic_check(self) -> None:
-        """Test for basic-check command."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["basic-check", TEST_YAML], catch_exceptions=False)
-        self.assertEqual(result.exit_code, 0)
-
     def test_create_all(self) -> None:
         """Test for create command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"

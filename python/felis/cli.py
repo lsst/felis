@@ -36,7 +36,6 @@ from sqlalchemy.engine import Engine, create_engine, create_mock_engine, make_ur
 from sqlalchemy.engine.mock import MockConnection
 
 from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
-from .check import CheckingVisitor
 from .datamodel import Schema
 from .metadata import DatabaseContext, InsertDump, MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
@@ -274,23 +273,6 @@ def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
     merged = {"@context": DEFAULT_CONTEXT, "@graph": graph}
     normalized = _normalize(merged, embed="@always")
     _dump(normalized)
-
-
-@cli.command("basic-check")
-@click.argument("file", type=click.File())
-def basic_check(file: io.TextIOBase) -> None:
-    """Perform a basic check on a felis FILE.
-
-    This performs a very check to ensure required fields are
-    populated and basic semantics are okay. It does not ensure semantics
-    are valid for other commands like create-all or load-tap.
-    """
-    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-    schema_obj["@type"] = "felis:Schema"
-    # Force Context and Schema Type
-    schema_obj["@context"] = DEFAULT_CONTEXT
-    check_visitor = CheckingVisitor()
-    check_visitor.visit_schema(schema_obj)
 
 
 @cli.command("normalize")
