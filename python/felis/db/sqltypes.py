@@ -20,8 +20,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import builtins
-from collections.abc import Mapping
-from typing import Any, Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from sqlalchemy import SmallInteger, types
 from sqlalchemy.dialects import mysql, oracle, postgresql

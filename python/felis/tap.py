@@ -186,7 +186,7 @@ class TapLoadingVisitor:
         schema.description = schema_obj.description
         schema.utype = schema_obj.votable_utype
         schema.schema_index = self.tap_schema_index
-        logger.debug("Set TAP_SCHEMA index: {}".format(self.tap_schema_index))
+        logger.debug(f"Set TAP_SCHEMA index: {self.tap_schema_index}")
 
         if self.engine is not None:
             session: Session = sessionmaker(self.engine)()
