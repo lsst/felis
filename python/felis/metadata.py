@@ -484,7 +484,7 @@ class DatabaseContext:
                 self.connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
             elif db_type == "postgresql":
                 logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
+                self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True, cascade=True))
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
         except SQLAlchemyError as e:
