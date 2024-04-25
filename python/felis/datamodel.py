@@ -276,18 +276,17 @@ class Column(BaseObject):
 
         return values
 
-    @model_validator(mode="after")  # type: ignore[arg-type]
-    @classmethod
-    def validate_datatypes(cls, col: Column, info: ValidationInfo) -> Column:
+    @model_validator(mode="after")
+    def check_datatypes(self, info: ValidationInfo) -> Column:
         """Check for redundant datatypes on columns."""
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
-            return col
-        if all(getattr(col, f"{dialect}:datatype", None) is not None for dialect in _DIALECTS.keys()):
-            return col
+            return self
+        if all(getattr(self, f"{dialect}:datatype", None) is not None for dialect in _DIALECTS.keys()):
+            return self
 
-        datatype = col.datatype
-        length: int | None = col.length or None
+        datatype = self.datatype
+        length: int | None = self.length or None
 
         datatype_func = get_type_func(datatype)
         felis_type = FelisType.felis_type(datatype)
@@ -295,32 +294,32 @@ class Column(BaseObject):
             if length is not None:
                 datatype_obj = datatype_func(length)
             else:
-                raise ValueError(f"Length must be provided for sized type '{datatype}' in column '{col.id}'")
+                raise ValueError(f"Length must be provided for sized type '{datatype}' in column '{self.id}'")
         else:
             datatype_obj = datatype_func()
 
         for dialect_name, dialect in _DIALECTS.items():
             db_annotation = f"{dialect_name}_datatype"
-            if datatype_string := col.model_dump().get(db_annotation):
+            if datatype_string := self.model_dump().get(db_annotation):
                 db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
                 if datatype_obj.compile(dialect) == db_datatype_obj.compile(dialect):
                     raise ValueError(
                         "'{}: {}' is a redundant override of 'datatype: {}' in column '{}'{}".format(
                             db_annotation,
                             datatype_string,
-                            col.datatype,
-                            col.id,
+                            self.datatype,
+                            self.id,
                             "" if length is None else f" with length {length}",
                         )
                     )
                 else:
                     logger.debug(
-                        f"Type override of 'datatype: {col.datatype}' "
-                        f"with '{db_annotation}: {datatype_string}' in column '{col.id}' "
+                        f"Type override of 'datatype: {self.datatype}' "
+                        f"with '{db_annotation}: {datatype_string}' in column '{self.id}' "
                         f"compiled to '{datatype_obj.compile(dialect)}' and "
                         f"'{db_datatype_obj.compile(dialect)}'"
                     )
-        return col
+        return self
 
 
 class Constraint(BaseObject):
