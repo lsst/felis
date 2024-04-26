@@ -37,6 +37,7 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     ResultProxy,
     Table,
+    TextClause,
     UniqueConstraint,
     create_mock_engine,
     make_url,
@@ -132,6 +133,9 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     else:
         datatype = datatype_fun(**variant_dict)
     return datatype
+
+
+_VALID_SERVER_DEFAULTS = ("CURRENT_TIMESTAMP", "NOW()", "LOCALTIMESTAMP", "NULL")
 
 
 class MetaDataBuilder:
@@ -263,7 +267,7 @@ class MetaDataBuilder:
         name = column_obj.name
         id = column_obj.id
         description = column_obj.description
-        default = column_obj.value
+        value = column_obj.value
         nullable = column_obj.nullable
 
         # Get datatype, handling variant overrides such as "mysql:datatype".
@@ -274,13 +278,24 @@ class MetaDataBuilder:
             column_obj.autoincrement if column_obj.autoincrement is not None else "auto"
         )
 
+        server_default: str | TextClause | None = None
+        if value is not None:
+            server_default = str(value)
+            if server_default in _VALID_SERVER_DEFAULTS or not isinstance(value, str):
+                # If the server default is a valid keyword or not a string,
+                # use it as is.
+                server_default = text(server_default)
+
+        if server_default is not None:
+            logger.debug(f"Column '{id}' has default value: {server_default}")
+
         column: Column = Column(
             name,
             datatype,
             comment=description,
             autoincrement=autoincrement,
             nullable=nullable,
-            server_default=default,
+            server_default=server_default,
         )
 
         self._objects[id] = column
@@ -469,7 +484,7 @@ class DatabaseContext:
                 self.connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
             elif db_type == "postgresql":
                 logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True))
+                self.connection.execute(sqa_schema.DropSchema(schema_name, if_exists=True, cascade=True))
             else:
                 raise ValueError(f"Unsupported database type: {db_type}")
         except SQLAlchemyError as e:

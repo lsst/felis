@@ -249,7 +249,7 @@ tables:
         "@id": "#sdqa_Threshold.createdDate"
         datatype: timestamp
         description: Database timestamp when the record is inserted.
-        # value: CURRENT_TIMESTAMP  ## DM-43312: This causes an error due to quoting.
+        value: CURRENT_TIMESTAMP
         mysql:datatype: TIMESTAMP
     primaryKey: "#sdqa_Threshold.sdqa_thresholdId"
     indexes:
