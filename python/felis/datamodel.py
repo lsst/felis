@@ -178,7 +178,7 @@ class Column(BaseObject):
     datatype: DataType
     """The datatype of the column."""
 
-    length: int | None = None
+    length: int | None = Field(None, gt=0)
     """The length of the column."""
 
     nullable: bool = True
@@ -276,6 +276,23 @@ class Column(BaseObject):
 
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def check_length(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Check that a valid length is provided for sized types."""
+        datatype = values.get("datatype")
+        if datatype is None:
+            # Skip this validation if datatype is not provided
+            return values
+        length = values.get("length")
+        felis_type = FelisType.felis_type(datatype)
+        if felis_type.is_sized and length is None:
+            raise ValueError(
+                f"Length must be provided for type '{datatype}'"
+                + (f" in column '{values['@id']}'" if "@id" in values else "")
+            )
+        return values
+
     @model_validator(mode="after")
     def check_datatypes(self, info: ValidationInfo) -> Column:
         """Check for redundant datatypes on columns."""
@@ -291,10 +308,7 @@ class Column(BaseObject):
         datatype_func = get_type_func(datatype)
         felis_type = FelisType.felis_type(datatype)
         if felis_type.is_sized:
-            if length is not None:
-                datatype_obj = datatype_func(length)
-            else:
-                raise ValueError(f"Length must be provided for sized type '{datatype}' in column '{self.id}'")
+            datatype_obj = datatype_func(length)
         else:
             datatype_obj = datatype_func()
 

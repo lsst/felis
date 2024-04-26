@@ -73,13 +73,13 @@ class ColumnTestCase(unittest.TestCase):
 
         # Setting name, id, and datatype should not throw an exception and
         # should load data correctly.
-        col = Column(name="testColumn", id="#test_id", datatype="string")
+        col = Column(name="testColumn", id="#test_id", datatype="string", length=256)
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
         self.assertEqual(col.datatype, DataType.string, "datatype should be 'DataType.string'")
 
         # Creating from data dictionary should work and load data correctly.
-        data = {"name": "testColumn", "id": "#test_id", "datatype": "string"}
+        data = {"name": "testColumn", "id": "#test_id", "datatype": "string", "length": 256}
         col = Column(**data)
         self.assertEqual(col.name, "testColumn", "name should be 'testColumn'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
@@ -422,7 +422,7 @@ class TableTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Index(name="testTable", id="#test_id")
 
-        testCol = Column(name="testColumn", id="#test_id", datatype="string")
+        testCol = Column(name="testColumn", id="#test_id", datatype="string", length=256)
 
         # Setting name, id, and columns should not throw an exception and
         # should load data correctly.
@@ -453,7 +453,7 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Schema(name="testSchema", id="#test_id")
 
-        test_col = Column(name="testColumn", id="#test_col_id", datatype="string")
+        test_col = Column(name="testColumn", id="#test_col_id", datatype="string", length=256)
         test_tbl = Table(name="testTable", id="#test_tbl_id", columns=[test_col])
 
         # Setting name, id, and columns should not throw an exception and
@@ -491,7 +491,7 @@ class SchemaTestCase(unittest.TestCase):
 
     def test_schema_object_ids(self) -> None:
         """Test that the id_map is properly populated."""
-        test_col = Column(name="testColumn", id="#test_col_id", datatype="string")
+        test_col = Column(name="testColumn", id="#test_col_id", datatype="string", length=256)
         test_tbl = Table(name="testTable", id="#test_table_id", columns=[test_col])
         sch = Schema(name="testSchema", id="#test_schema_id", tables=[test_tbl])
 
