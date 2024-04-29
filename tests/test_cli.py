@@ -70,12 +70,6 @@ class CliTestCase(unittest.TestCase):
         )
         self.assertEqual(result.exit_code, 0)
 
-    def test_normalize(self) -> None:
-        """Test for normalize command."""
-        runner = CliRunner()
-        result = runner.invoke(cli, ["normalize", TEST_YAML], catch_exceptions=False)
-        self.assertEqual(result.exit_code, 0)
-
     def test_init_tap(self) -> None:
         """Test for init-tap command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
@@ -105,20 +99,6 @@ class CliTestCase(unittest.TestCase):
         result = runner.invoke(
             cli, ["load-tap", f"--engine-url={url}", "--dry-run", TEST_YAML], catch_exceptions=False
         )
-        self.assertEqual(result.exit_code, 0)
-
-    def test_modify_tap(self) -> None:
-        """Test for modify-tap command."""
-        runner = CliRunner()
-
-        result = runner.invoke(cli, ["modify-tap", "--start-schema-at=1", TEST_YAML], catch_exceptions=False)
-        self.assertEqual(result.exit_code, 0)
-
-    def test_merge(self) -> None:
-        """Test for merge command."""
-        runner = CliRunner()
-
-        result = runner.invoke(cli, ["merge", TEST_YAML, TEST_MERGE_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
     def test_validate_default(self) -> None:
