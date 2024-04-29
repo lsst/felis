@@ -19,3 +19,4 @@ Felis is developed on GitHub at https://github.com/lsst/felis.
    :hidden:
 
    User guide <user-guide/index>
+   API <api>
