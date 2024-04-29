@@ -40,7 +40,7 @@ test = [
     "pytest >= 3.2"
 ]
 dev = [
-    "documenteer[guide]"
+    "documenteer[guide]<2"
 ]
 
 [tool.pytest.ini_options]
