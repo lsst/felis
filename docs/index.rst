@@ -14,3 +14,8 @@ Install Felis from PyPI:
    pip install lsst-felis
 
 Felis is developed on GitHub at https://github.com/lsst/felis.
+
+.. toctree::
+   :hidden:
+
+   User guide <user-guide/index>
