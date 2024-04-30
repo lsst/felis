@@ -19,27 +19,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from . import types
 from .version import *
-
-DEFAULT_CONTEXT = {
-    "@vocab": "http://lsst.org/felis/",
-    "mysql": "http://mysql.com/",
-    "postgres": "http://posgresql.org/",
-    "oracle": "http://oracle.com/database/",
-    "sqlite": "http://sqlite.org/",
-    "fits": "http://fits.gsfc.nasa.gov/FITS/4.0/",
-    "ivoa": "http://ivoa.net/rdf/",
-    "votable": "http://ivoa.net/rdf/VOTable/",
-    "tap": "http://ivoa.net/documents/TAP/",
-    "tables": {"@container": "@list", "@type": "@id", "@id": "felis:Table"},
-    "columns": {"@container": "@list", "@type": "@id", "@id": "felis:Column"},
-    "constraints": {"@container": "@list", "@type": "@id"},
-    "indexes": {"@container": "@list", "@type": "@id", "@id": "felis:Index"},
-    "referencedColumns": {"@container": "@list", "@type": "@id"},
-}
-
-DEFAULT_FRAME = {
-    "@context": DEFAULT_CONTEXT,
-    "@type": "felis:Schema",
-}

@@ -22,24 +22,20 @@
 from __future__ import annotations
 
 import io
-import json
 import logging
-import sys
-from collections.abc import Iterable, Mapping, MutableMapping
-from typing import IO, Any
+from collections.abc import Iterable
+from typing import IO
 
 import click
 import yaml
 from pydantic import ValidationError
-from pyld import jsonld
 from sqlalchemy.engine import Engine, create_engine, create_mock_engine, make_url
 from sqlalchemy.engine.mock import MockConnection
 
-from . import DEFAULT_CONTEXT, DEFAULT_FRAME, __version__
+from . import __version__
 from .datamodel import Schema
 from .metadata import DatabaseContext, InsertDump, MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
-from .utils import ReorderingVisitor
 from .validation import get_schema
 
 logger = logging.getLogger("felis")
@@ -248,87 +244,6 @@ def load_tap(
         tap_visitor.visit_schema(schema)
 
 
-@cli.command("modify-tap")
-@click.option("--start-schema-at", type=int, help="Rewrite index for tap:schema_index", default=0)
-@click.argument("files", nargs=-1, type=click.File())
-def modify_tap(start_schema_at: int, files: Iterable[io.TextIOBase]) -> None:
-    """Modify TAP information in Felis schema FILES.
-
-    This command has some utilities to aid in rewriting felis FILES
-    in specific ways. It will write out a merged version of these files.
-    """
-    count = 0
-    graph = []
-    for file in files:
-        schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-        if "@graph" not in schema_obj:
-            schema_obj["@type"] = "felis:Schema"
-        schema_obj["@context"] = DEFAULT_CONTEXT
-        schema_index = schema_obj.get("tap:schema_index")
-        if not schema_index or (schema_index and schema_index > start_schema_at):
-            schema_index = start_schema_at + count
-            count += 1
-        schema_obj["tap:schema_index"] = schema_index
-        graph.extend(jsonld.flatten(schema_obj))
-    merged = {"@context": DEFAULT_CONTEXT, "@graph": graph}
-    normalized = _normalize(merged, embed="@always")
-    _dump(normalized)
-
-
-@cli.command("normalize")
-@click.argument("file", type=click.File())
-def normalize(file: io.TextIOBase) -> None:
-    """Normalize a Felis FILE.
-
-    Takes a felis schema FILE, expands it (resolving the full URLs),
-    then compacts it, and finally produces output in the canonical
-    format.
-
-    (This is most useful in some debugging scenarios)
-
-    See Also :
-
-        https://json-ld.org/spec/latest/json-ld/#expanded-document-form
-        https://json-ld.org/spec/latest/json-ld/#compacted-document-form
-    """
-    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-    schema_obj["@type"] = "felis:Schema"
-    # Force Context and Schema Type
-    schema_obj["@context"] = DEFAULT_CONTEXT
-    expanded = jsonld.expand(schema_obj)
-    normalized = _normalize(expanded, embed="@always")
-    _dump(normalized)
-
-
-@cli.command("merge")
-@click.argument("files", nargs=-1, type=click.File())
-def merge(files: Iterable[io.TextIOBase]) -> None:
-    """Merge a set of Felis FILES.
-
-    This will expand out the felis FILES so that it is easy to
-    override values (using @Id), then normalize to a single
-    output.
-    """
-    graph = []
-    for file in files:
-        schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-        if "@graph" not in schema_obj:
-            schema_obj["@type"] = "felis:Schema"
-        schema_obj["@context"] = DEFAULT_CONTEXT
-        graph.extend(jsonld.flatten(schema_obj))
-    updated_map: MutableMapping[str, Any] = {}
-    for item in graph:
-        _id = item["@id"]
-        item_to_update = updated_map.get(_id, item)
-        if item_to_update and item_to_update != item:
-            logger.debug(f"Overwriting {_id}")
-        item_to_update.update(item)
-        updated_map[_id] = item_to_update
-    merged = {"@context": DEFAULT_CONTEXT, "@graph": list(updated_map.values())}
-    normalized = _normalize(merged, embed="@always")
-    _dump(normalized)
-
-
 @cli.command("validate")
 @click.option(
     "-s",
@@ -373,57 +288,6 @@ def validate(
             rc = 1
     if rc:
         raise click.exceptions.Exit(rc)
-
-
-@cli.command("dump-json")
-@click.option("-x", "--expanded", is_flag=True, help="Extended schema before dumping.")
-@click.option("-f", "--framed", is_flag=True, help="Frame schema before dumping.")
-@click.option("-c", "--compacted", is_flag=True, help="Compact schema before dumping.")
-@click.option("-g", "--graph", is_flag=True, help="Pass graph option to compact.")
-@click.argument("file", type=click.File())
-def dump_json(
-    file: io.TextIOBase,
-    expanded: bool = False,
-    compacted: bool = False,
-    framed: bool = False,
-    graph: bool = False,
-) -> None:
-    """Dump JSON representation using various JSON-LD options."""
-    schema_obj = yaml.load(file, Loader=yaml.SafeLoader)
-    schema_obj["@type"] = "felis:Schema"
-    # Force Context and Schema Type
-    schema_obj["@context"] = DEFAULT_CONTEXT
-
-    if expanded:
-        schema_obj = jsonld.expand(schema_obj)
-    if framed:
-        schema_obj = jsonld.frame(schema_obj, DEFAULT_FRAME)
-    if compacted:
-        options = {}
-        if graph:
-            options["graph"] = True
-        schema_obj = jsonld.compact(schema_obj, DEFAULT_CONTEXT, options=options)
-    json.dump(schema_obj, sys.stdout, indent=4)
-
-
-def _dump(obj: Mapping[str, Any]) -> None:
-    class OrderedDumper(yaml.Dumper):
-        pass
-
-    def _dict_representer(dumper: yaml.Dumper, data: Any) -> Any:
-        return dumper.represent_mapping(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, data.items())
-
-    OrderedDumper.add_representer(dict, _dict_representer)
-    print(yaml.dump(obj, Dumper=OrderedDumper, default_flow_style=False))
-
-
-def _normalize(schema_obj: Mapping[str, Any], embed: str = "@last") -> MutableMapping[str, Any]:
-    framed = jsonld.frame(schema_obj, DEFAULT_FRAME, options=dict(embed=embed))
-    compacted = jsonld.compact(framed, DEFAULT_CONTEXT, options=dict(graph=True))
-    graph = compacted["@graph"]
-    graph = [ReorderingVisitor(add_type=True).visit_schema(schema_obj) for schema_obj in graph]
-    compacted["@graph"] = graph if len(graph) > 1 else graph[0]
-    return compacted
 
 
 if __name__ == "__main__":
