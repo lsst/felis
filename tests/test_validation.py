@@ -58,6 +58,7 @@ class RSPSchemaTestCase(unittest.TestCase):
                 "@id": "#test_col_id",
                 "datatype": "string",
                 "description": "test column",
+                "length": 256,
                 "tap:principal": 1,
             }
         )
@@ -191,6 +192,7 @@ class RSPSchemaTestCase(unittest.TestCase):
                                     "datatype": "string",
                                     "description": "test column",
                                     "tap:principal": 1,
+                                    "length": 256,
                                 }
                             )
                         ],
@@ -210,6 +212,7 @@ class RSPSchemaTestCase(unittest.TestCase):
                                     "datatype": "string",
                                     "description": "test column",
                                     "tap:principal": 1,
+                                    "length": 256,
                                 }
                             )
                         ],
