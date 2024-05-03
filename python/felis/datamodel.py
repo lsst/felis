@@ -291,6 +291,11 @@ class Column(BaseObject):
                 f"Length must be provided for type '{datatype}'"
                 + (f" in column '{values['@id']}'" if "@id" in values else "")
             )
+        elif not felis_type.is_sized and length is not None:
+            logger.warning(
+                f"The datatype '{datatype}' does not support a specified length"
+                + (f" in column '{values['@id']}'" if "@id" in values else "")
+            )
         return values
 
     @model_validator(mode="after")
