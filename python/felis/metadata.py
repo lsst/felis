@@ -342,7 +342,7 @@ class MetaDataBuilder:
         """
         args: dict[str, Any] = {
             "name": constraint_obj.name or None,
-            "info": constraint_obj.description or None,
+            "comment": constraint_obj.description or None,
             "deferrable": constraint_obj.deferrable or None,
             "initially": constraint_obj.initially or None,
         }
