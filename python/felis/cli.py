@@ -98,16 +98,16 @@ def create(
     schema = Schema.model_validate(yaml_data)
     url_obj = make_url(engine_url)
     if schema_name:
-        logger.info(f"Overriding schema name with: {schema_name}")
+        logger.debug(f"Overriding schema name with: {schema_name}")
         schema.name = schema_name
     elif url_obj.drivername == "sqlite":
-        logger.info("Overriding schema name for sqlite with: main")
+        logger.debug("Overriding schema name for sqlite with: main")
         schema.name = "main"
     if not url_obj.host and not url_obj.drivername == "sqlite":
         dry_run = True
-        logger.info("Forcing dry run for non-sqlite engine URL with no host")
+        logger.debug("Forcing dry run for non-sqlite engine URL with no host")
     if not include_datatype_variants:
-        logger.info("Ignoring datatype variants")
+        logger.debug("Ignoring datatype variants")
 
     builder = MetaDataBuilder(schema, include_datatype_variants=include_datatype_variants)
     builder.build()
@@ -119,10 +119,10 @@ def create(
         engine = create_engine(engine_url, echo=echo)
     else:
         if dry_run:
-            logger.info("Dry run will be executed")
+            logger.debug("Dry run will be executed")
         engine = DatabaseContext.create_mock_engine(url_obj, output_file)
         if output_file:
-            logger.info("Writing SQL output to: " + output_file.name)
+            logger.debug("Writing SQL output to: " + output_file.name)
 
     context = DatabaseContext(metadata, engine)
 
