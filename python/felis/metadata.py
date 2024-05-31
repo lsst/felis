@@ -109,7 +109,7 @@ class InsertDump:
             print(sql_str % new_params, file=self.file)
 
 
-def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
+def get_datatype(column_obj: datamodel.Column, include_variants: bool = True) -> TypeEngine:
     """Use the Felis type system to get a SQLAlchemy datatype with variant
     overrides from the information in a `Column` object.
 
@@ -117,13 +117,15 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     ----------
     column_obj : `felis.datamodel.Column`
         The column object from which to get the datatype.
+    include_variants : `bool`, optional
+        Whether to include variant overrides in the datatype.
 
     Raises
     ------
     ValueError
         If the column has a sized type but no length.
     """
-    variant_dict = make_variant_dict(column_obj)
+    variant_dict = make_variant_dict(column_obj) if include_variants else {}
     felis_type = FelisType.felis_type(column_obj.datatype.value)
     datatype_fun = getattr(sqltypes, column_obj.datatype.value)
     if felis_type.is_sized:
@@ -142,7 +144,11 @@ class MetaDataBuilder:
     """A class for building a `MetaData` object from a Felis `Schema`."""
 
     def __init__(
-        self, schema: Schema, apply_schema_to_metadata: bool = True, apply_schema_to_tables: bool = True
+        self,
+        schema: Schema,
+        apply_schema_to_metadata: bool = True,
+        apply_schema_to_tables: bool = True,
+        include_datatype_variants: bool = True,
     ) -> None:
         """Initialize the metadata builder.
 
@@ -154,6 +160,8 @@ class MetaDataBuilder:
             Whether to apply the schema name to the metadata object.
         apply_schema_to_tables : `bool`, optional
             Whether to apply the schema name to the tables.
+        include_datatype_variants : `bool`, optional
+            Whether to include datatype variants in the SQLAlchemy datatypes.
         """
         self.schema = schema
         if not apply_schema_to_metadata:
@@ -163,6 +171,7 @@ class MetaDataBuilder:
         self.metadata = MetaData(schema=schema.name if apply_schema_to_metadata else None)
         self._objects: dict[str, Any] = {}
         self.apply_schema_to_tables = apply_schema_to_tables
+        self.include_variants = include_datatype_variants
 
     def build(self) -> MetaData:
         """Build the SQLAlchemy tables and constraints from the schema."""
@@ -271,7 +280,7 @@ class MetaDataBuilder:
         nullable = column_obj.nullable
 
         # Get datatype, handling variant overrides such as "mysql:datatype".
-        datatype = get_datatype_with_variants(column_obj)
+        datatype = get_datatype(column_obj, include_variants=self.include_variants)
 
         # Set autoincrement, depending on if it was provided explicitly.
         autoincrement: Literal["auto"] | bool = (

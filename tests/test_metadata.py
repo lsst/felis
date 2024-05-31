@@ -36,7 +36,7 @@ from sqlalchemy import (
 
 from felis import datamodel as dm
 from felis.datamodel import Schema
-from felis.metadata import DatabaseContext, MetaDataBuilder, get_datatype_with_variants
+from felis.metadata import DatabaseContext, MetaDataBuilder, get_datatype
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")
@@ -155,7 +155,7 @@ class MetaDataTestCase(unittest.TestCase):
             self.assertEqual(len(table.columns), len(md_table.columns))
             for column in table.columns:
                 md_table_column = md_table.columns[column.name]
-                datatype = get_datatype_with_variants(column)
+                datatype = get_datatype(column)
                 self.assertEqual(type(datatype), type(md_table_column.type))
                 if column.nullable is not None:
                     self.assertEqual(column.nullable, md_table_column.nullable)
