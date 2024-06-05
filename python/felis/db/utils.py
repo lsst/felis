@@ -21,16 +21,16 @@
 
 from __future__ import annotations
 
-from __future__ import annotations
 import logging
 from typing import IO, Any
+
+from sqlalchemy import MetaData
 from sqlalchemy.engine import Dialect, Engine, ResultProxy
-from sqlalchemy.sql import text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.engine.url import URL
-from sqlalchemy.schema import CreateSchema, DropSchema
 from sqlalchemy.engine.mock import MockConnection, create_mock_engine
-from sqlalchemy import MetaData, make_url
+from sqlalchemy.engine.url import URL
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.schema import CreateSchema, DropSchema
+from sqlalchemy.sql import text
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +125,9 @@ class DatabaseContext:
             The SQLAlchemy engine or mock connection object.
         """
         self.engine = engine
+        self.dialect_name = engine.dialect.name
         self.metadata = metadata
-        self.connection = ConnectionWrapper(engine)
+        self.conn = ConnectionWrapper(engine)
 
     def create_if_not_exists(self) -> None:
         """Create the schema in the database if it does not exist.
@@ -142,17 +143,16 @@ class DatabaseContext:
         schema_name: `str`
             The name of the schema (or database) to create.
         """
-        db_type = self.engine.dialect.name
         schema_name = self.metadata.schema
         try:
-            if db_type == "mysql":
-                logger.info(f"Creating MySQL database: {schema_name}")
-                self.connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
-            elif db_type == "postgresql":
-                logger.info(f"Creating PG schema: {schema_name}")
-                self.connection.execute(CreateSchema(schema_name, if_not_exists=True))
+            if self.dialect_name == "mysql":
+                logger.debug(f"Creating MySQL database: {schema_name}")
+                self.conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
+            elif self.dialect_name == "postgresql":
+                logger.debug(f"Creating PG schema: {schema_name}")
+                self.conn.execute(CreateSchema(schema_name, if_not_exists=True))
             else:
-                raise ValueError("Unsupported database type:" + db_type)
+                raise ValueError("Unsupported database type:" + self.dialect_name)
         except SQLAlchemyError as e:
             logger.error(f"Error creating schema: {e}")
             raise
@@ -170,17 +170,16 @@ class DatabaseContext:
         schema_name: `str`
             The name of the schema (or database) to drop.
         """
-        db_type = self.engine.dialect.name
         schema_name = self.metadata.schema
         try:
-            if db_type == "mysql":
-                logger.info(f"Dropping MySQL database if exists: {schema_name}")
-                self.connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
-            elif db_type == "postgresql":
-                logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                self.connection.execute(DropSchema(schema_name, if_exists=True, cascade=True))
+            if self.dialect_name == "mysql":
+                logger.debug(f"Dropping MySQL database if exists: {schema_name}")
+                self.conn.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+            elif self.dialect_name == "postgresql":
+                logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
+                self.conn.execute(DropSchema(schema_name, if_exists=True, cascade=True))
             else:
-                raise ValueError(f"Unsupported database type: {db_type}")
+                raise ValueError(f"Unsupported database type: {self.dialect_name}")
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
@@ -190,7 +189,7 @@ class DatabaseContext:
         self.metadata.create_all(self.engine)
 
     @staticmethod
-    def create_mock_engine(engine_url: URL, output_file: IO[str] | None = None) -> MockConnection:
+    def create_mock_engine(engine_url: str | URL, output_file: IO[str] | None = None) -> MockConnection:
         """Create a mock engine for testing or dumping DDL statements.
 
         Parameters
@@ -202,6 +201,6 @@ class DatabaseContext:
             will be written to stdout.
         """
         writer = SQLWriter(output_file)
-        engine = create_mock_engine(make_url(engine_url), executor=writer.write)
+        engine = create_mock_engine(engine_url, executor=writer.write)
         writer.dialect = engine.dialect
         return engine
