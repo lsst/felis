@@ -22,6 +22,10 @@ tables:
         datatype: string
         description: Customer address
         length: 100
+      - name: joined
+        "@id": "#customers.joined"
+        datatype: datetime
+        description: Date customer joined
     indexes:
       - name: idx_name
         "@id": "#customers_idx_name"
@@ -50,8 +54,17 @@ tables:
         description: Customer identifier
       - name: order_date
         "@id": "#orders.order_date"
-        datatype: timestamp
+        datatype: datetime
+        precision: 2
+        timezone: true
         description: Order date
+        value: CURRENT_TIMESTAMP
+      - name: updated
+        "@id": "#orders.updated"
+        datatype: timestamp
+        precision: 4
+        timezone: true
+        description: Date last updated
         value: CURRENT_TIMESTAMP
       - name: note
         "@id": "#orders.note"
@@ -89,6 +102,11 @@ tables:
         datatype: int
         description: Quantity ordered
         value: 1
+      - name: added
+        "@id": "#items.added"
+        datatype: timestamp
+        description: Date item added to order
+        value: CURRENT_TIMESTAMP
       - name: note
         "@id": "#items.note"
         description: Item note

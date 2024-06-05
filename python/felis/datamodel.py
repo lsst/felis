@@ -125,11 +125,13 @@ class DataType(StrEnum):
     text = auto()
     binary = auto()
     timestamp = auto()
+    datetime = auto()
 
 
 _DIALECTS = {
     "mysql": create_mock_engine("mysql://", executor=None).dialect,
     "postgresql": create_mock_engine("postgresql://", executor=None).dialect,
+    "sqlite": create_mock_engine("sqlite://", executor=None).dialect,
 }
 """Dictionary of dialect names to SQLAlchemy dialects."""
 
@@ -180,6 +182,13 @@ class Column(BaseObject):
 
     length: int | None = Field(None, gt=0)
     """The length of the column."""
+
+    precision: int | None = Field(None, ge=0)
+    """The numerical precision of the column, the exact meaning of which may
+    depend on the datatype."""
+
+    timezone: bool = False
+    """Whether a timestamp or datetime has a timezone."""
 
     nullable: bool = True
     """Whether the column can be ``NULL``."""

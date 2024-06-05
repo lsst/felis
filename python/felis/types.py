@@ -135,3 +135,7 @@ class Binary(FelisType, felis_name="binary", votable_name="unsignedByte", is_siz
 
 class Timestamp(FelisType, felis_name="timestamp", votable_name="char", is_timestamp=True):
     """Felis definition of timestamp type."""
+
+
+class Datetime(FelisType, felis_name="datetime", votable_name="char", is_timestamp=True):
+    """Felis definition of datetime type."""

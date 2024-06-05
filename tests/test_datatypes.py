@@ -23,29 +23,80 @@ import unittest
 
 from pydantic import ValidationError
 
-from felis.datamodel import Column
+from felis.datamodel import _DIALECTS, Column
+from felis.metadata import get_datatype_with_variants
 
 
 class ColumnGenerator:
     """Generate column data for testing."""
 
-    def __init__(self, name, id, db_name):
+    def __init__(self, name, id, db_name=None, check_redundant_datatypes=True):
         self.name = name
         self.id = id
         self.db_name = db_name
-        self.context = {"check_redundant_datatypes": True}
+        self.context = {"check_redundant_datatypes": check_redundant_datatypes}
 
-    def col(self, datatype: str, db_datatype: str, length=None):
+    def col(self, datatype: str, db_datatype: str | None = None, length: int | None = None):
+        data = {}
+        if db_datatype is not None:
+            if self.db_name is None:
+                raise ValueError("db_datatype must be None if db_name is None")
+            data[f"{self.db_name}:datatype"] = db_datatype
+        if length is not None:
+            data["length"] = length
         return Column.model_validate(
-            {
-                "name": self.name,
-                "@id": self.id,
-                "datatype": datatype,
-                f"{self.db_name}:datatype": db_datatype,
-                "length": length,
-            },
+            {"name": self.name, "@id": self.id, "datatype": datatype, **data},
             context=self.context,
         )
+
+
+class TimestampDatatypesTest(unittest.TestCase):
+    """Test timestamp datatype definitions."""
+
+    def test_mysql_datatypes(self) -> None:
+        """Test the conversion of timestamp and datetime columns to SQL."""
+        for db_name in [None, "sqlite", "mysql", "postgresql"]:
+            colgen = ColumnGenerator("test_timestamp", "#test_timestamp", db_name)
+            dialect = _DIALECTS[db_name] if db_name else None
+            for datatype in ["timestamp", "datetime"]:
+                for precision in [None, 6]:
+                    for timezone in [True, False]:
+                        print(f"{db_name}, {datatype}, precision={precision}, tz={timezone}")
+                        col = colgen.col(datatype)
+                        col.precision = precision
+                        col.timezone = timezone
+                        sql_datatype = get_datatype_with_variants(col)
+                        sql = sql_datatype.compile(dialect)
+                        print(sql)
+
+                        if db_name == "mysql":
+                            if datatype == "timestamp":
+                                if precision is None:
+                                    self.assertEqual(sql, "TIMESTAMP")
+                                else:
+                                    self.assertEqual(sql, f"TIMESTAMP({precision})")
+                            elif datatype == "datetime":
+                                if precision is None:
+                                    self.assertEqual(sql, "DATETIME")
+                                else:
+                                    self.assertEqual(sql, f"DATETIME({precision})")
+                        elif db_name == "postgresql":
+                            if timezone:
+                                if precision is None:
+                                    self.assertEqual(sql, "TIMESTAMP WITH TIME ZONE")
+                                else:
+                                    self.assertEqual(sql, f"TIMESTAMP({precision}) WITH TIME ZONE")
+                            else:
+                                if precision is None:
+                                    self.assertEqual(sql, "TIMESTAMP WITHOUT TIME ZONE")
+                                else:
+                                    self.assertEqual(sql, f"TIMESTAMP({precision}) WITHOUT TIME ZONE")
+                        elif db_name in [None, "sqlite"]:
+                            if datatype == "timestamp":
+                                self.assertEqual(sql, "TIMESTAMP")
+                            elif datatype == "datetime":
+                                self.assertEqual(sql, "DATETIME")
+                        print("")
 
 
 class RedundantDatatypesTest(unittest.TestCase):
