@@ -115,6 +115,16 @@ binary_map: _TypeMap = {
     POSTGRES: postgresql.BYTEA,
 }
 
+timestamp_map: _TypeMap = {
+    MYSQL: mysql.TIMESTAMP,
+    POSTGRES: postgresql.TIMESTAMP,
+}
+
+datetime_map: _TypeMap = {
+    MYSQL: mysql.DATETIME,
+    POSTGRES: postgresql.TIMESTAMP,
+}
+
 
 def boolean(**kwargs: Any) -> types.TypeEngine:
     """Return SQLAlchemy type for boolean."""
@@ -178,7 +188,12 @@ def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
 
 def timestamp(**kwargs: Any) -> types.TypeEngine:
     """Return SQLAlchemy type for timestamp."""
-    return types.TIMESTAMP()
+    return _vary(types.TIMESTAMP(), timestamp_map, kwargs)
+
+
+def datetime(**kwargs: Any) -> types.TypeEngine:
+    """Return SQLAlchemy type for datetime."""
+    return _vary(types.DATETIME(), datetime_map, kwargs)
 
 
 def get_type_func(type_name: str) -> Callable:

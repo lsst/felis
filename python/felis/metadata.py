@@ -40,6 +40,7 @@ from sqlalchemy import (
     TextClause,
     UniqueConstraint,
     create_mock_engine,
+    dialects,
     make_url,
     text,
 )
@@ -109,6 +110,41 @@ class InsertDump:
             print(sql_str % new_params, file=self.file)
 
 
+def _handle_timestamp_variants(column_obj: datamodel.Column, variant_dict: dict[str, Any]) -> None:
+    """Implement special handling to define default timestamp variants if not
+    overriden, setting their attributes from the column, and update the variant
+    dictionary.
+
+    Notes
+    -----
+    This function is called by `get_datatype_with_variants` to handle the
+    TIMESTAMP and DATETIME column types.
+
+    Parameters
+    ----------
+    column_obj : `felis.datamodel.Column`
+        The column object.
+    variant_dict : `dict`
+        The variant dictionary to update.
+    """
+    if column_obj.datatype in ["timestamp", "datetime"]:
+        # Determine the MySQL type based on the datatype
+        mysql_type: dialects.mysql.TIMESTAMP | dialects.mysql.DATETIME
+        if column_obj.datatype == "timestamp":
+            mysql_type = dialects.mysql.TIMESTAMP(timezone=column_obj.timezone, fsp=column_obj.precision)
+        else:
+            mysql_type = dialects.mysql.DATETIME(timezone=column_obj.timezone, fsp=column_obj.precision)
+
+        # Create the PostgreSQL type with the appropriate parameters
+        postgresql_type = dialects.postgresql.TIMESTAMP(
+            timezone=column_obj.timezone, precision=column_obj.precision
+        )
+
+        # Set the types in the variant dictionary if they're not already set
+        variant_dict.setdefault("mysql", mysql_type)
+        variant_dict.setdefault("postgresql", postgresql_type)
+
+
 def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     """Use the Felis type system to get a SQLAlchemy datatype with variant
     overrides from the information in a `Column` object.
@@ -122,15 +158,30 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     ------
     ValueError
         If the column has a sized type but no length.
+
+    Notes
+    -----
+    There is some special handling of DATETIME and TIMESTAMP column types to
+    set them up for available dialects if they do not have a datatype override.
     """
+    # This will setup the overrides from the schema, e.g., "mysql:datatype",
+    # which will be passed to the Felis type system.
     variant_dict = make_variant_dict(column_obj)
+
+    # Handle TIMESTAMP and DATETIME types if not overridden
+    _handle_timestamp_variants(column_obj, variant_dict)
+
+    # Get the Felis type and find its function
     felis_type = FelisType.felis_type(column_obj.datatype.value)
     datatype_fun = getattr(sqltypes, column_obj.datatype.value)
+
     if felis_type.is_sized:
+        # Sized types need a length
         if not column_obj.length:
             raise ValueError(f"Column {column_obj.name} has sized type '{column_obj.datatype}' but no length")
         datatype = datatype_fun(column_obj.length, **variant_dict)
     else:
+        # Types with no length
         datatype = datatype_fun(**variant_dict)
     return datatype
 

@@ -125,11 +125,13 @@ class DataType(StrEnum):
     text = auto()
     binary = auto()
     timestamp = auto()
+    datetime = auto()
 
 
-_DIALECTS = {
+DIALECTS = {
     "mysql": create_mock_engine("mysql://", executor=None).dialect,
     "postgresql": create_mock_engine("postgresql://", executor=None).dialect,
+    "sqlite": create_mock_engine("sqlite://", executor=None).dialect,
 }
 """Dictionary of dialect names to SQLAlchemy dialects."""
 
@@ -180,6 +182,13 @@ class Column(BaseObject):
 
     length: int | None = Field(None, gt=0)
     """The length of the column."""
+
+    precision: int | None = Field(None, ge=0)
+    """The numerical precision of the column, the exact meaning of which may
+    depend on the datatype."""
+
+    timezone: bool = False
+    """Whether a timestamp or datetime has a timezone."""
 
     nullable: bool = True
     """Whether the column can be ``NULL``."""
@@ -304,7 +313,7 @@ class Column(BaseObject):
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
             return self
-        if all(getattr(self, f"{dialect}:datatype", None) is not None for dialect in _DIALECTS.keys()):
+        if all(getattr(self, f"{dialect}:datatype", None) is not None for dialect in DIALECTS.keys()):
             return self
 
         datatype = self.datatype
@@ -317,7 +326,7 @@ class Column(BaseObject):
         else:
             datatype_obj = datatype_func()
 
-        for dialect_name, dialect in _DIALECTS.items():
+        for dialect_name, dialect in DIALECTS.items():
             db_annotation = f"{dialect_name}_datatype"
             if datatype_string := self.model_dump().get(db_annotation):
                 db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
