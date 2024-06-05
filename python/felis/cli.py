@@ -34,7 +34,8 @@ from sqlalchemy.engine.mock import MockConnection
 
 from . import __version__
 from .datamodel import Schema
-from .metadata import DatabaseContext, InsertDump, MetaDataBuilder
+from .db.utils import DatabaseContext, InsertDump
+from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .validation import get_schema
 
