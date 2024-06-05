@@ -21,16 +21,16 @@
 
 from __future__ import annotations
 
-from __future__ import annotations
 import logging
 from typing import IO, Any
-from sqlalchemy.engine import Dialect, Engine, ResultProxy
-from sqlalchemy.sql import text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.engine.url import URL
-from sqlalchemy.schema import CreateSchema, DropSchema
-from sqlalchemy.engine.mock import MockConnection, create_mock_engine
+
 from sqlalchemy import MetaData
+from sqlalchemy.engine import Dialect, Engine, ResultProxy
+from sqlalchemy.engine.mock import MockConnection, create_mock_engine
+from sqlalchemy.engine.url import URL
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.schema import CreateSchema, DropSchema
+from sqlalchemy.sql import text
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class DatabaseContext:
         self.engine = engine
         self.dialect_name = engine.dialect.name
         self.metadata = metadata
-        self.connection = ConnectionWrapper(engine)
+        self.conn = ConnectionWrapper(engine)
 
     def create_if_not_exists(self) -> None:
         """Create the schema in the database if it does not exist.
@@ -146,11 +146,11 @@ class DatabaseContext:
         schema_name = self.metadata.schema
         try:
             if self.dialect_name == "mysql":
-                logger.info(f"Creating MySQL database: {schema_name}")
-                self.connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
+                logger.debug(f"Creating MySQL database: {schema_name}")
+                self.conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
             elif self.dialect_name == "postgresql":
-                logger.info(f"Creating PG schema: {schema_name}")
-                self.connection.execute(CreateSchema(schema_name, if_not_exists=True))
+                logger.debug(f"Creating PG schema: {schema_name}")
+                self.conn.execute(CreateSchema(schema_name, if_not_exists=True))
             else:
                 raise ValueError("Unsupported database type:" + self.dialect_name)
         except SQLAlchemyError as e:
@@ -173,11 +173,11 @@ class DatabaseContext:
         schema_name = self.metadata.schema
         try:
             if self.dialect_name == "mysql":
-                logger.info(f"Dropping MySQL database if exists: {schema_name}")
-                self.connection.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+                logger.debug(f"Dropping MySQL database if exists: {schema_name}")
+                self.conn.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
             elif self.dialect_name == "postgresql":
-                logger.info(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                self.connection.execute(DropSchema(schema_name, if_exists=True, cascade=True))
+                logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
+                self.conn.execute(DropSchema(schema_name, if_exists=True, cascade=True))
             else:
                 raise ValueError(f"Unsupported database type: {self.dialect_name}")
         except SQLAlchemyError as e:

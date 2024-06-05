@@ -29,12 +29,12 @@ from typing import IO
 import click
 import yaml
 from pydantic import ValidationError
-from sqlalchemy.engine import Engine, create_engine, create_mock_engine, make_url
+from sqlalchemy.engine import Engine, create_engine, make_url
 from sqlalchemy.engine.mock import MockConnection
 
 from . import __version__
 from .datamodel import Schema
-from .db.utils import DatabaseContext, SQLWriter
+from .db.utils import DatabaseContext
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .validation import get_schema
@@ -93,29 +93,27 @@ def create(
     """Create database objects from the Felis file."""
     yaml_data = yaml.safe_load(file)
     schema = Schema.model_validate(yaml_data)
-    url_obj = make_url(engine_url)
+    url = make_url(engine_url)
     if schema_name:
         logger.info(f"Overriding schema name with: {schema_name}")
         schema.name = schema_name
-    elif url_obj.drivername == "sqlite":
+    elif url.drivername == "sqlite":
         logger.info("Overriding schema name for sqlite with: main")
         schema.name = "main"
-    if not url_obj.host and not url_obj.drivername == "sqlite":
+    if not url.host and not url.drivername == "sqlite":
         dry_run = True
         logger.info("Forcing dry run for non-sqlite engine URL with no host")
 
-    builder = MetaDataBuilder(schema)
-    builder.build()
-    metadata = builder.metadata
+    metadata = MetaDataBuilder(schema).build()
     logger.debug(f"Created metadata with schema name: {metadata.schema}")
 
     engine: Engine | MockConnection
     if not dry_run and not output_file:
-        engine = create_engine(engine_url, echo=echo)
+        engine = create_engine(url, echo=echo)
     else:
         if dry_run:
             logger.info("Dry run will be executed")
-        engine = DatabaseContext.create_mock_engine(url_obj, output_file)
+        engine = DatabaseContext.create_mock_engine(url, output_file)
         if output_file:
             logger.info("Writing SQL output to: " + output_file.name)
 
@@ -230,10 +228,7 @@ def load_tap(
         )
         tap_visitor.visit_schema(schema)
     else:
-        writer = SQLWriter()
-        conn = create_mock_engine(make_url(engine_url), executor=writer.write, paramstyle="pyformat")
-        # After the engine is created, update the executor with the dialect
-        writer.dialect = conn.dialect
+        conn = DatabaseContext.create_mock_engine(engine_url)
 
         tap_visitor = TapLoadingVisitor.from_mock_connection(
             conn,
