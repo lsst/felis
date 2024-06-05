@@ -22,17 +22,76 @@
 from __future__ import annotations
 
 import logging
+import re
+from types import ModuleType
 from typing import IO, Any
 
-from sqlalchemy import MetaData
+import sqlalchemy
+from sqlalchemy import MetaData, dialects
 from sqlalchemy.engine import Dialect, Engine, ResultProxy
 from sqlalchemy.engine.mock import MockConnection, create_mock_engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateSchema, DropSchema
 from sqlalchemy.sql import text
+from sqlalchemy.types import TypeEngine
 
 logger = logging.getLogger(__name__)
+
+
+def _dialect(dialect_name: str) -> dict[str, Dialect]:
+    """Get the SQLAlchemy dialect for the given name."""
+    return {dialect_name: create_mock_engine(f"{dialect_name}://", executor=None).dialect}
+
+
+def _dialect_module(dialect_name: str) -> dict[str, ModuleType]:
+    """Get the SQLAlchemy dialect module for the given name."""
+    return {dialect_name: getattr(dialects, dialect_name)}
+
+
+DIALECTS = {**_dialect("mysql"), **_dialect("postgresql"), **_dialect("sqlite")}
+"""Dictionary of dialect names to SQLAlchemy dialects."""
+
+_DIALECT_MODULES = {**_dialect_module("mysql"), **_dialect_module("postgresql")}
+"""Dictionary of dialect names to SQLAlchemy dialect modules."""
+
+_DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
+"""Regular expression to match data types in the form "type(length)"""
+
+
+def string_to_typeengine(
+    type_string: str, dialect: Dialect | None = None, length: int | None = None
+) -> TypeEngine:
+    """Convert a string representation of a data type to a SQLAlchemy
+    TypeEngine.
+    """
+    match = _DATATYPE_REGEXP.search(type_string)
+    if not match:
+        raise ValueError(f"Invalid type string: {type_string}")
+
+    type_name, _, params = match.groups()
+    if dialect is None:
+        type_class = getattr(sqlalchemy.types, type_name.upper(), None)
+    else:
+        try:
+            dialect_module = _DIALECT_MODULES[dialect.name]
+        except KeyError:
+            raise ValueError(f"Unsupported dialect: {dialect}")
+        type_class = getattr(dialect_module, type_name.upper(), None)
+
+    if not type_class:
+        raise ValueError(f"Unsupported type: {type_class}")
+
+    if params:
+        params = [int(param) if param.isdigit() else param for param in params.split(",")]
+        type_obj = type_class(*params)
+    else:
+        type_obj = type_class()
+
+    if hasattr(type_obj, "length") and getattr(type_obj, "length") is None and length is not None:
+        type_obj.length = length
+
+    return type_obj
 
 
 class SQLWriter:

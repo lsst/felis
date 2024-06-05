@@ -22,7 +22,6 @@
 import unittest
 
 from pydantic import ValidationError
-
 from felis.datamodel import Column
 
 
