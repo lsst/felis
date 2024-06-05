@@ -34,7 +34,7 @@ from sqlalchemy.engine.mock import MockConnection
 
 from . import __version__
 from .datamodel import Schema
-from .db.utils import DatabaseContext, InsertDump
+from .db.utils import DatabaseContext, SQLWriter
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .validation import get_schema
@@ -230,10 +230,10 @@ def load_tap(
         )
         tap_visitor.visit_schema(schema)
     else:
-        _insert_dump = InsertDump()
-        conn = create_mock_engine(make_url(engine_url), executor=_insert_dump.dump, paramstyle="pyformat")
+        writer = SQLWriter()
+        conn = create_mock_engine(make_url(engine_url), executor=writer.write, paramstyle="pyformat")
         # After the engine is created, update the executor with the dialect
-        _insert_dump.dialect = conn.dialect
+        writer.dialect = conn.dialect
 
         tap_visitor = TapLoadingVisitor.from_mock_connection(
             conn,

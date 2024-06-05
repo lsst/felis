@@ -35,13 +35,11 @@ from sqlalchemy import MetaData, make_url
 logger = logging.getLogger(__name__)
 
 
-class InsertDump:
-    """An Insert Dumper for SQL statements which supports writing messages
-    to stdout or a file.
-    """
+class SQLWriter:
+    """Writes SQL statements to stdout or a file."""
 
     def __init__(self, file: IO[str] | None = None) -> None:
-        """Initialize the insert dumper.
+        """Initialize the SQL writer.
 
         Parameters
         ----------
@@ -52,8 +50,8 @@ class InsertDump:
         self.file = file
         self.dialect: Dialect | None = None
 
-    def dump(self, sql: Any, *multiparams: Any, **params: Any) -> None:
-        """Dump the SQL statement to a file or stdout.
+    def write(self, sql: Any, *multiparams: Any, **params: Any) -> None:
+        """Write the SQL statement to a file or stdout.
 
         Statements with parameters will be formatted with the values
         inserted into the resultant SQL output.
@@ -61,7 +59,7 @@ class InsertDump:
         Parameters
         ----------
         sql : `typing.Any`
-            The SQL statement to dump.
+            The SQL statement to write.
         multiparams : `typing.Any`
             The multiparams to use for the SQL statement.
         params : `typing.Any`
@@ -203,7 +201,7 @@ class DatabaseContext:
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
         """
-        dumper = InsertDump(output_file)
-        engine = create_mock_engine(make_url(engine_url), executor=dumper.dump)
-        dumper.dialect = engine.dialect
+        writer = SQLWriter(output_file)
+        engine = create_mock_engine(make_url(engine_url), executor=writer.write)
+        writer.dialect = engine.dialect
         return engine
