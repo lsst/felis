@@ -20,11 +20,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import unittest
+
 from pydantic import ValidationError
 
-from felis.datamodel import Column
+from felis.datamodel import DIALECTS, Column
 from felis.metadata import get_datatype_with_variants
-from felis.datamodel import DIALECTS
 
 
 class ColumnGenerator:
