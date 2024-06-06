@@ -52,11 +52,25 @@ def _dialect_module(dialect_name: str) -> dict[str, ModuleType]:
 DIALECTS = {**_dialect("mysql"), **_dialect("postgresql"), **_dialect("sqlite")}
 """Dictionary of dialect names to SQLAlchemy dialects."""
 
-_DIALECT_MODULES = {**_dialect_module("mysql"), **_dialect_module("postgresql")}
+_DIALECT_MODULES = {**_dialect_module("mysql"), **_dialect_module("postgresql"), **_dialect_module("sqlite")}
 """Dictionary of dialect names to SQLAlchemy dialect modules."""
 
 _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
 """Regular expression to match data types in the form "type(length)"""
+
+
+def get_dialect(dialect_name: str) -> Dialect:
+    """Get the SQLAlchemy dialect for the given name."""
+    if dialect_name not in DIALECTS:
+        raise ValueError(f"Unsupported dialect: {dialect_name}")
+    return DIALECTS[dialect_name]
+
+
+def get_dialect_module(dialect_name: str) -> ModuleType:
+    """Get the SQLAlchemy dialect module for the given name."""
+    if dialect_name not in _DIALECT_MODULES:
+        raise ValueError(f"Unsupported dialect: {dialect_name}")
+    return _DIALECT_MODULES[dialect_name]
 
 
 def string_to_typeengine(
@@ -74,7 +88,7 @@ def string_to_typeengine(
         type_class = getattr(sqlalchemy.types, type_name.upper(), None)
     else:
         try:
-            dialect_module = _DIALECT_MODULES[dialect.name]
+            dialect_module = get_dialect_module(dialect.name)
         except KeyError:
             raise ValueError(f"Unsupported dialect: {dialect}")
         type_class = getattr(dialect_module, type_name.upper(), None)
