@@ -28,12 +28,6 @@ from sqlalchemy.types import TypeEngine
 from ..datamodel import Column
 from .utils import get_dialect_module, get_supported_dialects
 
-TABLE_OPTS = {
-    "mysql:engine": "mysql_engine",
-    "mysql:charset": "mysql_charset",
-    "oracle:compress": "oracle_compress",
-}
-
 
 def _create_column_variant_overrides() -> dict[str, str]:
     """Create a dictionary of column variant overrides."""
