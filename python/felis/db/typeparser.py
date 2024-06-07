@@ -4,6 +4,7 @@ from pyparsing import (
     Combine,
     OneOrMore,
     Optional,
+    ParseException,
     ParserElement,
     QuotedString,
     Suppress,
@@ -31,11 +32,15 @@ class SQLTypeParser:
         self.parser = SQLTypeParser._create_parser()
 
     @classmethod
+    @classmethod
     def _create_parser(cls) -> ParserElement:
         """Create a parser for SQL type strings."""
         identifier = Combine(
-            OneOrMore(Word(alphas + "_") + Optional(Suppress(" "))), joinString="_", adjacent=False
+            OneOrMore(Word(alphas + "_") + Optional(Suppress(" "))),
+            joinString="_",
+            adjacent=False,
         )
+
         number = Word(nums).setParseAction(lambda t: int(t[0]))
         string = QuotedString(quoteChar="'", escChar="\\")
         parameters = Optional(
@@ -44,6 +49,7 @@ class SQLTypeParser:
             + Suppress(")"),
             default=[],
         )
+
         return identifier("type_name") + parameters
 
     def _get_params(self):
@@ -52,11 +58,15 @@ class SQLTypeParser:
 
     def parse(self, type_string: str):
         """Parse a type string into a SQLAlchemy type."""
-        self.parse_results = self.parser.parseString(type_string)
-        type_name = self.parse_results["type_name"]
-
+        try:
+            self.parse_results = self.parser.parseString(type_string)
+        except ParseException as e:
+            logger.error(f"Failed to parse type string: {type_string}")
+            raise ValueError(f"Failed to parse type string: {type_string}") from e
+        type_name = str(self.parse_results["type_name"])
+        print("type name:", type_name, type(type_name))
         params = self._get_params()
-
+        print("params:", params)
         try:
             type_func = getattr(self.dialect_module, type_name)
         except AttributeError:
@@ -86,5 +96,5 @@ class PostgresTypeParser(SQLTypeParser):
         """Extract parameters from the parse results, including timezone."""
         params = super()._get_params()
         if "timezone" in self.parse_results:
-            params.append(self.parse_results["timezone"])
+            params.insert(0, self.parse_results["timezone"])
         return params
