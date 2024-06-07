@@ -26,7 +26,7 @@ from sqlalchemy import types
 from sqlalchemy.types import TypeEngine
 
 from ..datamodel import Column
-from .utils import get_dialect_module, get_supported_dialects
+from .dialects import get_dialect_module, get_supported_dialects
 
 
 def _create_column_variant_overrides() -> dict[str, str]:

@@ -30,8 +30,9 @@ from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
+from .db.dialects import get_supported_dialects
 from .db.sqltypes import get_type_func
-from .db.utils import get_supported_dialects, string_to_typeengine
+from .db.utils import string_to_typeengine
 from .types import Boolean, Byte, Char, Double, FelisType, Float, Int, Long, Short, String, Text, Unicode
 
 logger = logging.getLogger(__name__)
