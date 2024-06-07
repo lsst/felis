@@ -41,7 +41,7 @@ from sqlalchemy import (
 from sqlalchemy.types import TypeEngine
 
 from felis.datamodel import Schema
-from felis.db._variants import make_variant_dict
+from felis.db.variants import make_variant_dict
 
 from . import datamodel
 from .db import sqltypes
