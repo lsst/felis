@@ -1,5 +1,6 @@
 from pyparsing import Word, alphas, nums, Optional, Suppress, OneOrMore, Combine, delimitedList
-from .utils import get_dialect_module
+# from .utils import get_dialect_module  # Need DM-44721 merged
+from ..datamodel import _DIALECT_MODULES
 
 
 def _create_parser():
@@ -14,7 +15,9 @@ class SQLTypeParser:
     """Parses SQL type strings into SQLAlchemy types."""
 
     def __init__(self, dialect_name: str):
-        self.dialect_module = get_dialect_module(dialect_name)
+        # Need DM-44721 merged
+        # self.dialect_module = get_dialect_module(dialect_name)
+        self.dialect_module = _DIALECT_MODULES[dialect_name]
         self.parser = _create_parser()
         self.tokens = None
 
@@ -62,4 +65,4 @@ class PostgresTypeParser(SQLTypeParser):
         params = super()._get_params()
         if self.timezone is True:
             params.insert(0, True)
-        return
+        return params
