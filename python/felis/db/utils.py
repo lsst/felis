@@ -36,34 +36,43 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 from sqlalchemy.sql import text
 from sqlalchemy.types import TypeEngine
 
+from .sqltypes import MYSQL, ORACLE, POSTGRES, SQLITE
+
 logger = logging.getLogger(__name__)
 
-
-def _dialect(dialect_name: str) -> dict[str, Dialect]:
-    """Get the SQLAlchemy dialect for the given name."""
-    return {dialect_name: create_mock_engine(f"{dialect_name}://", executor=None).dialect}
+_DIALECT_NAMES = [MYSQL, POSTGRES, SQLITE, ORACLE]
 
 
-def _dialect_module(dialect_name: str) -> dict[str, ModuleType]:
+def _dialect(dialect_name: str) -> Dialect:
+    """Create the SQLAlchemy dialect for the given name."""
+    return create_mock_engine(f"{dialect_name}://", executor=None).dialect
+
+
+def _dialect_module(dialect_name: str) -> ModuleType:
     """Get the SQLAlchemy dialect module for the given name."""
-    return {dialect_name: getattr(dialects, dialect_name)}
+    return getattr(dialects, dialect_name)
 
 
-DIALECTS = {**_dialect("mysql"), **_dialect("postgresql"), **_dialect("sqlite")}
+_DIALECTS = {name: _dialect(name) for name in _DIALECT_NAMES}
 """Dictionary of dialect names to SQLAlchemy dialects."""
 
-_DIALECT_MODULES = {**_dialect_module("mysql"), **_dialect_module("postgresql"), **_dialect_module("sqlite")}
-"""Dictionary of dialect names to SQLAlchemy dialect modules."""
+_DIALECT_MODULES = {name: _dialect_module(name) for name in _DIALECT_NAMES}
+"""Dictionary of dialect names to SQLAlchemy modules for type instantiation."""
 
 _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
 """Regular expression to match data types in the form "type(length)"""
 
 
+def get_supported_dialects() -> dict[str, Dialect]:
+    """Get the support SQLAlchemy dialects."""
+    return _DIALECTS
+
+
 def get_dialect(dialect_name: str) -> Dialect:
     """Get the SQLAlchemy dialect for the given name."""
-    if dialect_name not in DIALECTS:
+    if dialect_name not in get_supported_dialects():
         raise ValueError(f"Unsupported dialect: {dialect_name}")
-    return DIALECTS[dialect_name]
+    return get_dialect(dialect_name)
 
 
 def get_dialect_module(dialect_name: str) -> ModuleType:

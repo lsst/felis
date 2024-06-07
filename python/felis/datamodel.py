@@ -31,7 +31,7 @@ from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from .db.sqltypes import get_type_func
-from .db.utils import DIALECTS, string_to_typeengine
+from .db.utils import get_supported_dialects, string_to_typeengine
 from .types import Boolean, Byte, Char, Double, FelisType, Float, Int, Long, Short, String, Text, Unicode
 
 logger = logging.getLogger(__name__)
@@ -254,7 +254,10 @@ class Column(BaseObject):
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
             return self
-        if all(getattr(self, f"{dialect}:datatype", None) is not None for dialect in DIALECTS.keys()):
+        if all(
+            getattr(self, f"{dialect}:datatype", None) is not None
+            for dialect in get_supported_dialects().keys()
+        ):
             return self
 
         datatype = self.datatype
@@ -267,7 +270,7 @@ class Column(BaseObject):
         else:
             datatype_obj = datatype_func()
 
-        for dialect_name, dialect in DIALECTS.items():
+        for dialect_name, dialect in get_supported_dialects().items():
             db_annotation = f"{dialect_name}_datatype"
             if datatype_string := self.model_dump().get(db_annotation):
                 db_datatype_obj = string_to_typeengine(datatype_string, dialect, length)
