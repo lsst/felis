@@ -1,46 +1,70 @@
-from pyparsing import Word, alphas, nums, Optional, Suppress, OneOrMore, Combine, delimitedList
-# from .utils import get_dialect_module  # Need DM-44721 merged
-from ..datamodel import _DIALECT_MODULES
+from logging import getLogger
 
+from pyparsing import (
+    Combine,
+    OneOrMore,
+    Optional,
+    ParserElement,
+    QuotedString,
+    Suppress,
+    Word,
+    alphas,
+    delimitedList,
+    nums,
+)
+from sqlalchemy import types
 
-def _create_parser():
-    """Create a parser for SQL type strings."""
-    identifier = Combine(OneOrMore(Word(alphas) + Optional(Suppress(" "))), joinString="_", adjacent=False)
-    number = Word(nums).setParseAction(lambda t: int(t[0]))
-    parameters = Suppress("(") + Optional(delimitedList(number, delim=",")("params")) + Suppress(")")
-    return identifier("type_name") + Optional(parameters)
+from ..datamodel import _DIALECT_MODULES, _DIALECTS
+
+logger = getLogger("felis")
 
 
 class SQLTypeParser:
-    """Parses SQL type strings into SQLAlchemy types."""
+    """Parse SQL type strings into SQLAlchemy types."""
 
     def __init__(self, dialect_name: str):
-        """Initialize the parser with the given dialect."""
-        # Need DM-44721 merged
-        # self.dialect_module = get_dialect_module(dialect_name)
+        if dialect_name not in _DIALECT_MODULES:
+            logger.error(f"Unknown SQL dialect: {dialect_name}")
+            raise ValueError(f"Unknown SQL dialect: {dialect_name}")
         self.dialect_module = _DIALECT_MODULES[dialect_name]
-        self.parser = _create_parser()
-        self.tokens = None
+        self.dialect = _DIALECTS[dialect_name]
+        self.parser = SQLTypeParser._create_parser()
 
-    def _get_sqlalchemy_type(self, datatype):
-        """Get the SQLAlchemy type function for a given datatype."""
-        print(f"Finding datatype: {datatype}")
-        if hasattr(self.dialect_module, datatype):
-            return getattr(self.dialect_module, datatype)
-        else:
-            raise ValueError(f"Unknown type: {datatype}")
+    @classmethod
+    def _create_parser(cls) -> ParserElement:
+        """Create a parser for SQL type strings."""
+        identifier = Combine(
+            OneOrMore(Word(alphas + "_") + Optional(Suppress(" "))), joinString="_", adjacent=False
+        )
+        number = Word(nums).setParseAction(lambda t: int(t[0]))
+        string = QuotedString(quoteChar="'", escChar="\\")
+        parameters = Optional(
+            Suppress("(")
+            + Optional(delimitedList(number | string | identifier, delim=","))("params")
+            + Suppress(")"),
+            default=[],
+        )
+        return identifier("type_name") + parameters
 
     def _get_params(self):
-        return self.tokens.params.asList() if "params" in self.tokens else []
+        """Extract parameters from the parse results."""
+        return self.parse_results.get("params", [])
 
-    def parse(self, sql_type_str):
-        self.tokens = self.parser.parseString(sql_type_str)
-        print(f"parsed: {self.tokens}")
-        type_name = self.tokens.type_name.upper()
-        type_func = self._get_sqlalchemy_type(type_name)
+    def parse(self, type_string: str):
+        """Parse a type string into a SQLAlchemy type."""
+        self.parse_results = self.parser.parseString(type_string)
+        type_name = self.parse_results["type_name"]
+
         params = self._get_params()
-        print(f"params: {params}")
-        if params and len(params):
+
+        try:
+            type_func = getattr(self.dialect_module, type_name)
+        except AttributeError:
+            type_func = getattr(types, type_name, None)
+        if type_func is None:
+            raise ValueError(f"Unknown type {type_name}")
+
+        if len(params):
             return type_func(*params)
         else:
             return type_func()
@@ -51,14 +75,16 @@ class PostgresTypeParser(SQLTypeParser):
 
     def __init__(self):
         super().__init__("postgresql")
-        self.timezone = Optional(
-            Suppress("WITH TIME ZONE").setParseAction(lambda: True) | Suppress("WITHOUT TIME ZONE"),
+        timezone = Optional(
+            Suppress("WITH TIME ZONE").setParseAction(lambda: True)
+            | Suppress("WITHOUT TIME ZONE").setParseAction(lambda: False),
             default=None,
         )("timezone")
-        self.parser = self.parser + self.timezone
+        self.parser = self.parser + timezone
 
     def _get_params(self):
+        """Extract parameters from the parse results, including timezone."""
         params = super()._get_params()
-        if self.timezone is True:
-            params.insert(0, True)
+        if "timezone" in self.parse_results:
+            params.append(self.parse_results["timezone"])
         return params
