@@ -56,14 +56,12 @@ tables:
         "@id": "#orders.order_date"
         datatype: datetime
         precision: 2
-        timezone: true
         description: Order date
         value: CURRENT_TIMESTAMP
       - name: updated
         "@id": "#orders.updated"
         datatype: timestamp
         precision: 4
-        timezone: true
         description: Date last updated
         value: CURRENT_TIMESTAMP
       - name: note

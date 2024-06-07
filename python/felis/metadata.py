@@ -131,13 +131,13 @@ def _handle_timestamp_variants(column_obj: datamodel.Column, variant_dict: dict[
         # Determine the MySQL type based on the datatype
         mysql_type: dialects.mysql.TIMESTAMP | dialects.mysql.DATETIME
         if column_obj.datatype == "timestamp":
-            mysql_type = dialects.mysql.TIMESTAMP(timezone=column_obj.timezone, fsp=column_obj.precision)
+            mysql_type = dialects.mysql.TIMESTAMP(fsp=column_obj.precision)
         else:
-            mysql_type = dialects.mysql.DATETIME(timezone=column_obj.timezone, fsp=column_obj.precision)
+            mysql_type = dialects.mysql.DATETIME(fsp=column_obj.precision)
 
         # Create the PostgreSQL type with the appropriate parameters
         postgresql_type = dialects.postgresql.TIMESTAMP(
-            timezone=column_obj.timezone, precision=column_obj.precision
+            precision=column_obj.precision
         )
 
         # Set the types in the variant dictionary if they're not already set

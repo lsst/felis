@@ -187,9 +187,6 @@ class Column(BaseObject):
     """The numerical precision of the column, the exact meaning of which may
     depend on the datatype."""
 
-    timezone: bool = False
-    """Whether a timestamp or datetime has a timezone."""
-
     nullable: bool = True
     """Whether the column can be ``NULL``."""
 

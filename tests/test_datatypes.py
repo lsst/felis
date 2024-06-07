@@ -21,10 +21,9 @@
 
 import unittest
 
-from pydantic import ValidationError
-
 from felis.datamodel import _DIALECTS, Column
 from felis.metadata import get_datatype_with_variants
+from pydantic import ValidationError
 
 
 class ColumnGenerator:
@@ -60,43 +59,35 @@ class TimestampDatatypesTest(unittest.TestCase):
             dialect = _DIALECTS[db_name] if db_name else None
             for datatype in ["timestamp", "datetime"]:
                 for precision in [None, 6]:
-                    for timezone in [True, False]:
-                        print(f"{db_name}, {datatype}, precision={precision}, tz={timezone}")
-                        col = colgen.col(datatype)
-                        col.precision = precision
-                        col.timezone = timezone
-                        sql_datatype = get_datatype_with_variants(col)
-                        sql = sql_datatype.compile(dialect)
-                        print(sql)
+                    print(f"{db_name}, {datatype}, precision={precision}")
+                    col = colgen.col(datatype)
+                    col.precision = precision
+                    sql_datatype = get_datatype_with_variants(col)
+                    sql = sql_datatype.compile(dialect)
+                    print(sql)
 
-                        if db_name == "mysql":
-                            if datatype == "timestamp":
-                                if precision is None:
-                                    self.assertEqual(sql, "TIMESTAMP")
-                                else:
-                                    self.assertEqual(sql, f"TIMESTAMP({precision})")
-                            elif datatype == "datetime":
-                                if precision is None:
-                                    self.assertEqual(sql, "DATETIME")
-                                else:
-                                    self.assertEqual(sql, f"DATETIME({precision})")
-                        elif db_name == "postgresql":
-                            if timezone:
-                                if precision is None:
-                                    self.assertEqual(sql, "TIMESTAMP WITH TIME ZONE")
-                                else:
-                                    self.assertEqual(sql, f"TIMESTAMP({precision}) WITH TIME ZONE")
-                            else:
-                                if precision is None:
-                                    self.assertEqual(sql, "TIMESTAMP WITHOUT TIME ZONE")
-                                else:
-                                    self.assertEqual(sql, f"TIMESTAMP({precision}) WITHOUT TIME ZONE")
-                        elif db_name in [None, "sqlite"]:
-                            if datatype == "timestamp":
+                    if db_name == "mysql":
+                        if datatype == "timestamp":
+                            if precision is None:
                                 self.assertEqual(sql, "TIMESTAMP")
-                            elif datatype == "datetime":
+                            else:
+                                self.assertEqual(sql, f"TIMESTAMP({precision})")
+                        elif datatype == "datetime":
+                            if precision is None:
                                 self.assertEqual(sql, "DATETIME")
-                        print("")
+                            else:
+                                self.assertEqual(sql, f"DATETIME({precision})")
+                    elif db_name == "postgresql":
+                        if precision is None:
+                            self.assertEqual(sql, "TIMESTAMP WITHOUT TIME ZONE")
+                        else:
+                            self.assertEqual(sql, f"TIMESTAMP({precision}) WITHOUT TIME ZONE")
+                    elif db_name in [None, "sqlite"]:
+                        if datatype == "timestamp":
+                            self.assertEqual(sql, "TIMESTAMP")
+                        elif datatype == "datetime":
+                            self.assertEqual(sql, "DATETIME")
+                    print("")
 
 
 class RedundantDatatypesTest(unittest.TestCase):
