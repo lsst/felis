@@ -15,6 +15,7 @@ class SQLTypeParser:
     """Parses SQL type strings into SQLAlchemy types."""
 
     def __init__(self, dialect_name: str):
+        """Initialize the parser with the given dialect."""
         # Need DM-44721 merged
         # self.dialect_module = get_dialect_module(dialect_name)
         self.dialect_module = _DIALECT_MODULES[dialect_name]
@@ -22,13 +23,8 @@ class SQLTypeParser:
         self.tokens = None
 
     def _get_sqlalchemy_type(self, datatype):
-
-        # Replace spaces with underscores for types such as "DOUBLE PRECISION"
-        datatype = datatype.replace(" ", "_").upper()
-
+        """Get the SQLAlchemy type function for a given datatype."""
         print(f"Finding datatype: {datatype}")
-
-        # Check if the datatype exists in the dialect module
         if hasattr(self.dialect_module, datatype):
             return getattr(self.dialect_module, datatype)
         else:
