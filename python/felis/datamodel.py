@@ -519,7 +519,6 @@ class Schema(BaseObject):
             return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
         visitor.visit_schema(self)
-        logger.debug(f"Created schema ID map with {len(self.id_map.keys())} objects")
         if len(visitor.duplicates):
             raise ValueError(
                 "Duplicate IDs found in schema:\n    " + "\n    ".join(visitor.duplicates) + "\n"
