@@ -25,8 +25,7 @@ import logging
 import re
 from typing import IO, Any
 
-import sqlalchemy
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, types
 from sqlalchemy.engine import Dialect, Engine, ResultProxy
 from sqlalchemy.engine.mock import MockConnection, create_mock_engine
 from sqlalchemy.engine.url import URL
@@ -55,7 +54,7 @@ def string_to_typeengine(
 
     type_name, _, params = match.groups()
     if dialect is None:
-        type_class = getattr(sqlalchemy.types, type_name.upper(), None)
+        type_class = getattr(types, type_name.upper(), None)
     else:
         try:
             dialect_module = get_dialect_module(dialect.name)

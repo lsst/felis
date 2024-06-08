@@ -49,7 +49,9 @@ def _get_column_variant_override(field_name: str) -> str:
     """Return the dialect name from an override field name on the column like
     ``mysql_datatype``.
     """
-    return _get_column_variant_overrides()[field_name]
+    if field_name not in _COLUMN_VARIANT_OVERRIDES:
+        raise ValueError(f"Field name {field_name} not found in column variant overrides")
+    return _COLUMN_VARIANT_OVERRIDES[field_name]
 
 
 _length_regex = re.compile(r"\((\d+)\)")
