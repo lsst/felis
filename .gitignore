@@ -131,3 +131,6 @@ tests/.tests/
 
 # Ignore scratch dir
 .scratch
+
+# VS Code workspace dir
+.vscode
