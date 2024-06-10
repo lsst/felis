@@ -419,6 +419,29 @@ class Table(BaseObject):
             raise ValueError("Column names must be unique")
         return columns
 
+    @model_validator(mode="after")
+    def check_tap_table_index(self, info: ValidationInfo) -> Table:
+        """Check that the table has a TAP table index."""
+        context = info.context
+        if not context or not context.get("check_tap_table_indexes", False):
+            return self
+        if self.tap_table_index is None:
+            raise ValueError("Table is missing a TAP table index")
+        return self
+
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def check_tap_principal(self, info: ValidationInfo) -> Table:
+        """Check that at least one column is flagged as 'principal' for TAP
+        purposes.
+        """
+        context = info.context
+        if not context or not context.get("check_tap_principal", False):
+            return self
+        for col in self.columns:
+            if col.tap_principal == 1:
+                return self
+        raise ValueError(f"Table '{self.name}' is missing at least one column designated as 'tap:principal'")
+
 
 class SchemaVersion(BaseModel):
     """The version of the schema."""
@@ -507,6 +530,21 @@ class Schema(BaseObject):
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
         return tables
+
+    @model_validator(mode="after")
+    def check_tap_table_indexes(self, info: ValidationInfo) -> Schema:
+        """Check that the TAP table indexes are unique."""
+        context = info.context
+        if not context or not context.get("check_tap_table_indexes", False):
+            return self
+        table_indicies = set()
+        for table in self.tables:
+            table_index = table.tap_table_index
+            if table_index is not None:
+                if table_index in table_indicies:
+                    raise ValueError(f"Duplicate 'tap:table_index' value {table_index} found in schema")
+                table_indicies.add(table_index)
+        return self
 
     def _create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.
