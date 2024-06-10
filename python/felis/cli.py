@@ -244,18 +244,18 @@ def load_tap(
     "-d", "--require-description", is_flag=True, help="Require description for all objects", default=False
 )
 @click.option(
-    "-t", "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
+    "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
 )
 @click.option(
     "--check-tap-table-indexes",
     is_flag=True,
-    help="Require every table to have a unique TAP table index",
+    help="Check that every table has a unique TAP table index",
     default=False,
 )
 @click.option(
     "--check-tap-principal",
     is_flag=True,
-    help="Require at least one column per table to be flagged as TAP principal",
+    help="Check that at least one column per table is flagged as TAP principal",
     default=False,
 )
 @click.argument("files", nargs=-1, type=click.File())
