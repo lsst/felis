@@ -23,38 +23,44 @@ import re
 from typing import Any
 
 from sqlalchemy import types
-from sqlalchemy.dialects import mysql, oracle, postgresql, sqlite
 from sqlalchemy.types import TypeEngine
 
 from ..datamodel import Column
+from .dialects import get_dialect_module, get_supported_dialects
 
-MYSQL = "mysql"
-ORACLE = "oracle"
-POSTGRES = "postgresql"
-SQLITE = "sqlite"
 
-TABLE_OPTS = {
-    "mysql:engine": "mysql_engine",
-    "mysql:charset": "mysql_charset",
-    "oracle:compress": "oracle_compress",
-}
+def _create_column_variant_overrides() -> dict[str, str]:
+    """Create a dictionary of column variant overrides."""
+    column_variant_overrides = {}
+    for dialect_name in get_supported_dialects().keys():
+        column_variant_overrides[f"{dialect_name}_datatype"] = dialect_name
+    return column_variant_overrides
 
-COLUMN_VARIANT_OVERRIDE = {
-    "mysql_datatype": "mysql",
-    "oracle_datatype": "oracle",
-    "postgresql_datatype": "postgresql",
-    "sqlite_datatype": "sqlite",
-}
 
-DIALECT_MODULES = {MYSQL: mysql, ORACLE: oracle, SQLITE: sqlite, POSTGRES: postgresql}
+_COLUMN_VARIANT_OVERRIDES = _create_column_variant_overrides()
+
+
+def _get_column_variant_overrides() -> dict[str, str]:
+    """Return a dictionary of column variant overrides."""
+    return _COLUMN_VARIANT_OVERRIDES
+
+
+def _get_column_variant_override(field_name: str) -> str:
+    """Return the dialect name from an override field name on the column like
+    ``mysql_datatype``.
+    """
+    if field_name not in _COLUMN_VARIANT_OVERRIDES:
+        raise ValueError(f"Field name {field_name} not found in column variant overrides")
+    return _COLUMN_VARIANT_OVERRIDES[field_name]
+
 
 _length_regex = re.compile(r"\((\d+)\)")
 """A regular expression that is looking for numbers within parentheses."""
 
 
-def process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
+def _process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
     """Return variant type for given dialect."""
-    dialect = DIALECT_MODULES[dialect_name]
+    dialect = get_dialect_module(dialect_name)
     variant_type_name = variant_override_str.split("(")[0]
 
     # Process Variant Type
@@ -86,9 +92,10 @@ def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
         variant datatype information (e.g., for mysql, postgresql, etc).
     """
     variant_dict = {}
+    variant_overrides = _get_column_variant_overrides()
     for field_name, value in iter(column_obj):
-        if field_name in COLUMN_VARIANT_OVERRIDE and value is not None:
-            dialect = COLUMN_VARIANT_OVERRIDE[field_name]
-            variant: TypeEngine = process_variant_override(dialect, value)
+        if field_name in variant_overrides and value is not None:
+            dialect = _get_column_variant_override(field_name)
+            variant: TypeEngine = _process_variant_override(dialect, value)
             variant_dict[dialect] = variant
     return variant_dict

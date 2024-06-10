@@ -36,7 +36,8 @@ from sqlalchemy import (
 
 from felis import datamodel as dm
 from felis.datamodel import Schema
-from felis.metadata import DatabaseContext, MetaDataBuilder, get_datatype_with_variants
+from felis.db.utils import DatabaseContext
+from felis.metadata import MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")

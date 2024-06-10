@@ -128,3 +128,6 @@ tests/.tests/
 
 # This is generated when running pydeps.
 /felis.png
+
+# Ignore scratch dir
+.scratch
