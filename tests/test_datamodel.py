@@ -22,9 +22,10 @@
 import os
 import unittest
 from collections import defaultdict
-from typing import Any
 
 import yaml
+from pydantic import ValidationError
+
 from felis.datamodel import (
     CheckConstraint,
     Column,
@@ -36,17 +37,9 @@ from felis.datamodel import (
     Table,
     UniqueConstraint,
 )
-from pydantic import ValidationError
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
-
-
-class MockValidationInfo:
-    """Mock context object for passing to validation method."""
-
-    def __init__(self, context: dict[str, Any] = {}):
-        self.context = context
 
 
 class DataModelTestCase(unittest.TestCase):
@@ -128,64 +121,6 @@ class ColumnTestCase(unittest.TestCase):
         units_data["ivoa:unit"] = "m"
         with self.assertRaises(ValidationError):
             Column(**units_data)
-
-    def test_require_description(self) -> None:
-        """Test the require_description flag for the `Column` class."""
-        info = MockValidationInfo({"require_description": True})
-
-        def _check_description(col: Column) -> None:
-            Schema.check_description(col, info)
-
-        # Creating a column without a description should throw.
-        with self.assertRaises(ValueError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                    }
-                )
-            )
-
-        # Creating a column with a description of 'None' should throw.
-        with self.assertRaises(ValueError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                        "description": None,
-                    }
-                )
-            )
-
-        # Creating a column with an empty description should throw.
-        with self.assertRaises(ValueError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                        "description": "",
-                    }
-                )
-            )
-
-        # Creating a column with a description that is too short should throw.
-        with self.assertRaises(ValidationError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                        "description": "xy",
-                    }
-                )
-            )
 
     def test_values(self) -> None:
         """Test the `value` field of the `Column` class."""
@@ -612,6 +547,31 @@ class ValidationFlagsTest(unittest.TestCase):
 
         # Creating a table with a TAP table principal column should not throw.
         schema_dict["tables"][0]["columns"][0]["tap_principal"] = 1
+        Schema.model_validate(schema_dict, context=cxt)
+
+    def test_require_description(self) -> None:
+        """Test the require_description flag for the `Column` class."""
+        cxt = {"require_description": True}
+        schema_dict = {
+            "name": "testSchema",
+            "id": "#test_schema_id",
+            "tables": [
+                {
+                    "name": "test_table",
+                    "id": "#test_table_id",
+                    "columns": [{"name": "test_col", "id": "#test_col", "datatype": "int"}],
+                }
+            ],
+        }
+
+        # Creating a schema without object descriptions should throw.
+        with self.assertRaises(ValidationError):
+            Schema.model_validate(schema_dict, context=cxt)
+
+        # Creating a schema with object descriptions should not throw.
+        schema_dict["description"] = "Test schema"
+        schema_dict["tables"][0]["description"] = "Test table"
+        schema_dict["tables"][0]["columns"][0]["description"] = "Test column"
         Schema.model_validate(schema_dict, context=cxt)
 
 

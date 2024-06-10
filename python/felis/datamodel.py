@@ -208,12 +208,11 @@ class Column(BaseObject):
                 raise ValueError(f"Invalid IVOA UCD: {e}")
         return ivoa_ucd
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_units(cls, values: dict[str, Any]) -> dict[str, Any]:
+    @model_validator(mode="after")
+    def check_units(self) -> Column:
         """Check that units are valid."""
-        fits_unit = values.get("fits:tunit")
-        ivoa_unit = values.get("ivoa:unit")
+        fits_unit = self.fits_tunit
+        ivoa_unit = self.ivoa_unit
 
         if fits_unit and ivoa_unit:
             raise ValueError("Column cannot have both FITS and IVOA units")
@@ -225,7 +224,7 @@ class Column(BaseObject):
             except ValueError as e:
                 raise ValueError(f"Invalid unit: {e}")
 
-        return values
+        return self
 
     @model_validator(mode="before")
     @classmethod
@@ -429,7 +428,7 @@ class Table(BaseObject):
             raise ValueError("Table is missing a TAP table index")
         return self
 
-    @model_validator(mode="after")  # type: ignore[arg-type]
+    @model_validator(mode="after")
     def check_tap_principal(self, info: ValidationInfo) -> Table:
         """Check that at least one column is flagged as 'principal' for TAP
         purposes.
