@@ -249,7 +249,7 @@ class Column(BaseObject):
         return values
 
     @model_validator(mode="after")
-    def check_datatypes(self, info: ValidationInfo) -> Column:
+    def check_redundant_datatypes(self, info: ValidationInfo) -> Column:
         """Check for redundant datatypes on columns."""
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
