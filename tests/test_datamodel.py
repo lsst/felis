@@ -549,9 +549,9 @@ class ValidationFlagsTest(unittest.TestCase):
         schema_dict["tables"][0]["columns"][0]["tap_principal"] = 1
         Schema.model_validate(schema_dict, context=cxt)
 
-    def test_require_description(self) -> None:
-        """Test the require_description flag for the `Column` class."""
-        cxt = {"require_description": True}
+    def test_check_description(self) -> None:
+        """Test the `check_description` flag for the `Column` class."""
+        cxt = {"check_description": True}
         schema_dict = {
             "name": "testSchema",
             "id": "#test_schema_id",

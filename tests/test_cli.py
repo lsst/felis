@@ -110,9 +110,9 @@ class CliTestCase(unittest.TestCase):
             cli,
             [
                 "validate",
-                "--check-tap-table-indexes",
+                "--check-description",
                 "--check-tap-principal",
-                "--require-description",
+                "--check-tap-table-indexes",
                 TEST_YAML,
             ],
             catch_exceptions=False,

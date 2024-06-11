@@ -96,7 +96,7 @@ class BaseObject(BaseModel):
     def check_description(self, info: ValidationInfo) -> BaseObject:
         """Check that the description is present if required."""
         context = info.context
-        if not context or not context.get("require_description", False):
+        if not context or not context.get("check_description", False):
             return self
         if self.description is None or self.description == "":
             raise ValueError("Description is required and must be non-empty")

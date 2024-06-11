@@ -240,9 +240,7 @@ def load_tap(
 
 
 @cli.command("validate")
-@click.option(
-    "-d", "--require-description", is_flag=True, help="Require description for all objects", default=False
-)
+@click.option("--check-description", is_flag=True, help="Require description for all objects", default=False)
 @click.option(
     "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
 )
@@ -260,7 +258,7 @@ def load_tap(
 )
 @click.argument("files", nargs=-1, type=click.File())
 def validate(
-    require_description: bool,
+    check_description: bool,
     check_redundant_datatypes: bool,
     check_tap_table_indexes: bool,
     check_tap_principal: bool,
@@ -276,7 +274,7 @@ def validate(
             Schema.model_validate(
                 data,
                 context={
-                    "require_description": require_description,
+                    "check_description": check_description,
                     "check_redundant_datatypes": check_redundant_datatypes,
                     "check_tap_table_indexes": check_tap_table_indexes,
                     "check_tap_principal": check_tap_principal,
