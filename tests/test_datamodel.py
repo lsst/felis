@@ -122,6 +122,41 @@ class ColumnTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Column(**units_data)
 
+    def test_description(self) -> None:
+        """Test the validation of the description attribute."""
+        # Creating a column with a description of 'None' should throw.
+        with self.assertRaises(ValueError):
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "description": None,
+                }
+            )
+
+        # Creating a column with an empty description should throw.
+        with self.assertRaises(ValueError):
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "description": "",
+                }
+            )
+
+        # Creating a column with a description that is too short should throw.
+        with self.assertRaises(ValidationError):
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "description": "xy",
+                }
+            )
+
     def test_values(self) -> None:
         """Test the `value` field of the `Column` class."""
 
