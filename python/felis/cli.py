@@ -37,7 +37,6 @@ from .datamodel import Schema
 from .db.utils import DatabaseContext
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
-from .validation import get_schema
 
 logger = logging.getLogger("felis")
 
@@ -241,42 +240,44 @@ def load_tap(
 
 
 @cli.command("validate")
+@click.option("--check-description", is_flag=True, help="Require description for all objects", default=False)
 @click.option(
-    "-s",
-    "--schema-name",
-    help="Schema name for validation",
-    type=click.Choice(["RSP", "default"]),
-    default="default",
+    "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
 )
 @click.option(
-    "-d", "--require-description", is_flag=True, help="Require description for all objects", default=False
+    "--check-tap-table-indexes",
+    is_flag=True,
+    help="Check that every table has a unique TAP table index",
+    default=False,
 )
 @click.option(
-    "-t", "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
+    "--check-tap-principal",
+    is_flag=True,
+    help="Check that at least one column per table is flagged as TAP principal",
+    default=False,
 )
 @click.argument("files", nargs=-1, type=click.File())
 def validate(
-    schema_name: str,
-    require_description: bool,
+    check_description: bool,
     check_redundant_datatypes: bool,
+    check_tap_table_indexes: bool,
+    check_tap_principal: bool,
     files: Iterable[io.TextIOBase],
 ) -> None:
     """Validate one or more felis YAML files."""
-    schema_class = get_schema(schema_name)
-    if schema_name != "default":
-        logger.info(f"Using schema '{schema_class.__name__}'")
-
     rc = 0
     for file in files:
         file_name = getattr(file, "name", None)
         logger.info(f"Validating {file_name}")
         try:
             data = yaml.load(file, Loader=yaml.SafeLoader)
-            schema_class.model_validate(
+            Schema.model_validate(
                 data,
                 context={
+                    "check_description": check_description,
                     "check_redundant_datatypes": check_redundant_datatypes,
-                    "require_description": require_description,
+                    "check_tap_table_indexes": check_tap_table_indexes,
+                    "check_tap_principal": check_tap_principal,
                 },
             )
         except ValidationError as e:

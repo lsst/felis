@@ -96,7 +96,7 @@ class BaseObject(BaseModel):
     def check_description(self, info: ValidationInfo) -> BaseObject:
         """Check that the description is present if required."""
         context = info.context
-        if not context or not context.get("require_description", False):
+        if not context or not context.get("check_description", False):
             return self
         if self.description is None or self.description == "":
             raise ValueError("Description is required and must be non-empty")
@@ -208,12 +208,11 @@ class Column(BaseObject):
                 raise ValueError(f"Invalid IVOA UCD: {e}")
         return ivoa_ucd
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_units(cls, values: dict[str, Any]) -> dict[str, Any]:
+    @model_validator(mode="after")
+    def check_units(self) -> Column:
         """Check that units are valid."""
-        fits_unit = values.get("fits:tunit")
-        ivoa_unit = values.get("ivoa:unit")
+        fits_unit = self.fits_tunit
+        ivoa_unit = self.ivoa_unit
 
         if fits_unit and ivoa_unit:
             raise ValueError("Column cannot have both FITS and IVOA units")
@@ -225,7 +224,7 @@ class Column(BaseObject):
             except ValueError as e:
                 raise ValueError(f"Invalid unit: {e}")
 
-        return values
+        return self
 
     @model_validator(mode="before")
     @classmethod
@@ -250,7 +249,7 @@ class Column(BaseObject):
         return values
 
     @model_validator(mode="after")
-    def check_datatypes(self, info: ValidationInfo) -> Column:
+    def check_redundant_datatypes(self, info: ValidationInfo) -> Column:
         """Check for redundant datatypes on columns."""
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
@@ -419,6 +418,29 @@ class Table(BaseObject):
             raise ValueError("Column names must be unique")
         return columns
 
+    @model_validator(mode="after")
+    def check_tap_table_index(self, info: ValidationInfo) -> Table:
+        """Check that the table has a TAP table index."""
+        context = info.context
+        if not context or not context.get("check_tap_table_indexes", False):
+            return self
+        if self.tap_table_index is None:
+            raise ValueError("Table is missing a TAP table index")
+        return self
+
+    @model_validator(mode="after")
+    def check_tap_principal(self, info: ValidationInfo) -> Table:
+        """Check that at least one column is flagged as 'principal' for TAP
+        purposes.
+        """
+        context = info.context
+        if not context or not context.get("check_tap_principal", False):
+            return self
+        for col in self.columns:
+            if col.tap_principal == 1:
+                return self
+        raise ValueError(f"Table '{self.name}' is missing at least one column designated as 'tap:principal'")
+
 
 class SchemaVersion(BaseModel):
     """The version of the schema."""
@@ -507,6 +529,21 @@ class Schema(BaseObject):
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
         return tables
+
+    @model_validator(mode="after")
+    def check_tap_table_indexes(self, info: ValidationInfo) -> Schema:
+        """Check that the TAP table indexes are unique."""
+        context = info.context
+        if not context or not context.get("check_tap_table_indexes", False):
+            return self
+        table_indicies = set()
+        for table in self.tables:
+            table_index = table.tap_table_index
+            if table_index is not None:
+                if table_index in table_indicies:
+                    raise ValueError(f"Duplicate 'tap:table_index' value {table_index} found in schema")
+                table_indicies.add(table_index)
+        return self
 
     def _create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.

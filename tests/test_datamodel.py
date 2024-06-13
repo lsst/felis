@@ -122,72 +122,42 @@ class ColumnTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Column(**units_data)
 
-    def test_require_description(self) -> None:
-        """Test the require_description flag for the `Column` class."""
-
-        class MockValidationInfo:
-            """Mock context object for passing to validation method."""
-
-            def __init__(self):
-                self.context = {"require_description": True}
-
-        info = MockValidationInfo()
-
-        def _check_description(col: Column):
-            Schema.check_description(col, info)
-
-        # Creating a column without a description should throw.
-        with self.assertRaises(ValueError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                    }
-                )
-            )
-
+    def test_description(self) -> None:
+        """Test the validation of the description attribute."""
         # Creating a column with a description of 'None' should throw.
         with self.assertRaises(ValueError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                        "description": None,
-                    }
-                )
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "description": None,
+                }
             )
 
         # Creating a column with an empty description should throw.
         with self.assertRaises(ValueError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                        "description": "",
-                    }
-                )
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "description": "",
+                }
             )
 
         # Creating a column with a description that is too short should throw.
         with self.assertRaises(ValidationError):
-            _check_description(
-                Column(
-                    **{
-                        "name": "testColumn",
-                        "@id": "#test_col_id",
-                        "datatype": "string",
-                        "description": "xy",
-                    }
-                )
+            Column(
+                **{
+                    "name": "testColumn",
+                    "@id": "#test_col_id",
+                    "datatype": "string",
+                    "description": "xy",
+                }
             )
 
-    def test_values(self):
+    def test_values(self) -> None:
         """Test the `value` field of the `Column` class."""
 
         # Define a function to return the default column data
@@ -547,6 +517,97 @@ class SchemaVersionTest(unittest.TestCase):
         self.assertEqual(schema.version.current, "1.2.3")
         self.assertEqual(schema.version.compatible, ["1.2.0", "1.2.1", "1.2.2"])
         self.assertEqual(schema.version.read_compatible, ["1.1.0", "1.1.1"])
+
+
+class ValidationFlagsTest(unittest.TestCase):
+    """Test the validation flags for the `Schema` class."""
+
+    def test_check_tap_table_indexes(self) -> None:
+        """Test the `check_tap_table_indexes` validation flag."""
+        cxt = {"check_tap_table_indexes": True}
+        schema_dict = {
+            "name": "testSchema",
+            "id": "#test_schema_id",
+            "tables": [
+                {
+                    "name": "test_table",
+                    "id": "#test_table_id",
+                    "columns": [{"name": "test_col", "id": "#test_col", "datatype": "int"}],
+                }
+            ],
+        }
+
+        # Creating a schema without a TAP table index should throw.
+        with self.assertRaises(ValidationError):
+            Schema.model_validate(schema_dict, context=cxt)
+
+        # Creating a schema with a TAP table index should not throw.
+        schema_dict["tables"][0]["tap_table_index"] = 1
+        Schema.model_validate(schema_dict, context=cxt)
+        schema_dict["tables"].append(
+            {
+                "name": "test_table2",
+                "id": "#test_table2",
+                "tap_table_index": 1,
+                "columns": [{"name": "test_col2", "id": "#test_col2", "datatype": "int"}],
+            }
+        )
+
+        # Creating a schema with a duplicate TAP table index should throw.
+        with self.assertRaises(ValidationError):
+            Schema.model_validate(schema_dict, context=cxt)
+
+        # Multiple, unique TAP table indexes should not throw.
+        schema_dict["tables"][1]["tap_table_index"] = 2
+        Schema.model_validate(schema_dict, context=cxt)
+
+    def test_check_tap_principal(self) -> None:
+        """Test the validation flags for the `Schema` class."""
+        cxt = {"check_tap_principal": True}
+        schema_dict = {
+            "name": "testSchema",
+            "id": "#test_schema_id",
+            "tables": [
+                {
+                    "name": "test_table",
+                    "id": "#test_table_id",
+                    "columns": [{"name": "test_col", "id": "#test_col", "datatype": "int"}],
+                }
+            ],
+        }
+
+        # Creating a table without a TAP table principal column should throw.
+        with self.assertRaises(ValidationError):
+            Schema.model_validate(schema_dict, context=cxt)
+
+        # Creating a table with a TAP table principal column should not throw.
+        schema_dict["tables"][0]["columns"][0]["tap_principal"] = 1
+        Schema.model_validate(schema_dict, context=cxt)
+
+    def test_check_description(self) -> None:
+        """Test the `check_description` flag for the `Column` class."""
+        cxt = {"check_description": True}
+        schema_dict = {
+            "name": "testSchema",
+            "id": "#test_schema_id",
+            "tables": [
+                {
+                    "name": "test_table",
+                    "id": "#test_table_id",
+                    "columns": [{"name": "test_col", "id": "#test_col", "datatype": "int"}],
+                }
+            ],
+        }
+
+        # Creating a schema without object descriptions should throw.
+        with self.assertRaises(ValidationError):
+            Schema.model_validate(schema_dict, context=cxt)
+
+        # Creating a schema with object descriptions should not throw.
+        schema_dict["description"] = "Test schema"
+        schema_dict["tables"][0]["description"] = "Test table"
+        schema_dict["tables"][0]["columns"][0]["description"] = "Test column"
+        Schema.model_validate(schema_dict, context=cxt)
 
 
 if __name__ == "__main__":

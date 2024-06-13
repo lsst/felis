@@ -23,8 +23,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from collections.abc import MutableMapping
-from typing import Any
 
 from click.testing import CliRunner
 
@@ -37,8 +35,6 @@ TEST_MERGE_YAML = os.path.join(TESTDIR, "data", "test-merge.yml")
 
 class CliTestCase(unittest.TestCase):
     """Tests for CLI commands."""
-
-    schema_obj: MutableMapping[str, Any] | None = None
 
     def setUp(self) -> None:
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
@@ -107,24 +103,20 @@ class CliTestCase(unittest.TestCase):
         result = runner.invoke(cli, ["validate", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
-    def test_validate_default_with_require_description(self) -> None:
-        """Test validate command with description required."""
-        runner = CliRunner()
-        try:
-            # Wrap this in a try/catch in case an exception is thrown.
-            result = runner.invoke(
-                cli, ["validate", "--require-description", TEST_YAML], catch_exceptions=False
-            )
-        except Exception as e:
-            # Reraise exception.
-            raise e
-
-        self.assertEqual(result.exit_code, 0)
-
-    def test_validate_rsp(self) -> None:
+    def test_validation_flags(self) -> None:
         """Test RSP schema type validation."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["validate", "-s", "RSP", TEST_YAML], catch_exceptions=False)
+        result = runner.invoke(
+            cli,
+            [
+                "validate",
+                "--check-description",
+                "--check-tap-principal",
+                "--check-tap-table-indexes",
+                TEST_YAML,
+            ],
+            catch_exceptions=False,
+        )
         self.assertEqual(result.exit_code, 0)
 
 
