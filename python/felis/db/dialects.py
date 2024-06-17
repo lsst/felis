@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
 from types import MappingProxyType, ModuleType
 
 from sqlalchemy import dialects
@@ -27,8 +26,6 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.engine.mock import create_mock_engine
 
 from .sqltypes import MYSQL, ORACLE, POSTGRES, SQLITE
-
-logger = logging.getLogger(__name__)
 
 _DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE, ORACLE)
 """List of supported dialect names.
