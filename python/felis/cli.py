@@ -59,7 +59,20 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     help="Felis log file path",
 )
 def cli(log_level: str, log_file: str | None) -> None:
-    """Felis Command Line Tools."""
+    """Felis Command Line Tools.
+
+    Parameters
+    ----------
+    log_level : `str`
+        Felis log level.
+    log_file : `str`, optional
+        Felis log file path.
+
+    Notes
+    -----
+    These options are used to configure the logging level and file for the
+    command line tools.
+    """
     if log_file:
         logging.basicConfig(filename=log_file, level=log_level)
     else:
@@ -89,7 +102,33 @@ def create(
     output_file: IO[str] | None,
     file: IO,
 ) -> None:
-    """Create database objects from the Felis file."""
+    """Create database objects from the Felis file.
+
+    Parameters
+    ----------
+    engine_url : `str`
+        SQLAlchemy Engine URL.
+    schema_name : `str`, optional
+        Alternate schema name to override Felis file.
+    create_if_not_exists : bool
+        Create the schema in the database if it does not exist.
+    drop_if_exists : bool
+        Drop schema if it already exists in the database.
+    echo : bool
+        Echo database commands as they are executed.
+    dry_run : bool
+        Dry run only to print out commands instead of executing.
+    output_file : IO[str], optional
+        Write SQL commands to a file instead of executing.
+    file : IO
+        Felis file to read.
+
+    Notes
+    -----
+    This command creates database objects from the Felis file. The
+    `create_if_not_exists` and `drop_if_exists` options can be used to create
+    a new MySQL database or PostgreSQL schema if it does not exist already.
+    """
     yaml_data = yaml.safe_load(file)
     schema = Schema.model_validate(yaml_data)
     url = make_url(engine_url)
@@ -147,10 +186,35 @@ def init_tap(
     tap_keys_table: str,
     tap_key_columns_table: str,
 ) -> None:
-    """Initialize TAP 1.1 TAP_SCHEMA objects.
+    """Initialize TAP_SCHEMA objects in the database.
 
-    Please verify the schema/catalog you are executing this in in your
-    engine URL.
+    Parameters
+    ----------
+    engine_url : `str`
+        SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
+        must already exist and be referenced in the URL.
+    tap_schema_name : `str`
+        Alterate name for the database schema representing `TAP_SCHEMA`.
+    tap_schemas_table : `str`
+        Alterate name for `TAP_SCHEMA.schemas` table.
+    tap_tables_table : `str`
+        Alterate name for `TAP_SCHEMA.tables` table.
+    tap_columns_table : `str`
+        Alterate name for `TAP_SCHEMA.columns` table.
+    tap_keys_table : `str`
+        Alterate table name for `TAP_SCHEMA.keys` table.
+    tap_key_columns_table : `str`
+        Alterate table name for `TAP_SCHEMA.key_columns` table.
+
+    Returns
+    -------
+    `None`
+
+    Notes
+    -----
+    The supported version of TAP_SCHEMA in the SQLAlchemy metadata is 1.1. The
+    tables are created in the database schema specified by the engine URL,
+    which must be a PostgreSQL schema or MySQL database that already exists.
     """
     engine = create_engine(engine_url, echo=True)
     init_tables(
@@ -195,8 +259,45 @@ def load_tap(
 ) -> None:
     """Load TAP metadata from a Felis FILE.
 
-    This command loads the associated TAP metadata from a Felis FILE
-    to the TAP_SCHEMA tables.
+    This command loads the associated TAP metadata from a Felis YAML file
+    into the TAP_SCHEMA tables.
+
+    Parameters
+    ----------
+    engine_url : `str`
+        SQLAlchemy Engine URL to catalog.
+    schema_name : `str`
+        Alternate schema name. This overrides the schema name in the `catalog`
+        field of the Felis file.
+    catalog_name : `str`
+        Catalog name for the schema. This possibly duplicates the `schema_name`
+        argument (DM-44870).
+    dry_run : `bool`
+        Dry run only to print out commands instead of executing.
+    tap_schema_name : `str`
+        Alternate name for the schema of TAP_SCHEMA in the database.
+    tap_tables_postfix : `str`
+        Postfix for TAP table names that will be automatically appended.
+    tap_schemas_table : `str`
+        Alternate table name for `TAP_SCHEMA.schemas`.
+    tap_tables_table : `str`
+        Alternate table name for `TAP_SCHEMA.tables`.
+    tap_columns_table : `str`
+        Alternate table name for `TAP_SCHEMA.columns`.
+    tap_keys_table : `str`
+        Alternate table name for `TAP_SCHEMA.keys`.
+    tap_key_columns_table : `str`
+        Alternate table name for `TAP_SCHEMA.key_columns`.
+    tap_schema_index : `int`
+        TAP_SCHEMA index of the schema, which is transient because the value
+        depends on a particular environment.
+    file:
+        Felis file to read.
+
+    Notes
+    -----
+    The data will be loaded into the TAP_SCHEMA from the engine URL. The
+    TAP_SCHEMA tables must already exist.
     """
     yaml_data = yaml.load(file, Loader=yaml.SafeLoader)
     schema = Schema.model_validate(yaml_data)
@@ -264,7 +365,32 @@ def validate(
     check_tap_principal: bool,
     files: Iterable[io.TextIOBase],
 ) -> None:
-    """Validate one or more felis YAML files."""
+    """Validate one or more felis YAML files.
+
+    Parameters
+    ----------
+    check_description : `bool`
+        Require a valid description for all objects.
+    check_redundant_datatypes : `bool`
+        Check for redundant type overrides.
+    check_tap_table_indexes : `bool`
+        Check that every table has a unique TAP table index.
+    check_tap_principal : `bool`
+        Check that at least one column per table is flagged as TAP principal.
+    files : `Iterable[io.TextIOBase]`
+        The files to validate.
+
+    Raises
+    ------
+    click.exceptions.Exit
+        If any validation errors are found. The `ValidationError` which is
+        thrown when a schema fails to validate will be logged as an error
+        message.
+
+    Notes
+    -----
+    All of the "check" flags are turned off by default.
+    """
     rc = 0
     for file in files:
         file_name = getattr(file, "name", None)
