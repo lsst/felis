@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import re
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -29,6 +31,8 @@ from sqlalchemy.types import TypeEngine
 
 from ..datamodel import Column
 from .dialects import get_dialect_module, get_supported_dialects
+
+__all__ = ["make_variant_dict"]
 
 
 def _create_column_variant_overrides() -> dict[str, str]:

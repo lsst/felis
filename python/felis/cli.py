@@ -38,6 +38,8 @@ from .db.utils import DatabaseContext
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 
+__all__ = ["cli"]
+
 logger = logging.getLogger("felis")
 
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]

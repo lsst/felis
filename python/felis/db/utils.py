@@ -36,6 +36,8 @@ from sqlalchemy.types import TypeEngine
 
 from .dialects import get_dialect_module
 
+__all__ = ["string_to_typeengine", "SQLWriter", "ConnectionWrapper", "DatabaseContext"]
+
 logger = logging.getLogger("felis")
 
 _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")

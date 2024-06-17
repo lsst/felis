@@ -42,7 +42,6 @@ __all__ = (
     "Column",
     "CheckConstraint",
     "Constraint",
-    "DescriptionStr",
     "ForeignKeyConstraint",
     "Index",
     "Schema",

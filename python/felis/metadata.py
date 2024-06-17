@@ -47,6 +47,8 @@ from . import datamodel
 from .db import sqltypes
 from .types import FelisType
 
+__all__ = ("MetaDataBuilder", "get_datatype_with_variants")
+
 logger = logging.getLogger(__name__)
 
 

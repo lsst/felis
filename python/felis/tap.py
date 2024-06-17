@@ -21,8 +21,6 @@
 
 from __future__ import annotations
 
-__all__ = ["Tap11Base", "TapLoadingVisitor", "init_tables"]
-
 import logging
 from collections.abc import Iterable, MutableMapping
 from typing import Any
@@ -39,8 +37,11 @@ from felis import datamodel
 from .datamodel import Constraint, Index, Schema, Table
 from .types import FelisType
 
-Tap11Base: Any = declarative_base()  # Any to avoid mypy mess with SA 2
+__all__ = ["TapLoadingVisitor", "init_tables"]
+
 logger = logging.getLogger(__name__)
+
+Tap11Base: Any = declarative_base()  # Any to avoid mypy mess with SA 2
 
 IDENTIFIER_LENGTH = 128
 SMALL_FIELD_LENGTH = 32

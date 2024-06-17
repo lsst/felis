@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from types import MappingProxyType, ModuleType
 
@@ -27,6 +29,8 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.engine.mock import create_mock_engine
 
 from .sqltypes import MYSQL, ORACLE, POSTGRES, SQLITE
+
+__all__ = ["get_supported_dialects", "get_dialect_module"]
 
 _DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE, ORACLE)
 """List of supported dialect names.

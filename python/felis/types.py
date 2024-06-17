@@ -23,6 +23,23 @@ from __future__ import annotations
 
 from typing import Any
 
+__all__ = [
+    "FelisType",
+    "Boolean",
+    "Byte",
+    "Short",
+    "Int",
+    "Long",
+    "Float",
+    "Double",
+    "Char",
+    "String",
+    "Unicode",
+    "Text",
+    "Binary",
+    "Timestamp",
+]
+
 
 class FelisType:
     """Base class for a representation of Felis column types.
