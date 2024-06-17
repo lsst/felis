@@ -39,7 +39,7 @@ from .dialects import get_dialect_module
 logger = logging.getLogger("felis")
 
 _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
-"""Regular expression to match data types in the form "type(length)"""
+"""Regular expression to match data types with parameters in parentheses."""
 
 
 def string_to_typeengine(
@@ -47,6 +47,32 @@ def string_to_typeengine(
 ) -> TypeEngine:
     """Convert a string representation of a data type to a SQLAlchemy
     TypeEngine.
+
+    Parameters
+    ----------
+    type_string : `str`
+        The string representation of the data type.
+    dialect : `sqlalchemy.engine.Dialect` or `None`, optional
+        The SQLAlchemy dialect to use. If None, the default dialect will be
+        used.
+    length : `int` or `None`, optional
+        The length of the data type. If the data type does not have a length
+        attribute, this parameter will be ignored.
+
+    Returns
+    -------
+    `sqlalchemy.types.TypeEngine`
+        The SQLAlchemy type engine object.
+
+    Raises
+    ------
+    ValueError
+        If the type string is invalid or the type is not supported.
+
+    Notes
+    -----
+    This function is used when converting type override strings defined in
+    fields such as `mysql:datatype` in the schema data.
     """
     match = _DATATYPE_REGEXP.search(type_string)
     if not match:
@@ -106,6 +132,11 @@ class SQLWriter:
             The multiparams to use for the SQL statement.
         params : `typing.Any`
             The params to use for the SQL statement.
+
+        Notes
+        -----
+        The functions arguments are typed very loosely because this method in
+        SQLAlchemy is untyped amd we do not call it directly.
         """
         compiled = sql.compile(dialect=self.dialect)
         sql_str = str(compiled) + ";"
@@ -141,7 +172,18 @@ class ConnectionWrapper:
         self.engine = engine
 
     def execute(self, statement: Any) -> ResultProxy:
-        """Execute a SQL statement on the engine and return the result."""
+        """Execute a SQL statement on the engine and return the result.
+
+        Parameters
+        ----------
+        statement : `Any`
+            The SQL statement to execute.
+
+        Notes
+        -----
+        The statement will be executed in a transaction block if not using
+        a mock connection.
+        """
         if isinstance(statement, str):
             statement = text(statement)
         if isinstance(self.engine, MockConnection):
@@ -174,16 +216,25 @@ class DatabaseContext:
     def create_if_not_exists(self) -> None:
         """Create the schema in the database if it does not exist.
 
-        In MySQL, this will create a new database. In PostgreSQL, it will
-        create a new schema. For other variants, this is an unsupported
-        operation.
-
         Parameters
         ----------
         engine: `sqlalchemy.Engine`
             The SQLAlchemy engine object.
         schema_name: `str`
             The name of the schema (or database) to create.
+
+        Raises
+        ------
+        ValueError
+            If the database type is not supported.
+        sqlalchemy.exc.SQLAlchemyError
+            If there is an error creating the schema.
+
+        Notes
+        -----
+        In MySQL, this will create a new database and, in PostgreSQL, it will
+        create a new schema. For other variants, this is an unsupported
+        operation.
         """
         schema_name = self.metadata.schema
         try:
@@ -202,15 +253,22 @@ class DatabaseContext:
     def drop_if_exists(self) -> None:
         """Drop the schema in the database if it exists.
 
-        In MySQL, this will drop a database. In PostgreSQL, it will drop a
-        schema. For other variants, this is unsupported for now.
-
         Parameters
         ----------
         engine: `sqlalchemy.Engine`
             The SQLAlchemy engine object.
         schema_name: `str`
             The name of the schema (or database) to drop.
+
+        Raises
+        ------
+        ValueError
+            If the database type is not supported.
+
+        Notes
+        -----
+        In MySQL, this will drop a database. In PostgreSQL, it will drop a
+        schema. For other variants, this is an unsupported operation.
         """
         schema_name = self.metadata.schema
         try:
