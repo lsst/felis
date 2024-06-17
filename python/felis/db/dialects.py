@@ -19,8 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
-from types import ModuleType
+from collections.abc import Mapping
+from types import MappingProxyType, ModuleType
 
 from sqlalchemy import dialects
 from sqlalchemy.engine import Dialect
@@ -28,9 +28,7 @@ from sqlalchemy.engine.mock import create_mock_engine
 
 from .sqltypes import MYSQL, ORACLE, POSTGRES, SQLITE
 
-logger = logging.getLogger(__name__)
-
-_DIALECT_NAMES = [MYSQL, POSTGRES, SQLITE, ORACLE]
+_DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE, ORACLE)
 """List of supported dialect names.
 
 This list is used to create the dialect and module dictionaries.
@@ -52,11 +50,11 @@ def _dialect(dialect_name: str) -> Dialect:
     return create_mock_engine(f"{dialect_name}://", executor=None).dialect
 
 
-_DIALECTS = {name: _dialect(name) for name in _DIALECT_NAMES}
+_DIALECTS = MappingProxyType({name: _dialect(name) for name in _DIALECT_NAMES})
 """Dictionary of dialect names to SQLAlchemy dialects."""
 
 
-def get_supported_dialects() -> dict[str, Dialect]:
+def get_supported_dialects() -> Mapping[str, Dialect]:
     """Get a dictionary of the supported SQLAlchemy dialects.
 
     Notes
@@ -84,7 +82,7 @@ def _dialect_module(dialect_name: str) -> ModuleType:
     return getattr(dialects, dialect_name)
 
 
-_DIALECT_MODULES = {name: _dialect_module(name) for name in _DIALECT_NAMES}
+_DIALECT_MODULES = MappingProxyType({name: _dialect_module(name) for name in _DIALECT_NAMES})
 """Dictionary of dialect names to SQLAlchemy modules."""
 
 
