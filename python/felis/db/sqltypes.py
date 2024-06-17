@@ -117,72 +117,174 @@ binary_map: _TypeMap = {
 
 
 def boolean(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for boolean."""
+    """Return SQLAlchemy type for boolean.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.BOOLEAN(), boolean_map, kwargs)
 
 
 def byte(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for byte."""
+    """Return SQLAlchemy type for byte.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(TINYINT(), byte_map, kwargs)
 
 
 def short(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for short integer."""
+    """Return SQLAlchemy type for short integer.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.SMALLINT(), short_map, kwargs)
 
 
 def int(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for integer."""
+    """Return SQLAlchemy type for integer.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.INTEGER(), int_map, kwargs)
 
 
 def long(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for long integer."""
+    """Return SQLAlchemy type for long integer.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.BIGINT(), long_map, kwargs)
 
 
 def float(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for single precision float."""
+    """Return SQLAlchemy type for single precision float.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.FLOAT(), float_map, kwargs)
 
 
 def double(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for double precision float."""
+    """Return SQLAlchemy type for double precision float.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.DOUBLE(), double_map, kwargs)
 
 
 def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for character."""
+    """Return SQLAlchemy type for character.
+
+    Parameters
+    ----------
+    length
+        The length of the character field.
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.CHAR(length), char_map, kwargs, length)
 
 
 def string(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for string."""
+    """Return SQLAlchemy type for string.
+
+    Parameters
+    ----------
+    length
+        The length of the string field.
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.VARCHAR(length), string_map, kwargs, length)
 
 
 def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for unicode string."""
+    """Return SQLAlchemy type for unicode string.
+
+    Parameters
+    ----------
+    length
+        The length of the unicode string field.
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.NVARCHAR(length), unicode_map, kwargs, length)
 
 
 def text(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for text."""
+    """Return SQLAlchemy type for text.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.TEXT(), text_map, kwargs)
 
 
 def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for binary."""
+    """Return SQLAlchemy type for binary.
+
+    Parameters
+    ----------
+    length
+        The length of the binary field.
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return _vary(types.BLOB(length), binary_map, kwargs, length)
 
 
 def timestamp(**kwargs: Any) -> types.TypeEngine:
-    """Return SQLAlchemy type for timestamp."""
+    """Return SQLAlchemy type for timestamp.
+
+    Parameters
+    ----------
+    kwargs
+        Additional keyword arguments to pass to the type object.
+    """
     return types.TIMESTAMP()
 
 
 def get_type_func(type_name: str) -> Callable:
-    """Return the function for the type with the given name."""
+    """Return the function for the type with the given name.
+
+    Parameters
+    ----------
+    type_name
+        The name of the type function to get.
+
+    Raises
+    ------
+    ValueError
+        If the type name is not recognized.
+
+    Notes
+    -----
+    This maps the type name to the function that creates the SQL type. This is
+    the main way to get the type functions from the type names.
+    """
     if type_name not in globals():
         raise ValueError(f"Unknown type: {type_name}")
     return globals()[type_name]
@@ -194,6 +296,32 @@ def _vary(
     overrides: _TypeMap,
     *args: Any,
 ) -> types.TypeEngine:
+    """Build a SQLAlchemy type object including the datatype variant and
+    override definitions from Felis.
+
+    Parameters
+    ----------
+    type_
+        The base SQLAlchemy type object. This is essentially a default
+        SQLAlchemy ``TypeEngine`` object, which will apply if there is no
+        variant or type override from the schema.
+    variant_map
+        The dictionary of dialects to types. Each key is a string representing
+        a dialect name, and each value is either an instance of
+        ``TypeEngine`` representing the variant type object or a callable
+        reference to its class type that will be instantiated later.
+    overrides
+        The dictionary of dialects to types to override the defaults. Each key
+        is a string representing a dialect name and type with a similar
+        structure as the `variant_map`.
+    args
+        The extra arguments to pass to the type object.
+
+    Notes
+    -----
+    This function is intended for internal use only. It builds a SQLAlchemy
+    ``TypeEngine`` that includes variants and overrides defined by Felis.
+    """
     variants: dict[str, types.TypeEngine | type[types.TypeEngine]] = dict(variant_map)
     variants.update(overrides)
     for dialect, variant in variants.items():

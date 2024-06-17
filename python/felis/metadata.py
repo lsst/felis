@@ -116,8 +116,8 @@ class MetaDataBuilder:
 
         Notes
         -----
-        This function builds all the tables by calling ``build_table`` on
-        each Pydantic object. It also calls ``build_primary_key`` to create the
+        This function builds all the tables by calling `build_table` on
+        each Pydantic object. It also calls `build_primary_key` to create the
         primary key constraints.
         """
         for table in self.schema.tables:
@@ -130,7 +130,7 @@ class MetaDataBuilder:
         """Build a SQLAlchemy `PrimaryKeyConstraint` from a single column ID
         or a list.
 
-        The `primary_key_columns` are strings or a list of strings representing
+        The `primary_key_columns` is a string or a list of strings representing
         IDs pointing to columns that will be looked up in the internal object
         dictionary.
 
@@ -260,14 +260,13 @@ class MetaDataBuilder:
                 table.append_constraint(constraint)
 
     def build_constraint(self, constraint_obj: datamodel.Constraint) -> Constraint:
-        """Build a SQLAlchemy `Constraint` from a `felis.datamodel.Constraint`
-        object.
+        """Build a SQLAlchemy ``Constraint`` from a
+        `felis.datamodel.Constraint` object.
 
         Parameters
         ----------
         constraint_obj : `felis.datamodel.Constraint`
-            The constraint object from which to build the SQLAlchemy
-            constraint.
+            The object from which to build the SQLAlchemy constraint.
 
         Returns
         -------
