@@ -93,7 +93,18 @@ class BaseObject(BaseModel):
 
     @model_validator(mode="after")
     def check_description(self, info: ValidationInfo) -> BaseObject:
-        """Check that the description is present if required."""
+        """Check that the description is present if required.
+
+        Parameters
+        ----------
+        info : `ValidationInfo`
+            The validation information. This is used to determine if the
+            description is required.
+
+        Returns
+        -------
+        self : `BaseObject`
+        """
         context = info.context
         if not context or not context.get("check_description", False):
             return self
@@ -177,7 +188,12 @@ class Column(BaseObject):
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
-        """Check that the default value is valid."""
+        """Check that the default value is valid.
+
+        Returns
+        -------
+        self : `Column`
+        """
         if (value := self.value) is not None:
             if value is not None and self.autoincrement is True:
                 raise ValueError("Column cannot have both a default value and be autoincremented")
@@ -199,7 +215,17 @@ class Column(BaseObject):
     @field_validator("ivoa_ucd")
     @classmethod
     def check_ivoa_ucd(cls, ivoa_ucd: str) -> str:
-        """Check that IVOA UCD values are valid."""
+        """Check that IVOA UCD values are valid.
+
+        Parameters
+        ----------
+        ivoa_ucd : `str`
+            The IVOA UCD value to check.
+
+        Returns
+        -------
+        ivoa_ucd : `str`
+        """
         if ivoa_ucd is not None:
             try:
                 ucd.parse_ucd(ivoa_ucd, check_controlled_vocabulary=True, has_colon=";" in ivoa_ucd)
@@ -209,7 +235,17 @@ class Column(BaseObject):
 
     @model_validator(mode="after")
     def check_units(self) -> Column:
-        """Check that units are valid."""
+        """Check that units are valid.
+
+        Returns
+        -------
+        self : `Column`
+
+        Notes
+        -----
+        This method checks that the FITS TUNIT and IVOA units are valid. It
+        raises a `ValueError` if both are provided or the unit is invalid.
+        """
         fits_unit = self.fits_tunit
         ivoa_unit = self.ivoa_unit
 
@@ -228,7 +264,17 @@ class Column(BaseObject):
     @model_validator(mode="before")
     @classmethod
     def check_length(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Check that a valid length is provided for sized types."""
+        """Check that a valid length is provided for sized types.
+
+        Parameters
+        ----------
+        values : `dict[str, Any]`
+            The values of the column.
+
+        Returns
+        -------
+        values : `dict[str, Any]`
+        """
         datatype = values.get("datatype")
         if datatype is None:
             # Skip this validation if datatype is not provided
@@ -249,7 +295,18 @@ class Column(BaseObject):
 
     @model_validator(mode="after")
     def check_redundant_datatypes(self, info: ValidationInfo) -> Column:
-        """Check for redundant datatypes on columns."""
+        """Check for redundant datatypes on columns.
+
+        Parameters
+        ----------
+        info : `ValidationInfo`
+            The validation information. This is used to determine if the
+            check is enabled.
+
+        Returns
+        -------
+        self : `Column`
+        """
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
             return self
@@ -338,7 +395,17 @@ class Index(BaseObject):
     @model_validator(mode="before")
     @classmethod
     def check_columns_or_expressions(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Check that columns or expressions are specified, but not both."""
+        """Check that columns or expressions are specified, but not both.
+
+        Parameters
+        ----------
+        values : `dict[str, Any]`
+            The values of the index.
+
+        Returns
+        -------
+        values : `dict[str, Any]`
+        """
         if "columns" in values and "expressions" in values:
             raise ValueError("Defining columns and expressions is not valid")
         elif "columns" not in values and "expressions" not in values:
@@ -394,7 +461,17 @@ class Table(BaseObject):
     @model_validator(mode="before")
     @classmethod
     def create_constraints(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Create constraints from the ``constraints`` field."""
+        """Create constraints from the ``constraints`` field.
+
+        Parameters
+        ----------
+        values : `dict[str, Any]`
+            The values of the table.
+
+        Returns
+        -------
+        The `Constraint` objects which were created.
+        """
         if "constraints" in values:
             new_constraints: list[Constraint] = []
             for item in values["constraints"]:
@@ -412,14 +489,35 @@ class Table(BaseObject):
     @field_validator("columns", mode="after")
     @classmethod
     def check_unique_column_names(cls, columns: list[Column]) -> list[Column]:
-        """Check that column names are unique."""
+        """Check that column names are unique.
+
+        Parameters
+        ----------
+        columns : `list[Column]`
+            The columns to check.
+
+        Returns
+        -------
+        columns : `list[Column]`
+        """
         if len(columns) != len(set(column.name for column in columns)):
             raise ValueError("Column names must be unique")
         return columns
 
     @model_validator(mode="after")
     def check_tap_table_index(self, info: ValidationInfo) -> Table:
-        """Check that the table has a TAP table index."""
+        """Check that the table has a TAP table index.
+
+        Parameters
+        ----------
+        info : `ValidationInfo`
+            The validation information. This is used to determine if the
+            check is enabled.
+
+        Returns
+        -------
+        self : `Table`
+        """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
             return self
@@ -431,6 +529,16 @@ class Table(BaseObject):
     def check_tap_principal(self, info: ValidationInfo) -> Table:
         """Check that at least one column is flagged as 'principal' for TAP
         purposes.
+
+        Parameters
+        ----------
+        info : `ValidationInfo`
+            The validation information. This is used to determine if the
+            check is enabled.
+
+        Returns
+        -------
+        self : `Table`
         """
         context = info.context
         if not context or not context.get("check_tap_principal", False):
@@ -472,7 +580,13 @@ class SchemaIdVisitor:
         self.duplicates: set[str] = set()
 
     def add(self, obj: BaseObject) -> None:
-        """Add an object to the ID map."""
+        """Add an object to the ID map.
+
+        Parameters
+        ----------
+        obj : `BaseObject`
+            The object to add to the ID map.
+        """
         if hasattr(obj, "id"):
             obj_id = getattr(obj, "id")
             if self.schema is not None:
@@ -482,8 +596,15 @@ class SchemaIdVisitor:
                     self.schema.id_map[obj_id] = obj
 
     def visit_schema(self, schema: Schema) -> None:
-        """Visit the schema object that was added during initialization.
+        """Visit the objects in a `Schema` and build the ID map.
 
+        Parameters
+        ----------
+        schema : `Schema`
+            The schema object to visit.
+
+        Notes
+        -----
         This will set an internal variable pointing to the schema object.
         """
         self.schema = schema
@@ -493,7 +614,13 @@ class SchemaIdVisitor:
             self.visit_table(table)
 
     def visit_table(self, table: Table) -> None:
-        """Visit a table object."""
+        """Visit a table object.
+
+        Parameters
+        ----------
+        table : `Table`
+            The table object to visit.
+        """
         self.add(table)
         for column in table.columns:
             self.visit_column(column)
@@ -501,11 +628,23 @@ class SchemaIdVisitor:
             self.visit_constraint(constraint)
 
     def visit_column(self, column: Column) -> None:
-        """Visit a column object."""
+        """Visit a column object.
+
+        Parameters
+        ----------
+        column : `Column`
+            The column object to visit.
+        """
         self.add(column)
 
     def visit_constraint(self, constraint: Constraint) -> None:
-        """Visit a constraint object."""
+        """Visit a constraint object.
+
+        Parameters
+        ----------
+        constraint : `Constraint`
+            The constraint object to visit.
+        """
         self.add(constraint)
 
 
@@ -524,14 +663,35 @@ class Schema(BaseObject):
     @field_validator("tables", mode="after")
     @classmethod
     def check_unique_table_names(cls, tables: list[Table]) -> list[Table]:
-        """Check that table names are unique."""
+        """Check that table names are unique.
+
+        Parameters
+        ----------
+        tables : `list[Table]`
+            The tables to check.
+
+        Returns
+        -------
+        tables : `list[Table]`
+        """
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
         return tables
 
     @model_validator(mode="after")
     def check_tap_table_indexes(self, info: ValidationInfo) -> Schema:
-        """Check that the TAP table indexes are unique."""
+        """Check that the TAP table indexes are unique.
+
+        Parameters
+        ----------
+        info : `ValidationInfo`
+            The validation information. This is used to determine if the
+            check is enabled.
+
+        Returns
+        -------
+        self : `Schema`
+        """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
             return self
@@ -547,9 +707,8 @@ class Schema(BaseObject):
     def _create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.
 
-        This method should not be called by users. It is called automatically
-        by the ``model_post_init()`` method. If the ID map is already
-        populated, this method will return immediately.
+        This is called automatically by the `model_post_init` method. If the
+        ID map is already populated, this method will return immediately.
         """
         if len(self.id_map):
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")
@@ -563,15 +722,43 @@ class Schema(BaseObject):
         return self
 
     def model_post_init(self, ctx: Any) -> None:
-        """Post-initialization hook for the model."""
+        """Post-initialization hook for the model.
+
+        Parameters
+        ----------
+        ctx : `Any`
+            The context object passed to the model.
+        """
         self._create_id_map()
 
     def __getitem__(self, id: str) -> BaseObject:
-        """Get an object by its ID."""
+        """Get an object by its ID.
+
+        Parameters
+        ----------
+        id : `str`
+            The ID of the object to get.
+
+        Returns
+        -------
+        obj : `BaseObject`
+            The object with the given ID.
+        """
         if id not in self:
             raise KeyError(f"Object with ID '{id}' not found in schema")
         return self.id_map[id]
 
     def __contains__(self, id: str) -> bool:
-        """Check if an object with the given ID is in the schema."""
+        """Check if an object with the given ID is in the schema.
+
+        Parameters
+        ----------
+        id : `str`
+            The ID of the object to check.
+
+        Returns
+        -------
+        contains : `bool`
+            `True` if the object is in the schema, `False` otherwise.
+        """
         return id in self.id_map
