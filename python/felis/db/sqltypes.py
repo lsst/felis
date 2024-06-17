@@ -182,7 +182,22 @@ def timestamp(**kwargs: Any) -> types.TypeEngine:
 
 
 def get_type_func(type_name: str) -> Callable:
-    """Return the function for the type with the given name."""
+    """Return the function for the type with the given name.
+
+    Parameters
+    ----------
+    type_name : str
+        The name of the type function to get.
+
+    Raises
+    ------
+    ValueError
+        If the type name is not recognized.
+
+    Notes
+    -----
+    This maps the type name to the function that creates the SQL type.
+    """
     if type_name not in globals():
         raise ValueError(f"Unknown type: {type_name}")
     return globals()[type_name]
@@ -194,6 +209,23 @@ def _vary(
     overrides: _TypeMap,
     *args: Any,
 ) -> types.TypeEngine:
+    """Build and assign the variant dictionary to a SQLAlchemy type object.
+
+    Parameters
+    ----------
+    type_ : types.TypeEngine
+        The base SQLAlchemy type object.
+    variant_map : Mapping[str, types.TypeEngine | type[types.TypeEngine]]
+        The dictionary of dialects to types.
+    overrides : Mapping[str, types.TypeEngine | type[types.TypeEngine]]
+        The dictionary of dialects to types to override the defaults.
+    args : Any
+        The arguments to pass to the type object.
+
+    Notes
+    -----
+    This function is intended for internal use only.
+    """
     variants: dict[str, types.TypeEngine | type[types.TypeEngine]] = dict(variant_map)
     variants.update(overrides)
     for dialect, variant in variants.items():
