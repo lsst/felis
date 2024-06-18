@@ -4,3 +4,29 @@ copyright = "2020-2022 The Board of Trustees of the Leland Stanford Junior Unive
 
 [project.python]
 package = "lsst-felis"
+
+[sphinx]
+disable_primary_sidebars = [
+    "**/index",
+    "changelog",
+    "dev/internals",
+]
+extensions = [
+    "sphinxcontrib.autodoc_pydantic",
+]
+nitpicky = true
+nitpick_ignore = [
+    ["py:class", "pydantic_core.core_schema.ValidationInfo"],
+    ["py:class", "sqlalchemy.orm.decl_api.Base"],
+    ["py:class", "sqlalchemy.engine.mock.MockConnection"],
+    ["py:class", "pydantic.main.BaseModel"],
+]
+nitpick_ignore_regex = [
+    # Bug in autodoc_pydantic.
+    ["py:obj", ".*\\.all fields"],
+]
+python_api_dir = "dev/internals"
+
+[sphinx.intersphinx.projects]
+python = "https://docs.python.org/3/"
+sqlalchemy = "https://docs.sqlalchemy.org/en/latest/"
