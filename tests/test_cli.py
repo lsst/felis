@@ -37,9 +37,11 @@ class CliTestCase(unittest.TestCase):
     """Tests for CLI commands."""
 
     def setUp(self) -> None:
+        """Set up a temporary directory for tests."""
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
 
     def tearDown(self) -> None:
+        """Clean up temporary directory."""
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_create_all(self) -> None:
@@ -104,7 +106,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_validation_flags(self) -> None:
-        """Test RSP schema type validation."""
+        """Test schema validation flags."""
         runner = CliRunner()
         result = runner.invoke(
             cli,
