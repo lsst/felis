@@ -25,8 +25,10 @@ from typing import Any
 
 
 class FelisType:
-    """Base class for types that represent Felis column types.
+    """Base class for a representation of Felis column types.
 
+    Notes
+    -----
     This class plays a role of a metaclass without being an actual metaclass.
     It provides a method to retrieve a class (type) given Felis type name.
     There should be no instances of this class (or sub-classes), the utility
@@ -34,12 +36,22 @@ class FelisType:
     """
 
     felis_name: str
+    """Name of the type as defined in felis schema."""
+
     votable_name: str
+    """Name of the type as defined in VOTable."""
+
     is_numeric: bool
+    """Flag indicating if the type is numeric."""
+
     is_sized: bool
+    """Flag indicating if the type is sized, meaning it requires a length."""
+
     is_timestamp: bool
+    """Flag indicating if the type is a timestamp."""
 
     _types: dict[str, type[FelisType]] = {}
+    """Dictionary of all known Felis types."""
 
     @classmethod
     def __init_subclass__(
@@ -52,6 +64,23 @@ class FelisType:
         is_timestamp: bool = False,
         **kwargs: Any,
     ):
+        """Register a new Felis type.
+
+        Parameters
+        ----------
+        felis_name : `str`
+            Name of the type.
+        votable_name : `str`
+            Name of the type as defined in VOTable.
+        is_numeric : `bool`, optional
+            Flag indicating if the type is numeric.
+        is_sized : `bool`, optional
+            Flag indicating if the type is sized.
+        is_timestamp : `bool`, optional
+            Flag indicating if the type is a timestamp.
+        kwargs : `Any`
+            Additional keyword arguments.
+        """
         super().__init_subclass__(**kwargs)
         cls.felis_name = felis_name
         cls.votable_name = votable_name
@@ -62,7 +91,7 @@ class FelisType:
 
     @classmethod
     def felis_type(cls, felis_name: str) -> type[FelisType]:
-        """Return specific Felis type for a given type name.
+        """Return specific Felis type for a given name.
 
         Parameters
         ----------
@@ -71,8 +100,8 @@ class FelisType:
 
         Returns
         -------
-        felis_type : `type`
-            One of subclasses of `FelisType`.
+        felis_type : `type[FelisType]`
+            One of the subclasses of `FelisType`.
 
         Raises
         ------
