@@ -227,6 +227,7 @@ class TableTestCase(unittest.TestCase):
     """Test the `Table` class."""
 
     def test_validation(self) -> None:
+        """Test validation of the `Table` class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Table()
@@ -467,7 +468,7 @@ class SchemaTestCase(unittest.TestCase):
             sch["#bad_id"]
 
     def test_model_validate(self) -> None:
-        """Load test file and validate it using the data model."""
+        """Load a YAML test file and validate it using the Pydantic data model."""
         with open(TEST_YAML) as test_yaml:
             data = yaml.safe_load(test_yaml)
             Schema.model_validate(data)
@@ -477,6 +478,7 @@ class SchemaVersionTest(unittest.TestCase):
     """Test the `SchemaVersion` class."""
 
     def test_validation(self) -> None:
+        """Test validation of the `SchemaVersion` class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             SchemaVersion()
