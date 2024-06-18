@@ -68,17 +68,17 @@ class FelisType:
 
         Parameters
         ----------
-        felis_name : `str`
+        felis_name
             Name of the type.
-        votable_name : `str`
+        votable_name
             Name of the type as defined in VOTable.
-        is_numeric : `bool`, optional
+        is_numeric
             Flag indicating if the type is numeric.
-        is_sized : `bool`, optional
+        is_sized
             Flag indicating if the type is sized.
-        is_timestamp : `bool`, optional
+        is_timestamp
             Flag indicating if the type is a timestamp.
-        kwargs : `Any`
+        kwargs
             Additional keyword arguments.
         """
         super().__init_subclass__(**kwargs)
@@ -95,12 +95,12 @@ class FelisType:
 
         Parameters
         ----------
-        felis_name : `str`
+        felis_name
             name of the felis type as defined in felis schema.
 
         Returns
         -------
-        felis_type : `type[FelisType]`
+        felis_type : `type` [`FelisType`]
             One of the subclasses of `FelisType`.
 
         Raises

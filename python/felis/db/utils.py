@@ -99,7 +99,7 @@ def string_to_typeengine(
 
 
 class SQLWriter:
-    """Writes SQL statements to stdout or a file."""
+    """Write SQL statements to stdout or a file."""
 
     def __init__(self, file: IO[str] | None = None) -> None:
         """Initialize the SQL writer.
@@ -152,8 +152,8 @@ class SQLWriter:
 
 
 class ConnectionWrapper:
-    """A wrapper for a SQLAlchemy engine or mock connection which provides a
-    consistent interface for executing SQL statements.
+    """Wrap a SQLAlchemy engine or mock connection to provide a consistent
+    interface for executing SQL statements.
     """
 
     def __init__(self, engine: Engine | MockConnection):
@@ -190,7 +190,7 @@ class ConnectionWrapper:
 
 
 class DatabaseContext:
-    """A class for managing the schema and its database connection."""
+    """Manage the database connection and SQLAlchemy metadata."""
 
     def __init__(self, metadata: MetaData, engine: Engine | MockConnection):
         """Initialize the database context.

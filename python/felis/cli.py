@@ -63,9 +63,9 @@ def cli(log_level: str, log_file: str | None) -> None:
 
     Parameters
     ----------
-    log_level : `str`
+    log_level
         Felis log level.
-    log_file : `str`, optional
+    log_file
         Felis log file path.
 
     Notes
@@ -106,21 +106,21 @@ def create(
 
     Parameters
     ----------
-    engine_url : `str`
+    engine_url
         SQLAlchemy Engine URL.
-    schema_name : `str`, optional
+    schema_name
         Alternate schema name to override Felis file.
-    create_if_not_exists : bool
+    create_if_not_exists
         Create the schema in the database if it does not exist.
-    drop_if_exists : bool
+    drop_if_exists
         Drop schema if it already exists in the database.
-    echo : bool
+    echo
         Echo database commands as they are executed.
-    dry_run : bool
+    dry_run
         Dry run only to print out commands instead of executing.
-    output_file : IO[str], optional
+    output_file
         Write SQL commands to a file instead of executing.
-    file : IO
+    file
         Felis file to read.
 
     Notes
@@ -191,25 +191,21 @@ def init_tap(
 
     Parameters
     ----------
-    engine_url : `str`
+    engine_url
         SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
         must already exist and be referenced in the URL.
-    tap_schema_name : `str`
+    tap_schema_name
         Alterate name for the database schema representing `TAP_SCHEMA`.
-    tap_schemas_table : `str`
+    tap_schemas_table
         Alterate name for `TAP_SCHEMA.schemas` table.
-    tap_tables_table : `str`
+    tap_tables_table
         Alterate name for `TAP_SCHEMA.tables` table.
-    tap_columns_table : `str`
+    tap_columns_table
         Alterate name for `TAP_SCHEMA.columns` table.
-    tap_keys_table : `str`
+    tap_keys_table
         Alterate table name for `TAP_SCHEMA.keys` table.
-    tap_key_columns_table : `str`
+    tap_key_columns_table
         Alterate table name for `TAP_SCHEMA.key_columns` table.
-
-    Returns
-    -------
-    `None`
 
     Notes
     -----
@@ -258,41 +254,40 @@ def load_tap(
     tap_schema_index: int,
     file: io.TextIOBase,
 ) -> None:
-    """Load TAP metadata from a Felis FILE.
+    """Load TAP metadata from a Felis file.
 
     This command loads the associated TAP metadata from a Felis YAML file
     into the TAP_SCHEMA tables.
 
     Parameters
     ----------
-    engine_url : `str`
+    engine_url
         SQLAlchemy Engine URL to catalog.
-    schema_name : `str`
-        Alternate schema name. This overrides the schema name in the `catalog`
-        field of the Felis file.
-    catalog_name : `str`
+    schema_name
+        Alternate schema name. This overrides the schema name in the
+        ``catalog`` field of the Felis file.
+    catalog_name
         Catalog name for the schema. This possibly duplicates the `schema_name`
         argument (DM-44870).
-    dry_run : `bool`
+    dry_run
         Dry run only to print out commands instead of executing.
-    tap_schema_name : `str`
+    tap_schema_name
         Alternate name for the schema of TAP_SCHEMA in the database.
-    tap_tables_postfix : `str`
+    tap_tables_postfix
         Postfix for TAP table names that will be automatically appended.
-    tap_schemas_table : `str`
-        Alternate table name for `TAP_SCHEMA.schemas`.
-    tap_tables_table : `str`
-        Alternate table name for `TAP_SCHEMA.tables`.
-    tap_columns_table : `str`
-        Alternate table name for `TAP_SCHEMA.columns`.
-    tap_keys_table : `str`
-        Alternate table name for `TAP_SCHEMA.keys`.
-    tap_key_columns_table : `str`
-        Alternate table name for `TAP_SCHEMA.key_columns`.
-    tap_schema_index : `int`
-        TAP_SCHEMA index of the schema, which is transient because the value
-        depends on a particular environment.
-    file:
+    tap_schemas_table
+        Alternate table name for TAP_SCHEMA ``schemas`` table.
+    tap_tables_table
+        Alternate table name for TAP_SCHEMA ``tables`` table.
+    tap_columns_table
+        Alternate table name for TAP_SCHEMA ``columns`` table.
+    tap_keys_table
+        Alternate table name for TAP_SCHEMA ``keys`` table.
+    tap_key_columns_table
+        Alternate table name for TAP_SCHEMA ``key_columns`` table.
+    tap_schema_index
+        TAP_SCHEMA index of the schema in this TAP environment.
+    file
         Felis file to read.
 
     Notes
@@ -370,27 +365,27 @@ def validate(
 
     Parameters
     ----------
-    check_description : `bool`
+    check_description
         Require a valid description for all objects.
-    check_redundant_datatypes : `bool`
+    check_redundant_datatypes
         Check for redundant type overrides.
-    check_tap_table_indexes : `bool`
+    check_tap_table_indexes
         Check that every table has a unique TAP table index.
-    check_tap_principal : `bool`
+    check_tap_principal
         Check that at least one column per table is flagged as TAP principal.
-    files : `Iterable[io.TextIOBase]`
+    files
         The files to validate.
 
     Raises
     ------
     click.exceptions.Exit
-        If any validation errors are found. The `ValidationError` which is
+        If any validation errors are found. The ``ValidationError`` which is
         thrown when a schema fails to validate will be logged as an error
         message.
 
     Notes
     -----
-    All of the "check" flags are turned off by default.
+    All of the ``check`` flags are turned off by default.
     """
     rc = 0
     for file in files:

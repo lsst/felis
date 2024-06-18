@@ -52,11 +52,11 @@ logger = logging.getLogger(__name__)
 
 def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     """Use the Felis type system to get a SQLAlchemy datatype with variant
-    overrides from the information in a `Column` object.
+    overrides from the information in a Felis column object.
 
     Parameters
     ----------
-    column_obj : `felis.datamodel.Column`
+    column_obj
         The column object from which to get the datatype.
 
     Raises
@@ -80,7 +80,7 @@ _VALID_SERVER_DEFAULTS = ("CURRENT_TIMESTAMP", "NOW()", "LOCALTIMESTAMP", "NULL"
 
 
 class MetaDataBuilder:
-    """A class for building a `MetaData` object from a Felis `Schema`."""
+    """Build a SQLAlchemy metadata object from a Felis schema."""
 
     def __init__(
         self, schema: Schema, apply_schema_to_metadata: bool = True, apply_schema_to_tables: bool = True
@@ -89,11 +89,11 @@ class MetaDataBuilder:
 
         Parameters
         ----------
-        schema : `felis.datamodel.Schema`
+        schema
             The schema object from which to build the SQLAlchemy metadata.
-        apply_schema_to_metadata : `bool`, optional
+        apply_schema_to_metadata
             Whether to apply the schema name to the metadata object.
-        apply_schema_to_tables : `bool`, optional
+        apply_schema_to_tables
             Whether to apply the schema name to the tables.
         """
         self.schema = schema
@@ -106,20 +106,20 @@ class MetaDataBuilder:
         self.apply_schema_to_tables = apply_schema_to_tables
 
     def build(self) -> MetaData:
-        """Build the SQLAlchemy tables and constraints from the schema."""
+        """Build the SQLAlchemy tables and constraints from the schema.
+
+        Notes
+        -----
+        This first builds the tables and then makes a second pass to build the
+        constraints. This is necessary because the constraints may reference
+        objects that are not yet created when the tables are built.
+        """
         self.build_tables()
         self.build_constraints()
         return self.metadata
 
     def build_tables(self) -> None:
-        """Build the SQLAlchemy tables from the schema.
-
-        Notes
-        -----
-        This function builds all the tables by calling `build_table` on
-        each Pydantic object. It also calls `build_primary_key` to create the
-        primary key constraints.
-        """
+        """Build the SQLAlchemy tables from the schema."""
         for table in self.schema.tables:
             self.build_table(table)
             if table.primary_key:
@@ -127,40 +127,39 @@ class MetaDataBuilder:
                 self._objects[table.id].append_constraint(primary_key)
 
     def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
-        """Build a SQLAlchemy `PrimaryKeyConstraint` from a single column ID
-        or a list.
-
-        The `primary_key_columns` is a string or a list of strings representing
-        IDs pointing to columns that will be looked up in the internal object
-        dictionary.
+        """Build a SQAlchemy ``PrimaryKeyConstraint`` from a single column ID
+        or a list of them.
 
         Parameters
         ----------
-        primary_key_columns : `str` or `list` of `str`
+        primary_key_columns
             The column ID or list of column IDs from which to build the primary
             key.
 
-        Returns
-        -------
-        primary_key: `sqlalchemy.PrimaryKeyConstraint`
-            The SQLAlchemy primary key constraint object.
+        Notes
+        -----
+        The ``primary_key_columns`` is a string or a list of strings
+        representing IDs which will be used to find the columnn objects in the
+        builder's internal ID map.
         """
         return PrimaryKeyConstraint(
             *[self._objects[column_id] for column_id in ensure_iterable(primary_key_columns)]
         )
 
     def build_table(self, table_obj: datamodel.Table) -> None:
-        """Build a `sqlalchemy.Table` from a `felis.datamodel.Table` and add
-        it to the `sqlalchemy.MetaData` object.
-
-        Several MySQL table options are handled by annotations on the table,
-        including the engine and charset. This is not needed for Postgres,
-        which does not have equivalent options.
+        """Build a SQLAlchemy ``Table`` from a Felis table and add it to the
+        metadata.
 
         Parameters
         ----------
-        table_obj : `felis.datamodel.Table`
-            The table object to build the SQLAlchemy table from.
+        table_obj
+            The Felis table object from which to build the SQLAlchemy table.
+
+        Notes
+        -----
+        Several MySQL table options, including the engine and charset, are
+        handled by adding annotations to the table. This is not needed for
+        Postgres, as Felis does not support any table options for this dialect.
         """
         # Process mysql table options.
         optargs = {}
@@ -192,17 +191,12 @@ class MetaDataBuilder:
         self._objects[id] = table
 
     def build_column(self, column_obj: datamodel.Column) -> Column:
-        """Build a SQLAlchemy column from a `felis.datamodel.Column` object.
+        """Build a SQLAlchemy ``Column`` from a Felis column object.
 
         Parameters
         ----------
-        column_obj : `felis.datamodel.Column`
+        column_obj
             The column object from which to build the SQLAlchemy column.
-
-        Returns
-        -------
-        column: `sqlalchemy.Column`
-            The SQLAlchemy column object.
         """
         # Get basic column attributes.
         name = column_obj.name
@@ -244,8 +238,8 @@ class MetaDataBuilder:
         return column
 
     def build_constraints(self) -> None:
-        """Build the SQLAlchemy constraints in the Felis schema and append them
-        to the associated `Table`.
+        """Build the SQLAlchemy constraints from the Felis schema and append
+        them to the associated table in the metadata.
 
         Notes
         -----
@@ -260,18 +254,12 @@ class MetaDataBuilder:
                 table.append_constraint(constraint)
 
     def build_constraint(self, constraint_obj: datamodel.Constraint) -> Constraint:
-        """Build a SQLAlchemy ``Constraint`` from a
-        `felis.datamodel.Constraint` object.
+        """Build a SQLAlchemy ``Constraint`` from a  Felis constraint.
 
         Parameters
         ----------
-        constraint_obj : `felis.datamodel.Constraint`
-            The object from which to build the SQLAlchemy constraint.
-
-        Returns
-        -------
-        constraint: `sqlalchemy.Constraint`
-            The SQLAlchemy constraint object.
+        constraint_obj
+            The Felis object from which to build the constraint.
 
         Raises
         ------
@@ -310,17 +298,12 @@ class MetaDataBuilder:
         return constraint
 
     def build_index(self, index_obj: datamodel.Index) -> Index:
-        """Build a SQLAlchemy `Index` from a `felis.datamodel.Index` object.
+        """Build a SQLAlchemy ``Index`` from a Felis index.
 
         Parameters
         ----------
-        index_obj : `felis.datamodel.Index`
-            The index object from which to build the SQLAlchemy index.
-
-        Returns
-        -------
-        index: `sqlalchemy.Index`
-            The SQLAlchemy index object.
+        index_obj
+            The Felis object from which to build the SQLAlchemy index.
         """
         columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
         expressions = index_obj.expressions if index_obj.expressions else []

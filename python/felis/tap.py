@@ -64,19 +64,19 @@ def init_tables(
 
     Parameters
     ----------
-    tap_schema_name : `str`, optional
+    tap_schema_name
         Name of the TAP schema.
-    tap_tables_postfix : `str`, optional
+    tap_tables_postfix
         Postfix for table names.
-    tap_schemas_table : `str`, optional
+    tap_schemas_table
         Name of the schemas table.
-    tap_tables_table : `str`, optional
+    tap_tables_table
         Name of the tables table.
-    tap_columns_table : `str`, optional
+    tap_columns_table
         Name of the columns table.
-    tap_keys_table : `str`, optional
+    tap_keys_table
         Name of the keys table.
-    tap_key_columns_table : `str`, optional
+    tap_key_columns_table
         Name of the key columns table.
 
     Returns
@@ -156,18 +156,8 @@ def init_tables(
 
 
 class TapLoadingVisitor:
-    """Felis schema visitor for generating TAP schema.
-
-    Parameters
-    ----------
-    engine : `sqlalchemy.engine.Engine` or `None`
-        SQLAlchemy engine instance.
-    catalog_name : `str` or `None`
-        Name of the database catalog.
-    schema_name : `str` or `None`
-        Name of the database schema.
-    tap_tables : `~collections.abc.Mapping`
-        Optional mapping of table name to its declarative base class.
+    """Generate TAP_SCHEMA data and insert it into a database using the
+    SQLAlchemy ORM.
     """
 
     def __init__(
@@ -178,6 +168,21 @@ class TapLoadingVisitor:
         tap_tables: MutableMapping[str, Any] | None = None,
         tap_schema_index: int | None = None,
     ):
+        """Create a TAP loading visitor.
+
+        Parameters
+        ----------
+        engine
+            SQLAlchemy engine instance.
+        catalog_name
+            Name of the database catalog.
+        schema_name
+            Name of the schema.
+        tap_tables
+            Mapping of TAP_SCHEMA table name to its SQLAlchemy table object.
+        tap_schema_index
+            The index of the schema for this TAP environment.
+        """
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
@@ -199,17 +204,21 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        mock_connection : `sqlalchemy.engine.mock.MockConnection`
+        mock_connection
             Mock connection object.
-        catalog_name : `str`, optional
+        catalog_name
             Name of the database catalog.
-        schema_name : `str`, optional
+        schema_name
             Name of the database schema.
-        tap_tables : `~collections.abc.Mapping`, optional
-            Optional mapping of table name to its `~sqlalchemy.Table`
-            object.
-        tap_schema_index : `int`, optional
+        tap_tables
+            Optional mapping of table name to its SQLAlchemy table object.
+        tap_schema_index
             The index of the schema for this TAP environment.
+
+        Returns
+        -------
+        visitor : `TapLoadingVisitor`
+            A TAP loading visitor.
         """
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection
@@ -221,7 +230,7 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        schema_obj : `felis.datamodel.Schema`
+        schema_obj
             The schema object to visit.
         """
         schema = self.tables["schemas"]()
@@ -276,13 +285,13 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        schema_obj : `felis.datamodel.Schema`
+        schema_obj
             The schema object to visit.
 
         Returns
         -------
-        all_keys : `list`
-            A list of all keys and key columns that were created.
+        all_keys : `tuple`
+            A tuple of all keys and key columns that were created.
         """
         all_keys = []
         all_key_columns = []
@@ -308,7 +317,7 @@ class TapLoadingVisitor:
         Returns
         -------
         table : `tuple`
-            A tuple of the SQLAlchemy table and column objects.
+            A tuple of the SQLAlchemy ORM objects for the tables and columns.
         """
         table_id = table_obj.id
         table = self.tables["tables"]()
@@ -333,16 +342,15 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        column_obj : `felis.datamodel.Column`
+        column_obj
             The column object to check.
 
         Notes
         -----
         This method checks that a column with a sized datatype has either a
-        `votable:arraysize` or a `length` attribute and issues a warning
-        message if not. It also checks that a column with a timestamp datatype
-        has a `votable:arraysize` attribute and issues a warning message if
-        not.
+        ``votable:arraysize`` or a ``length`` attribute and issues a warning
+        message if not. It also checks if a column with a timestamp datatype
+        has a ``arraysize`` attribute and issues a warning if not.
         """
         _id = column_obj.id
         datatype_name = column_obj.datatype
@@ -374,15 +382,10 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        column_obj : `felis.datamodel.Column`
+        column_obj
             The column object to visit.
-        table_obj : `felis.datamodel.Table`
+        table_obj
             The table object which the column belongs to.
-
-        Returns
-        -------
-        column : `Tap11Columns`
-            The SQLAlchemy column object from the metadata.
         """
         self.check_column(column_obj)
         column_id = column_obj.id
@@ -426,9 +429,9 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        primary_key_obj : `str`, `Iterable[str]`, or `None`
+        primary_key_obj
             The primary key object to visit.
-        table_obj : `felis.datamodel.Table`
+        table_obj
             The table object which the primary key belongs to.
         """
         if primary_key_obj:
@@ -444,13 +447,8 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        constraint_obj : `felis.datamodel.Constraint`
+        constraint_obj
             The constraint object to visit.
-
-        Returns
-        -------
-        key : `Tap11Keys`
-            A tuple of the key and key columns table data for TAP_SCHEMA.
         """
         constraint_type = constraint_obj.type
         key = None
@@ -500,9 +498,9 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        index_obj : `felis.datamodel.Index`
+        index_obj
             The index object to visit.
-        table_obj : `felis.datamodel.Table`
+        table_obj
             The table object which the index belongs to.
         """
         columns = [self.graph_index[col_id] for col_id in getattr(index_obj, "columns", [])]
@@ -518,13 +516,8 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        schema_name : `str`, optional
+        schema_name
             Name of the schema.
-
-        Returns
-        -------
-        schema_name : `str`
-            The schema name.
         """
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
@@ -537,13 +530,8 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        table_name : `str`
+        table_name
             Name of the table.
-
-        Returns
-        -------
-        table_name : `str`
-            The table name.
         """
         schema_name = self._schema_name()
         if schema_name:
@@ -556,15 +544,10 @@ def _insert(table: Tap11Base, value: Any) -> Insert:
 
     Parameters
     ----------
-    table : `Tap11Base`
+    table
         The table we are inserting into.
-    value : `Any`
+    value
         An object representing the object we are inserting to the table.
-
-    Returns
-    -------
-    statement
-        A SQLAlchemy insert statement
     """
     values_dict = {}
     for i in table.__table__.columns:

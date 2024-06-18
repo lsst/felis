@@ -98,13 +98,14 @@ class BaseObject(BaseModel):
 
         Parameters
         ----------
-        info : `ValidationInfo`
+        info
             The validation information. This is used to determine if the
             description is required.
 
         Returns
         -------
         self : `BaseObject`
+            The object with the description.
         """
         context = info.context
         if not context or not context.get("check_description", False):
@@ -194,6 +195,7 @@ class Column(BaseObject):
         Returns
         -------
         self : `Column`
+            The column with the default value.
         """
         if (value := self.value) is not None:
             if value is not None and self.autoincrement is True:
@@ -220,12 +222,13 @@ class Column(BaseObject):
 
         Parameters
         ----------
-        ivoa_ucd : `str`
+        ivoa_ucd
             The IVOA UCD value to check.
 
         Returns
         -------
         ivoa_ucd : `str`
+            The IVOA UCD value if it is valid.
         """
         if ivoa_ucd is not None:
             try:
@@ -241,6 +244,7 @@ class Column(BaseObject):
         Returns
         -------
         self : `Column`
+            The column with the valid units.
 
         Notes
         -----
@@ -269,12 +273,13 @@ class Column(BaseObject):
 
         Parameters
         ----------
-        values : `dict[str, Any]`
+        values
             The values of the column.
 
         Returns
         -------
-        values : `dict[str, Any]`
+        values : `dict` [`str`, `Any`]
+            The values of the column.
         """
         datatype = values.get("datatype")
         if datatype is None:
@@ -300,13 +305,14 @@ class Column(BaseObject):
 
         Parameters
         ----------
-        info : `ValidationInfo`
+        info
             The validation information. This is used to determine if the
             check is enabled.
 
         Returns
         -------
         self : `Column`
+            The column with the redundant datatypes checked.
         """
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
@@ -400,12 +406,13 @@ class Index(BaseObject):
 
         Parameters
         ----------
-        values : `dict[str, Any]`
+        values
             The values of the index.
 
         Returns
         -------
-        values : `dict[str, Any]`
+        values : `dict` [`str`, `Any`]
+            The values of the index.
         """
         if "columns" in values and "expressions" in values:
             raise ValueError("Defining columns and expressions is not valid")
@@ -466,12 +473,14 @@ class Table(BaseObject):
 
         Parameters
         ----------
-        values : `dict[str, Any]`
+        values
             The values of the table.
 
         Returns
         -------
-        The `Constraint` objects which were created.
+        constraints: `dict` [`str`, `Any`]
+            A `dict` with the list of `~felis.datamodel.Constraint` objects
+            that were created.
         """
         if "constraints" in values:
             new_constraints: list[Constraint] = []
@@ -494,12 +503,13 @@ class Table(BaseObject):
 
         Parameters
         ----------
-        columns : `list[Column]`
+        columns
             The columns to check.
 
         Returns
         -------
-        columns : `list[Column]`
+        columns : `list` [`Column`]
+            The columns with unique names.
         """
         if len(columns) != len(set(column.name for column in columns)):
             raise ValueError("Column names must be unique")
@@ -511,13 +521,14 @@ class Table(BaseObject):
 
         Parameters
         ----------
-        info : `ValidationInfo`
+        info
             The validation information. This is used to determine if the
             check is enabled.
 
         Returns
         -------
         self : `Table`
+            The table with the TAP table index.
         """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
@@ -533,13 +544,14 @@ class Table(BaseObject):
 
         Parameters
         ----------
-        info : `ValidationInfo`
+        info
             The validation information. This is used to determine if the
             check is enabled.
 
         Returns
         -------
         self : `Table`
+            The table with the TAP principal column.
         """
         context = info.context
         if not context or not context.get("check_tap_principal", False):
@@ -564,13 +576,16 @@ class SchemaVersion(BaseModel):
 
 
 class SchemaIdVisitor:
-    """Visitor to build a Schema object's map of IDs to objects.
+    """Visit a schema and build the map of IDs to objects.
 
+    Notes
+    -----
     Duplicates are added to a set when they are encountered, which can be
-    accessed via the `duplicates` attribute. The presence of duplicates will
+    accessed via the ``duplicates`` attribute. The presence of duplicates will
     not throw an error. Only the first object with a given ID will be added to
-    the map, but this should not matter, since a ValidationError will be thrown
-    by the `model_validator` method if any duplicates are found in the schema.
+    the map, but this should not matter, since a ``ValidationError`` will be
+    thrown by the ``model_validator`` method if any duplicates are found in the
+    schema.
 
     This class is intended for internal use only.
     """
@@ -585,7 +600,7 @@ class SchemaIdVisitor:
 
         Parameters
         ----------
-        obj : `BaseObject`
+        obj
             The object to add to the ID map.
         """
         if hasattr(obj, "id"):
@@ -597,11 +612,11 @@ class SchemaIdVisitor:
                     self.schema.id_map[obj_id] = obj
 
     def visit_schema(self, schema: Schema) -> None:
-        """Visit the objects in a `Schema` and build the ID map.
+        """Visit the objects in a schema and build the ID map.
 
         Parameters
         ----------
-        schema : `Schema`
+        schema
             The schema object to visit.
 
         Notes
@@ -619,7 +634,7 @@ class SchemaIdVisitor:
 
         Parameters
         ----------
-        table : `Table`
+        table
             The table object to visit.
         """
         self.add(table)
@@ -633,7 +648,7 @@ class SchemaIdVisitor:
 
         Parameters
         ----------
-        column : `Column`
+        column
             The column object to visit.
         """
         self.add(column)
@@ -643,7 +658,7 @@ class SchemaIdVisitor:
 
         Parameters
         ----------
-        constraint : `Constraint`
+        constraint
             The constraint object to visit.
         """
         self.add(constraint)
@@ -668,12 +683,13 @@ class Schema(BaseObject):
 
         Parameters
         ----------
-        tables : `list[Table]`
+        tables
             The tables to check.
 
         Returns
         -------
-        tables : `list[Table]`
+        tables : `list` [`Table`]
+            The tables with unique names.
         """
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
@@ -685,13 +701,14 @@ class Schema(BaseObject):
 
         Parameters
         ----------
-        info : `ValidationInfo`
+        info
             The validation information. This is used to determine if the
             check is enabled.
 
         Returns
         -------
         self : `Schema`
+            The schema with the unique TAP table indexes.
         """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
@@ -710,6 +727,11 @@ class Schema(BaseObject):
 
         This is called automatically by the `model_post_init` method. If the
         ID map is already populated, this method will return immediately.
+
+        Returns
+        -------
+        self : `Schema`
+            The schema with the ID map created.
         """
         if len(self.id_map):
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")
@@ -728,7 +750,15 @@ class Schema(BaseObject):
         Parameters
         ----------
         ctx : `Any`
-            The context object passed to the model.
+            The context object which was passed to the model.
+
+        Notes
+        -----
+        This method is called automatically by Pydantic after the model is
+        initialized. It is used to create the ID map for the schema.
+
+        The ``ctx`` argument has the type `Any` because this is the function
+        signature in Pydantic itself.
         """
         self._create_id_map()
 
@@ -737,7 +767,7 @@ class Schema(BaseObject):
 
         Parameters
         ----------
-        id : `str`
+        id
             The ID of the object to get.
 
         Returns
@@ -754,7 +784,7 @@ class Schema(BaseObject):
 
         Parameters
         ----------
-        id : `str`
+        id
             The ID of the object to check.
 
         Returns
