@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from collections.abc import Mapping
 from types import MappingProxyType, ModuleType
 
 from sqlalchemy import dialects
@@ -58,7 +59,7 @@ _DIALECTS = MappingProxyType({name: _dialect(name) for name in _DIALECT_NAMES})
 """Dictionary of dialect names to SQLAlchemy dialects."""
 
 
-def get_supported_dialects() -> dict[str, Dialect]:
+def get_supported_dialects() -> Mapping[str, Dialect]:
     """Get a dictionary of the supported SQLAlchemy dialects.
 
     Returns

@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
+from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Any
 
@@ -55,7 +56,7 @@ This should not be used directly. Use the functions in this module instead.
 """
 
 
-def _get_column_variant_overrides() -> dict[str, str]:
+def _get_column_variant_overrides() -> Mapping[str, str]:
     """Return a dictionary of column variant overrides.
 
     Returns
