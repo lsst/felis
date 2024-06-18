@@ -43,10 +43,10 @@ TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 
 
 class ColumnTestCase(unittest.TestCase):
-    """Test the `Column` class."""
+    """Test the ``Column`` class."""
 
     def test_validation(self) -> None:
-        """Test validation of the `Column` class."""
+        """Test Pydantic validation of the ``Column`` class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Column()
@@ -111,7 +111,7 @@ class ColumnTestCase(unittest.TestCase):
             Column(**units_data)
 
     def test_description(self) -> None:
-        """Test the validation of the description attribute."""
+        """Test Pydantic validation of the ``description`` attribute."""
         # Creating a column with a description of 'None' should throw.
         with self.assertRaises(ValueError):
             Column(
@@ -146,7 +146,7 @@ class ColumnTestCase(unittest.TestCase):
             )
 
     def test_values(self) -> None:
-        """Test the `value` field of the `Column` class."""
+        """Test Pydantic validation of the ``value`` attribute."""
 
         # Define a function to return the default column data
         def default_coldata():
@@ -224,9 +224,10 @@ class ColumnTestCase(unittest.TestCase):
 
 
 class TableTestCase(unittest.TestCase):
-    """Test the `Table` class."""
+    """Test Pydantic validation of the ``Table`` class."""
 
     def test_validation(self) -> None:
+        """Test Pydantic validation of the ``Table`` class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Table()
@@ -255,12 +256,10 @@ class TableTestCase(unittest.TestCase):
 
 
 class ConstraintTestCase(unittest.TestCase):
-    """Test the `UniqueConstraint`, `Index`, `CheckConstraint`, and
-    `ForeignKeyConstraint` classes.
-    """
+    """Test Pydantic validation of the different constraint classes."""
 
     def test_unique_constraint_validation(self) -> None:
-        """Test validation of the `UniqueConstraint` class."""
+        """Test validation of unique constraints."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             UniqueConstraint()
@@ -288,7 +287,7 @@ class ConstraintTestCase(unittest.TestCase):
         self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
 
     def test_index_validation(self) -> None:
-        """Test validation of the `Index` class."""
+        """Test validation of indexes."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Index()
@@ -321,7 +320,7 @@ class ConstraintTestCase(unittest.TestCase):
             Index(name="testConstraint", id="#test_id", columns=["testColumn"], expressions=["1+2"])
 
     def test_foreign_key_validation(self) -> None:
-        """Test validation of the `ForeignKeyConstraint` class."""
+        """Test validation of foreign key constraints."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             ForeignKeyConstraint()
@@ -362,7 +361,7 @@ class ConstraintTestCase(unittest.TestCase):
         )
 
     def test_check_constraint_validation(self) -> None:
-        """Check validation of the `CheckConstraint` class."""
+        """Test validation of check constraints."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             CheckConstraint()
@@ -396,9 +395,10 @@ class ConstraintTestCase(unittest.TestCase):
 
 
 class SchemaTestCase(unittest.TestCase):
-    """Test the `Schema` class."""
+    """Test Pydantic validation of the ``Schema`` class."""
 
     def test_validation(self) -> None:
+        """Test Pydantic validation of the main schema class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Schema()
@@ -448,7 +448,7 @@ class SchemaTestCase(unittest.TestCase):
             )
 
     def test_schema_object_ids(self) -> None:
-        """Test that the id_map is properly populated."""
+        """Test that the ``id_map`` is properly populated."""
         test_col = Column(name="testColumn", id="#test_col_id", datatype="string", length=256)
         test_tbl = Table(name="testTable", id="#test_table_id", columns=[test_col])
         sch = Schema(name="testSchema", id="#test_schema_id", tables=[test_tbl])
@@ -467,16 +467,17 @@ class SchemaTestCase(unittest.TestCase):
             sch["#bad_id"]
 
     def test_model_validate(self) -> None:
-        """Load test file and validate it using the data model."""
+        """Load a YAML test file and validate the schema data model."""
         with open(TEST_YAML) as test_yaml:
             data = yaml.safe_load(test_yaml)
             Schema.model_validate(data)
 
 
 class SchemaVersionTest(unittest.TestCase):
-    """Test the `SchemaVersion` class."""
+    """Test the schema version."""
 
     def test_validation(self) -> None:
+        """Test validation of the schema version class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             SchemaVersion()
@@ -514,10 +515,10 @@ class SchemaVersionTest(unittest.TestCase):
 
 
 class ValidationFlagsTest(unittest.TestCase):
-    """Test the validation flags for the `Schema` class."""
+    """Test optional validation flags on the schema."""
 
     def test_check_tap_table_indexes(self) -> None:
-        """Test the `check_tap_table_indexes` validation flag."""
+        """Test the ``check_tap_table_indexes`` validation flag."""
         cxt = {"check_tap_table_indexes": True}
         schema_dict = {
             "name": "testSchema",
@@ -556,7 +557,7 @@ class ValidationFlagsTest(unittest.TestCase):
         Schema.model_validate(schema_dict, context=cxt)
 
     def test_check_tap_principal(self) -> None:
-        """Test the validation flags for the `Schema` class."""
+        """Test the ``check_tap_principal` validation flag."""
         cxt = {"check_tap_principal": True}
         schema_dict = {
             "name": "testSchema",
@@ -579,7 +580,7 @@ class ValidationFlagsTest(unittest.TestCase):
         Schema.model_validate(schema_dict, context=cxt)
 
     def test_check_description(self) -> None:
-        """Test the `check_description` flag for the `Column` class."""
+        """Test the ``check_description`` flag."""
         cxt = {"check_description": True}
         schema_dict = {
             "name": "testSchema",

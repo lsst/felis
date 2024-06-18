@@ -44,7 +44,7 @@ TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")
 
 
 class MetaDataTestCase(unittest.TestCase):
-    """Test creation of SQLAlchemy `MetaData` from a `Schema`."""
+    """Test creation of SQLAlchemy metadata from a Felis schema."""
 
     def setUp(self) -> None:
         """Create an in-memory SQLite database and load the test data."""
@@ -58,10 +58,9 @@ class MetaDataTestCase(unittest.TestCase):
 
     def test_create_all(self):
         """Create all tables in the schema using the metadata object and a
-        sqlite connection.
+        SQLite connection.
 
-        Check that the reflected `MetaData` from the database matches that
-        which was created by the `MetaDataBuilder`.
+        Check that the reflected metadata matches that created by the builder.
         """
 
         def _sorted_indexes(indexes: set[Index]) -> list[Index]:
@@ -141,8 +140,8 @@ class MetaDataTestCase(unittest.TestCase):
                         self.assertEqual(md_index.columns.keys(), md_db_index.columns.keys())
 
     def test_builder(self):
-        """Test that the `MetaData` object created by the `MetaDataBuilder`
-        matches the Felis `Schema` used to build it.
+        """Test that the information in the metadata object created by the
+        builder matches the data in the Felis schema used to create it.
         """
         sch = Schema.model_validate(self.yaml_data)
         bld = MetaDataBuilder(sch, apply_schema_to_tables=False, apply_schema_to_metadata=False)

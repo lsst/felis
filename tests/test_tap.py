@@ -37,22 +37,23 @@ TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 
 
 class VisitorTestCase(unittest.TestCase):
-    """Tests for TapLoadingVisitor class."""
+    """Test the TAP loading visitor."""
 
     schema_obj: MutableMapping[str, Any] = {}
 
     def setUp(self) -> None:
-        """Load data from test file."""
+        """Load data from a test file."""
         with open(TEST_YAML) as test_yaml:
             yaml_data = yaml.load(test_yaml, Loader=yaml.SafeLoader)
             self.schema_obj = Schema.model_validate(yaml_data)
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
 
     def tearDown(self) -> None:
+        """Clean up temporary directory."""
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_tap(self) -> None:
-        """Test for creating tap schema."""
+        """Test creation of the TAP_SCHEMA metadata using the visitor class."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
         engine = sqlalchemy.create_engine(url)
         tap_tables = init_tables()
