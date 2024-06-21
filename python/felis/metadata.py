@@ -308,6 +308,11 @@ class MetaDataBuilder:
         ----------
         index_obj
             The Felis object from which to build the SQLAlchemy index.
+
+        Returns
+        -------
+        index : `~sqlalchemy.sql.schema.Index`
+            The SQLAlchemy index object.
         """
         columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
         expressions = index_obj.expressions if index_obj.expressions else []

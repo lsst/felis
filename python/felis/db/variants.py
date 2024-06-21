@@ -38,12 +38,7 @@ __all__ = ["make_variant_dict"]
 
 
 def _create_column_variant_overrides() -> dict[str, str]:
-    """Create a dictionary of column variant overrides to their dialect name.
-
-    Returns
-    -------
-    column_variant_overrides : `dict`
-        The dictionary of column variant overrides.
+    """Map column variant overrides to their dialect name.
 
     Notes
     -----
@@ -56,31 +51,33 @@ def _create_column_variant_overrides() -> dict[str, str]:
 
 
 _COLUMN_VARIANT_OVERRIDES = MappingProxyType(_create_column_variant_overrides())
-"""Dictionary of column variant overrides to their dialect name.
-
-This should not be used directly. Use the functions in this module instead.
-"""
+"""Map of column variant overrides to their dialect name."""
 
 
 def _get_column_variant_overrides() -> Mapping[str, str]:
-    """Return a dictionary of column variant overrides.
+    """Get a dictionary of column variant overrides.
 
     Returns
     -------
-    column_variant_overrides : `dict`
-        The dictionary of column variant overrides.
+    column_variant_overrides : `dict` [ `str`, `str` ]
+        A mapping of column variant overrides to their dialect name.
     """
     return _COLUMN_VARIANT_OVERRIDES
 
 
 def _get_column_variant_override(field_name: str) -> str:
-    """Return the dialect name from an override field name on the column like
+    """Get the dialect name from an override field name on the column like
     ``mysql_datatype``.
 
     Returns
     -------
     dialect_name : `str`
-        The dialect name from the override field name.
+        The name of the dialect.
+
+    Raises
+    ------
+    ValueError
+        If the field name is not found in the column variant overrides.
     """
     if field_name not in _COLUMN_VARIANT_OVERRIDES:
         raise ValueError(f"Field name {field_name} not found in column variant overrides")
@@ -92,19 +89,29 @@ _length_regex = re.compile(r"\((\d+)\)")
 
 
 def _process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
-    """Return variant type for given dialect.
+    """Get the variant type for the given dialect.
 
     Parameters
     ----------
-    dialect_name : `str`
+    dialect_name
         The name of the dialect to create.
-    variant_override_str : `str`
+    variant_override_str
         The string representation of the variant override.
 
     Returns
     -------
-    variant_type : `types.TypeEngine`
+    variant_type : `~sqlalchemy.types.TypeEngine`
         The variant type for the given dialect.
+
+    Raises
+    ------
+    ValueError
+        If the type is not found in the dialect.
+
+    Notes
+    -----
+    This function converts a string representation of a variant override
+    into a `sqlalchemy.types.TypeEngine` object.
     """
     dialect = get_dialect_module(dialect_name)
     variant_type_name = variant_override_str.split("(")[0]
@@ -128,12 +135,12 @@ def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
 
     Parameters
     ----------
-    column_obj : `felis.datamodel.Column`
+    column_obj
         The column object from which to build the variant dictionary.
 
     Returns
     -------
-    variant_dict : `dict`
+    variant_dict : `dict` [ `str`, `~sqlalchemy.types.TypeEngine` ]
         The dictionary of `str` to `sqlalchemy.types.TypeEngine` containing
         variant datatype information (e.g., for mysql, postgresql, etc).
     """

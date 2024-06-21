@@ -84,7 +84,7 @@ def init_tables(
 
     Returns
     -------
-    tables : `dict`
+    `dict` [ `str`, `Any`]
         A dictionary of table definitions.
     """
     postfix = tap_tables_postfix or ""
@@ -170,7 +170,7 @@ class TapLoadingVisitor:
         schema_name: str | None = None,
         tap_tables: MutableMapping[str, Any] | None = None,
         tap_schema_index: int | None = None,
-    ):
+    ) -> None:
         """Create a TAP loading visitor.
 
         Parameters
@@ -221,7 +221,7 @@ class TapLoadingVisitor:
         Returns
         -------
         visitor : `TapLoadingVisitor`
-            A TAP loading visitor.
+            The TAP loading visitor.
         """
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection
@@ -294,7 +294,7 @@ class TapLoadingVisitor:
         Returns
         -------
         all_keys : `tuple`
-            A tuple of all keys and key columns that were created.
+            A tuple of all TAP_SCHEMA keys and key columns that were created.
         """
         all_keys = []
         all_key_columns = []
@@ -312,9 +312,9 @@ class TapLoadingVisitor:
 
         Parameters
         ----------
-        table_obj : `felis.datamodel.Table`
+        table_obj
             The table object to visit.
-        schema_obj : `felis.datamodel.Schema`
+        schema_obj
             The schema object which the table belongs to.
 
         Returns
@@ -389,6 +389,11 @@ class TapLoadingVisitor:
             The column object to visit.
         table_obj
             The table object which the column belongs to.
+
+        Returns
+        -------
+        column : ``Tap11Base``
+            The SQLAlchemy ORM object for the column.
         """
         self.check_column(column_obj)
         column_id = column_obj.id
@@ -521,6 +526,11 @@ class TapLoadingVisitor:
         ----------
         schema_name
             Name of the schema.
+
+        Returns
+        -------
+        schema_name
+            The schema name.
         """
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
@@ -551,6 +561,11 @@ def _insert(table: Tap11Base, value: Any) -> Insert:
         The table we are inserting into.
     value
         An object representing the object we are inserting to the table.
+
+    Returns
+    -------
+    `Insert`
+        SQLAlchemy insert statement.
     """
     values_dict = {}
     for i in table.__table__.columns:

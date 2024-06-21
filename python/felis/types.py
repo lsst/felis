@@ -119,8 +119,8 @@ class FelisType:
 
         Returns
         -------
-        felis_type : `type` [`FelisType`]
-            One of the subclasses of `FelisType`.
+        felis_type : `type` [ `FelisType` ]
+            A specific Felis type class.
 
         Raises
         ------
