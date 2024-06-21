@@ -933,4 +933,5 @@ Examples
    :maxdepth: 2
    :hidden:
 
+   Command Line Interface <user-guide/cli>
    Python API Documentation <dev/internals>
