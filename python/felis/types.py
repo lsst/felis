@@ -1,3 +1,5 @@
+"""Define the supported Felis datatypes."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

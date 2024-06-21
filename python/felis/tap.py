@@ -1,3 +1,5 @@
+"""Translate a Felis schema into a TAP_SCHEMA representation."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

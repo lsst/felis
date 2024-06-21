@@ -1,3 +1,5 @@
+"""Get SQLAlchemy dialects and their type modules."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

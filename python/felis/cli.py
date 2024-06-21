@@ -1,3 +1,5 @@
+"""Click command line interface."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

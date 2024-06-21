@@ -1,3 +1,5 @@
+"""Database utility functions and classes."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

@@ -1,3 +1,5 @@
+"""Define Pydantic data models for Felis."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

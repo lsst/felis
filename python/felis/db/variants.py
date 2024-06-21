@@ -1,3 +1,5 @@
+"""Handle variant overrides for a Felis column."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.

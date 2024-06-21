@@ -1,3 +1,5 @@
+"""Build SQLAlchemy metadata from a Felis schema."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.
