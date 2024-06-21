@@ -42,6 +42,7 @@ test = [
 dev = [
     "documenteer[guide] < 2",
     "autodoc_pydantic",
+    "sphinx-click",
 ]
 
 [tool.pytest.ini_options]
