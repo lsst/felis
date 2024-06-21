@@ -217,11 +217,6 @@ class TapLoadingVisitor:
             Optional mapping of table name to its SQLAlchemy table object.
         tap_schema_index
             The index of the schema for this TAP environment.
-
-        Returns
-        -------
-        visitor : `TapLoadingVisitor`
-            A TAP loading visitor.
         """
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection

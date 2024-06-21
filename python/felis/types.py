@@ -117,11 +117,6 @@ class FelisType:
         felis_name
             name of the felis type as defined in felis schema.
 
-        Returns
-        -------
-        felis_type : `type` [`FelisType`]
-            One of the subclasses of `FelisType`.
-
         Raises
         ------
         TypeError

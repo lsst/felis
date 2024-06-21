@@ -38,12 +38,7 @@ __all__ = ["make_variant_dict"]
 
 
 def _create_column_variant_overrides() -> dict[str, str]:
-    """Create a dictionary of column variant overrides to their dialect name.
-
-    Returns
-    -------
-    column_variant_overrides : `dict`
-        The dictionary of column variant overrides.
+    """Map column variant overrides to their dialect name.
 
     Notes
     -----
@@ -56,31 +51,22 @@ def _create_column_variant_overrides() -> dict[str, str]:
 
 
 _COLUMN_VARIANT_OVERRIDES = MappingProxyType(_create_column_variant_overrides())
-"""Dictionary of column variant overrides to their dialect name.
-
-This should not be used directly. Use the functions in this module instead.
-"""
+"""Map of column variant overrides to their dialect name."""
 
 
 def _get_column_variant_overrides() -> Mapping[str, str]:
-    """Return a dictionary of column variant overrides.
-
-    Returns
-    -------
-    column_variant_overrides : `dict`
-        The dictionary of column variant overrides.
-    """
+    """Get a dictionary of column variant overrides."""
     return _COLUMN_VARIANT_OVERRIDES
 
 
 def _get_column_variant_override(field_name: str) -> str:
-    """Return the dialect name from an override field name on the column like
+    """Get the dialect name from an override field name on the column like
     ``mysql_datatype``.
 
-    Returns
-    -------
-    dialect_name : `str`
-        The dialect name from the override field name.
+    Raises
+    ------
+    ValueError
+        If the field name is not found in the column variant overrides.
     """
     if field_name not in _COLUMN_VARIANT_OVERRIDES:
         raise ValueError(f"Field name {field_name} not found in column variant overrides")
@@ -92,7 +78,7 @@ _length_regex = re.compile(r"\((\d+)\)")
 
 
 def _process_variant_override(dialect_name: str, variant_override_str: str) -> types.TypeEngine:
-    """Return variant type for given dialect.
+    """Get the variant type for given dialect.
 
     Parameters
     ----------
@@ -101,10 +87,10 @@ def _process_variant_override(dialect_name: str, variant_override_str: str) -> t
     variant_override_str : `str`
         The string representation of the variant override.
 
-    Returns
-    -------
-    variant_type : `types.TypeEngine`
-        The variant type for the given dialect.
+    Raises
+    ------
+    ValueError
+        If the type is not found in the dialect.
     """
     dialect = get_dialect_module(dialect_name)
     variant_type_name = variant_override_str.split("(")[0]
