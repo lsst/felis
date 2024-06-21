@@ -178,17 +178,17 @@ def init_tap(
         SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
         must already exist and be referenced in the URL.
     tap_schema_name
-        Alterate name for the database schema representing `TAP_SCHEMA`.
+        Alterate name for the database schema representing ``TAP_SCHEMA``.
     tap_schemas_table
-        Alterate name for `TAP_SCHEMA.schemas` table.
+        Alterate name for ``TAP_SCHEMA.schemas`` table.
     tap_tables_table
-        Alterate name for `TAP_SCHEMA.tables` table.
+        Alterate name for ``TAP_SCHEMA.tables`` table.
     tap_columns_table
-        Alterate name for `TAP_SCHEMA.columns` table.
+        Alterate name for ``TAP_SCHEMA.columns`` table.
     tap_keys_table
-        Alterate table name for `TAP_SCHEMA.keys` table.
+        Alterate table name for ``TAP_SCHEMA.keys`` table.
     tap_key_columns_table
-        Alterate table name for `TAP_SCHEMA.key_columns` table.
+        Alterate table name for ``TAP_SCHEMA.key_columns`` table.
 
     Notes
     -----
@@ -250,8 +250,8 @@ def load_tap(
         Alternate schema name. This overrides the schema name in the
         ``catalog`` field of the Felis file.
     catalog_name
-        Catalog name for the schema. This possibly duplicates the `schema_name`
-        argument (DM-44870).
+        Catalog name for the schema. This possibly duplicates the
+        ``tap_schema_name`` argument (DM-44870).
     dry_run
         Dry run only to print out commands instead of executing.
     tap_schema_name
