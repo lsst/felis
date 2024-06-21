@@ -63,7 +63,7 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     help="Felis log file path",
 )
 def cli(log_level: str, log_file: str | None) -> None:
-    """Felis Command Line Tools.
+    """Felis command line tools.
 
     Parameters
     ----------
@@ -130,7 +130,7 @@ def create(
     Notes
     -----
     This command creates database objects from the Felis file. The
-    ``create_if_not_exists`` and ``drop_if_exists`` options can be used to
+    ``--create-if-not-exists`` or ``--drop-if-exists`` flags can be used to
     create a new MySQL database or PostgreSQL schema if it does not exist
     already.
     """
@@ -175,12 +175,12 @@ def create(
 
 
 @cli.command("init-tap")
-@click.option("--tap-schema-name", help="Alt Schema Name for TAP_SCHEMA")
-@click.option("--tap-schemas-table", help="Alt Table Name for TAP_SCHEMA.schemas")
-@click.option("--tap-tables-table", help="Alt Table Name for TAP_SCHEMA.tables")
-@click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
-@click.option("--tap-keys-table", help="Alt Table Name for TAP_SCHEMA.keys")
-@click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
+@click.option("--tap-schema-name", help="Alternate database schema name for 'TAP_SCHEMA'")
+@click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
+@click.option("--tap-tables-table", help="Alternate table name for 'tables'")
+@click.option("--tap-columns-table", help="Alternate table name for 'columns'")
+@click.option("--tap-keys-table", help="Alternate table name for 'keys'")
+@click.option("--tap-key-columns-table", help="Alternate table name for 'key_columns'")
 @click.argument("engine-url")
 def init_tap(
     engine_url: str,
@@ -199,17 +199,17 @@ def init_tap(
         SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
         must already exist and be referenced in the URL.
     tap_schema_name
-        Alterate name for the database schema representing `TAP_SCHEMA`.
+        Alterate name for the database schema representing ``TAP_SCHEMA``.
     tap_schemas_table
-        Alterate name for `TAP_SCHEMA.schemas` table.
+        Alterate table name for ``schemas``.
     tap_tables_table
-        Alterate name for `TAP_SCHEMA.tables` table.
+        Alterate table name for ``tables``.
     tap_columns_table
-        Alterate name for `TAP_SCHEMA.columns` table.
+        Alterate table name for ``columns``.
     tap_keys_table
-        Alterate table name for `TAP_SCHEMA.keys` table.
+        Alterate table name for ``keys``.
     tap_key_columns_table
-        Alterate table name for `TAP_SCHEMA.key_columns` table.
+        Alterate table name for ``key_columns``.
 
     Notes
     -----
@@ -234,14 +234,14 @@ def init_tap(
 @click.option("--schema-name", help="Alternate Schema Name for Felis file")
 @click.option("--catalog-name", help="Catalog Name for Schema")
 @click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
-@click.option("--tap-schema-name", help="Alt Schema Name for TAP_SCHEMA")
-@click.option("--tap-tables-postfix", help="Postfix for TAP table names")
-@click.option("--tap-schemas-table", help="Alt Table Name for TAP_SCHEMA.schemas")
-@click.option("--tap-tables-table", help="Alt Table Name for TAP_SCHEMA.tables")
-@click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
-@click.option("--tap-keys-table", help="Alt Table Name for TAP_SCHEMA.keys")
-@click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
-@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema")
+@click.option("--tap-schema-name", help="Alternate schema name for 'TAP_SCHEMA'")
+@click.option("--tap-tables-postfix", help="Postfix for TAP_SCHEMA table names")
+@click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
+@click.option("--tap-tables-table", help="Alternate table name for 'tables'")
+@click.option("--tap-columns-table", help="Alternate table name for 'columns'")
+@click.option("--tap-keys-table", help="Alternate table name for 'keys'")
+@click.option("--tap-key-columns-table", help="Alternate table name for 'key_columns'")
+@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema in this environment")
 @click.argument("file", type=click.File())
 def load_tap(
     engine_url: str,
@@ -271,8 +271,8 @@ def load_tap(
         Alternate schema name. This overrides the schema name in the
         ``catalog`` field of the Felis file.
     catalog_name
-        Catalog name for the schema. This possibly duplicates the `schema_name`
-        argument (DM-44870).
+        Catalog name for the schema. This possibly duplicates the
+        ``tap_schema_name`` argument (DM-44870).
     dry_run
         Dry run only to print out commands instead of executing.
     tap_schema_name
@@ -280,15 +280,15 @@ def load_tap(
     tap_tables_postfix
         Postfix for TAP table names that will be automatically appended.
     tap_schemas_table
-        Alternate table name for TAP_SCHEMA ``schemas`` table.
+        Alternate table name for ``schemas``.
     tap_tables_table
-        Alternate table name for TAP_SCHEMA ``tables`` table.
+        Alternate table name for ``tables``.
     tap_columns_table
-        Alternate table name for TAP_SCHEMA ``columns`` table.
+        Alternate table name for ``columns``.
     tap_keys_table
-        Alternate table name for TAP_SCHEMA ``keys`` table.
+        Alternate table name for ``keys``.
     tap_key_columns_table
-        Alternate table name for TAP_SCHEMA ``key_columns`` table.
+        Alternate table name for ``key_columns``.
     tap_schema_index
         TAP_SCHEMA index of the schema in this TAP environment.
     file
@@ -341,9 +341,11 @@ def load_tap(
 
 
 @cli.command("validate")
-@click.option("--check-description", is_flag=True, help="Require description for all objects", default=False)
 @click.option(
-    "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
+    "--check-description", is_flag=True, help="Check that all objects have a description", default=False
+)
+@click.option(
+    "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatype overrides", default=False
 )
 @click.option(
     "--check-tap-table-indexes",
@@ -370,7 +372,7 @@ def validate(
     Parameters
     ----------
     check_description
-        Require a valid description for all objects.
+        Check that all objects have a valid description.
     check_redundant_datatypes
         Check for redundant type overrides.
     check_tap_table_indexes
@@ -378,7 +380,7 @@ def validate(
     check_tap_principal
         Check that at least one column per table is flagged as TAP principal.
     files
-        The files to validate.
+        The YAML files to validate.
 
     Raises
     ------
