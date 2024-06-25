@@ -158,7 +158,7 @@ binary_map: _TypeMap = {
 
 
 def boolean(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Boolean` with variants.
+    """Get the SQL type for Felis `~felis.types.Boolean` with variants.
 
     Parameters
     ----------
@@ -174,7 +174,7 @@ def boolean(**kwargs: Any) -> types.TypeEngine:
 
 
 def byte(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Byte` with variants.
+    """Get the SQL type for Felis `~felis.types.Byte` with variants.
 
     Parameters
     ----------
@@ -190,7 +190,7 @@ def byte(**kwargs: Any) -> types.TypeEngine:
 
 
 def short(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Short` with variants.
+    """Get the SQL type for Felis `~felis.types.Short` with variants.
 
     Parameters
     ----------
@@ -206,7 +206,7 @@ def short(**kwargs: Any) -> types.TypeEngine:
 
 
 def int(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Int` with variants.
+    """Get the SQL type for Felis `~felis.types.Int` with variants.
 
     Parameters
     ----------
@@ -222,7 +222,7 @@ def int(**kwargs: Any) -> types.TypeEngine:
 
 
 def long(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Long` with variants.
+    """Get the SQL type for Felis `~felis.types.Long` with variants.
 
     Parameters
     ----------
@@ -238,7 +238,7 @@ def long(**kwargs: Any) -> types.TypeEngine:
 
 
 def float(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Float` with variants.
+    """Get the SQL type for Felis `~felis.types.Float` with variants.
 
     Parameters
     ----------
@@ -254,7 +254,7 @@ def float(**kwargs: Any) -> types.TypeEngine:
 
 
 def double(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Double` with variants.
+    """Get the SQL type for Felis `~felis.types.Double` with variants.
 
     Parameters
     ----------
@@ -270,7 +270,7 @@ def double(**kwargs: Any) -> types.TypeEngine:
 
 
 def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Get the SQL type for a Felis `~felis.types.Char` with variants.
+    """Get the SQL type for Felis `~felis.types.Char` with variants.
 
     Parameters
     ----------
@@ -288,7 +288,7 @@ def char(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
 
 
 def string(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Get the SQLAlchemy type for a Felis `~felis.types.String` with variants.
+    """Get the SQL type for Felis `~felis.types.String` with variants.
 
     Parameters
     ----------
@@ -306,7 +306,7 @@ def string(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
 
 
 def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Get the SQLAlchemy type for Felis `~felis.types.Unicode` with variants.
+    """Get the SQL type for Felis `~felis.types.Unicode` with variants.
 
     Parameters
     ----------
@@ -324,7 +324,7 @@ def unicode(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
 
 
 def text(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQLAlchemy type for Felis `~felis.types.Text` with variants.
+    """Get the SQL type for Felis `~felis.types.Text` with variants.
 
     Parameters
     ----------
@@ -340,7 +340,7 @@ def text(**kwargs: Any) -> types.TypeEngine:
 
 
 def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
-    """Get the SQLAlchemy type for Felis `~felis.types.Binary` with variants.
+    """Get the SQL type for Felis `~felis.types.Binary` with variants.
 
     Parameters
     ----------
@@ -358,8 +358,7 @@ def binary(length: builtins.int, **kwargs: Any) -> types.TypeEngine:
 
 
 def timestamp(**kwargs: Any) -> types.TypeEngine:
-    """Get the SQLAlchemy type for a Felis `~felis.types.Timestamp` with
-    variants.
+    """Get the SQL type for Felis `~felis.types.Timestamp` with variants.
 
     Parameters
     ----------
@@ -375,7 +374,8 @@ def timestamp(**kwargs: Any) -> types.TypeEngine:
 
 
 def get_type_func(type_name: str) -> Callable:
-    """Return the function for the type with the given name.
+    """Find the function which creates a specific SQL type by its Felis type
+    name.
 
     Parameters
     ----------
@@ -408,8 +408,7 @@ def _vary(
     overrides: _TypeMap,
     *args: Any,
 ) -> types.TypeEngine:
-    """Build a SQLAlchemy type object including the datatype variant and
-    override definitions from Felis.
+    """Add datatype variants and overrides to a SQLAlchemy type.
 
     Parameters
     ----------

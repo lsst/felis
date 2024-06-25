@@ -55,7 +55,7 @@ class FelisType:
     """
 
     felis_name: str
-    """Name of the type as defined in felis schema."""
+    """Name of the type as defined in the Felis schema."""
 
     votable_name: str
     """Name of the type as defined in VOTable."""
@@ -154,11 +154,11 @@ class Long(FelisType, felis_name="long", votable_name="long", is_numeric=True):
 
 
 class Float(FelisType, felis_name="float", votable_name="float", is_numeric=True):
-    """Felis definition of single precision floating type."""
+    """Felis definition of single precision floating point type."""
 
 
 class Double(FelisType, felis_name="double", votable_name="double", is_numeric=True):
-    """Felis definition of double precision floating type."""
+    """Felis definition of double precision floating point type."""
 
 
 class Char(FelisType, felis_name="char", votable_name="char", is_sized=True):

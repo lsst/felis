@@ -49,8 +49,7 @@ _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
 def string_to_typeengine(
     type_string: str, dialect: Dialect | None = None, length: int | None = None
 ) -> TypeEngine:
-    """Convert a string representation of a data type to a SQLAlchemy
-    TypeEngine.
+    """Convert a string representation of a datatype to a SQLAlchemy type.
 
     Parameters
     ----------
@@ -140,7 +139,7 @@ class SQLWriter:
         Notes
         -----
         The functions arguments are typed very loosely because this method in
-        SQLAlchemy is untyped amd we do not call it directly.
+        SQLAlchemy is untyped, amd we do not call it directly.
         """
         compiled = sql.compile(dialect=self.dialect)
         sql_str = str(compiled) + ";"
@@ -227,7 +226,7 @@ class DatabaseContext:
         Raises
         ------
         ValueError
-            If the database type is not supported.
+            If the database is not supported.
         sqlalchemy.exc.SQLAlchemyError
             If there is an error creating the schema.
 
@@ -257,7 +256,7 @@ class DatabaseContext:
         Raises
         ------
         ValueError
-            If the database type is not supported.
+            If the database is not supported.
 
         Notes
         -----

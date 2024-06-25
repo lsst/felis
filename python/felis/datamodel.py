@@ -612,8 +612,6 @@ class SchemaIdVisitor:
     the map, but this should not matter, since a ``ValidationError`` will be
     thrown by the ``model_validator`` method if any duplicates are found in the
     schema.
-
-    This class is intended for internal use only.
     """
 
     def __init__(self) -> None:

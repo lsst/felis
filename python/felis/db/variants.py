@@ -40,6 +40,11 @@ __all__ = ["make_variant_dict"]
 def _create_column_variant_overrides() -> dict[str, str]:
     """Map column variant overrides to their dialect name.
 
+    Returns
+    -------
+    column_variant_overrides : `dict` [ `str`, `str` ]
+        A mapping of column variant overrides to their dialect name.
+
     Notes
     -----
     This function is intended for internal use only.

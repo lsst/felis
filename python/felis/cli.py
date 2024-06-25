@@ -199,7 +199,7 @@ def init_tap(
         SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
         must already exist and be referenced in the URL.
     tap_schema_name
-        Alterate name for the database schema representing ``TAP_SCHEMA``.
+        Alterate name for the database schema ``TAP_SCHEMA``.
     tap_schemas_table
         Alterate table name for ``schemas``.
     tap_tables_table
@@ -297,7 +297,7 @@ def load_tap(
     Notes
     -----
     The data will be loaded into the TAP_SCHEMA from the engine URL. The
-    TAP_SCHEMA tables must already exist.
+    tables must have already been initialized or an error will occur.
     """
     yaml_data = yaml.load(file, Loader=yaml.SafeLoader)
     schema = Schema.model_validate(yaml_data)
@@ -380,7 +380,7 @@ def validate(
     check_tap_principal
         Check that at least one column per table is flagged as TAP principal.
     files
-        The YAML files to validate.
+        The Felis YAML files to validate.
 
     Raises
     ------
@@ -391,7 +391,8 @@ def validate(
 
     Notes
     -----
-    All of the ``check`` flags are turned off by default.
+    All of the ``check`` flags are turned off by default and represent
+    optional validations controlled by the Pydantic context.
     """
     rc = 0
     for file in files:

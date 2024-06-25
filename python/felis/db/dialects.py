@@ -49,9 +49,10 @@ def _dialect(dialect_name: str) -> Dialect:
     dialect_name
         The name of the dialect to create.
 
-    Notes
-    -----
-    This function is intended for internal use only.
+    Returns
+    -------
+    `~sqlalchemy.engine.Dialect`
+        The SQLAlchemy dialect.
     """
     return create_mock_engine(f"{dialect_name}://", executor=None).dialect
 
@@ -84,11 +85,6 @@ def _dialect_module(dialect_name: str) -> ModuleType:
     ----------
     dialect_name
         The name of the dialect module to get from the SQLAlchemy package.
-
-    Notes
-    -----
-    This function is intended for internal use only. Use ``get_dialect_module``
-    instead.
     """
     return getattr(dialects, dialect_name)
 
