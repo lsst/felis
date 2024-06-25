@@ -1,0 +1,28 @@
+name: Run docstyle
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  call-workflow:
+    uses: lsst/rubin_workflows/.github/workflows/docstyle.yaml@main
+    with:
+      args: "$(find python -name '*.py')"
+  numpydoc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
+      - name: Install numpydoc
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpydoc
+
+      - name: Validate docstrings
+        run: python -m numpydoc.hooks.validate_docstrings $(find python -name "*.py")

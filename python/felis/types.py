@@ -1,3 +1,5 @@
+"""Define the supported Felis datatypes."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.
@@ -23,10 +25,29 @@ from __future__ import annotations
 
 from typing import Any
 
+__all__ = [
+    "FelisType",
+    "Boolean",
+    "Byte",
+    "Short",
+    "Int",
+    "Long",
+    "Float",
+    "Double",
+    "Char",
+    "String",
+    "Unicode",
+    "Text",
+    "Binary",
+    "Timestamp",
+]
+
 
 class FelisType:
-    """Base class for types that represent Felis column types.
+    """Base class for a representation of Felis column types.
 
+    Notes
+    -----
     This class plays a role of a metaclass without being an actual metaclass.
     It provides a method to retrieve a class (type) given Felis type name.
     There should be no instances of this class (or sub-classes), the utility
@@ -34,12 +55,22 @@ class FelisType:
     """
 
     felis_name: str
+    """Name of the type as defined in the Felis schema."""
+
     votable_name: str
+    """Name of the type as defined in VOTable."""
+
     is_numeric: bool
+    """Flag indicating if the type is numeric."""
+
     is_sized: bool
+    """Flag indicating if the type is sized, meaning it requires a length."""
+
     is_timestamp: bool
+    """Flag indicating if the type is a timestamp."""
 
     _types: dict[str, type[FelisType]] = {}
+    """Dictionary of all known Felis types."""
 
     @classmethod
     def __init_subclass__(
@@ -52,6 +83,23 @@ class FelisType:
         is_timestamp: bool = False,
         **kwargs: Any,
     ):
+        """Register a new Felis type.
+
+        Parameters
+        ----------
+        felis_name
+            Name of the type.
+        votable_name
+            Name of the type as defined in VOTable.
+        is_numeric
+            Flag indicating if the type is numeric.
+        is_sized
+            Flag indicating if the type is sized.
+        is_timestamp
+            Flag indicating if the type is a timestamp.
+        kwargs
+            Additional keyword arguments.
+        """
         super().__init_subclass__(**kwargs)
         cls.felis_name = felis_name
         cls.votable_name = votable_name
@@ -62,17 +110,17 @@ class FelisType:
 
     @classmethod
     def felis_type(cls, felis_name: str) -> type[FelisType]:
-        """Return specific Felis type for a given type name.
+        """Return specific Felis type for a given name.
 
         Parameters
         ----------
-        felis_name : `str`
-            name of the felis type as defined in felis schema.
+        felis_name
+            Name of the felis type as defined in felis schema.
 
         Returns
         -------
-        felis_type : `type`
-            One of subclasses of `FelisType`.
+        `type` [ `FelisType` ]
+            A specific Felis type class.
 
         Raises
         ------
@@ -106,11 +154,11 @@ class Long(FelisType, felis_name="long", votable_name="long", is_numeric=True):
 
 
 class Float(FelisType, felis_name="float", votable_name="float", is_numeric=True):
-    """Felis definition of single precision floating type."""
+    """Felis definition of single precision floating point type."""
 
 
 class Double(FelisType, felis_name="double", votable_name="double", is_numeric=True):
-    """Felis definition of double precision floating type."""
+    """Felis definition of double precision floating point type."""
 
 
 class Char(FelisType, felis_name="char", votable_name="char", is_sized=True):

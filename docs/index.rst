@@ -928,3 +928,10 @@ Examples
        columns:
        - "#sdqa_Threshold.sdqa_metricId"
      mysql:engine: MyISAM
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   Command Line Interface <user-guide/cli>
+   Python API Documentation <dev/internals>

@@ -1,3 +1,5 @@
+"""Click command line interface."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.
@@ -38,6 +40,8 @@ from .db.utils import DatabaseContext
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 
+__all__ = ["cli"]
+
 logger = logging.getLogger("felis")
 
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
@@ -59,7 +63,20 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     help="Felis log file path",
 )
 def cli(log_level: str, log_file: str | None) -> None:
-    """Felis Command Line Tools."""
+    """Felis command line tools.
+
+    Parameters
+    ----------
+    log_level
+        Felis log level.
+    log_file
+        Felis log file path.
+
+    Notes
+    -----
+    These options are used to configure the logging level and file for the
+    command line tools.
+    """
     if log_file:
         logging.basicConfig(filename=log_file, level=log_level)
     else:
@@ -89,7 +106,34 @@ def create(
     output_file: IO[str] | None,
     file: IO,
 ) -> None:
-    """Create database objects from the Felis file."""
+    """Create database objects from the Felis file.
+
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL.
+    schema_name
+        Alternate schema name to override Felis file.
+    create_if_not_exists
+        Create the schema in the database if it does not exist.
+    drop_if_exists
+        Drop schema if it already exists in the database.
+    echo
+        Echo database commands as they are executed.
+    dry_run
+        Dry run only to print out commands instead of executing.
+    output_file
+        Write SQL commands to a file instead of executing.
+    file
+        Felis file to read.
+
+    Notes
+    -----
+    This command creates database objects from the Felis file. The
+    ``--create-if-not-exists`` or ``--drop-if-exists`` flags can be used to
+    create a new MySQL database or PostgreSQL schema if it does not exist
+    already.
+    """
     yaml_data = yaml.safe_load(file)
     schema = Schema.model_validate(yaml_data)
     url = make_url(engine_url)
@@ -131,12 +175,12 @@ def create(
 
 
 @cli.command("init-tap")
-@click.option("--tap-schema-name", help="Alt Schema Name for TAP_SCHEMA")
-@click.option("--tap-schemas-table", help="Alt Table Name for TAP_SCHEMA.schemas")
-@click.option("--tap-tables-table", help="Alt Table Name for TAP_SCHEMA.tables")
-@click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
-@click.option("--tap-keys-table", help="Alt Table Name for TAP_SCHEMA.keys")
-@click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
+@click.option("--tap-schema-name", help="Alternate database schema name for 'TAP_SCHEMA'")
+@click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
+@click.option("--tap-tables-table", help="Alternate table name for 'tables'")
+@click.option("--tap-columns-table", help="Alternate table name for 'columns'")
+@click.option("--tap-keys-table", help="Alternate table name for 'keys'")
+@click.option("--tap-key-columns-table", help="Alternate table name for 'key_columns'")
 @click.argument("engine-url")
 def init_tap(
     engine_url: str,
@@ -147,10 +191,31 @@ def init_tap(
     tap_keys_table: str,
     tap_key_columns_table: str,
 ) -> None:
-    """Initialize TAP 1.1 TAP_SCHEMA objects.
+    """Initialize TAP_SCHEMA objects in the database.
 
-    Please verify the schema/catalog you are executing this in in your
-    engine URL.
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
+        must already exist and be referenced in the URL.
+    tap_schema_name
+        Alterate name for the database schema ``TAP_SCHEMA``.
+    tap_schemas_table
+        Alterate table name for ``schemas``.
+    tap_tables_table
+        Alterate table name for ``tables``.
+    tap_columns_table
+        Alterate table name for ``columns``.
+    tap_keys_table
+        Alterate table name for ``keys``.
+    tap_key_columns_table
+        Alterate table name for ``key_columns``.
+
+    Notes
+    -----
+    The supported version of TAP_SCHEMA in the SQLAlchemy metadata is 1.1. The
+    tables are created in the database schema specified by the engine URL,
+    which must be a PostgreSQL schema or MySQL database that already exists.
     """
     engine = create_engine(engine_url, echo=True)
     init_tables(
@@ -169,14 +234,14 @@ def init_tap(
 @click.option("--schema-name", help="Alternate Schema Name for Felis file")
 @click.option("--catalog-name", help="Catalog Name for Schema")
 @click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
-@click.option("--tap-schema-name", help="Alt Schema Name for TAP_SCHEMA")
-@click.option("--tap-tables-postfix", help="Postfix for TAP table names")
-@click.option("--tap-schemas-table", help="Alt Table Name for TAP_SCHEMA.schemas")
-@click.option("--tap-tables-table", help="Alt Table Name for TAP_SCHEMA.tables")
-@click.option("--tap-columns-table", help="Alt Table Name for TAP_SCHEMA.columns")
-@click.option("--tap-keys-table", help="Alt Table Name for TAP_SCHEMA.keys")
-@click.option("--tap-key-columns-table", help="Alt Table Name for TAP_SCHEMA.key_columns")
-@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema")
+@click.option("--tap-schema-name", help="Alternate schema name for 'TAP_SCHEMA'")
+@click.option("--tap-tables-postfix", help="Postfix for TAP_SCHEMA table names")
+@click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
+@click.option("--tap-tables-table", help="Alternate table name for 'tables'")
+@click.option("--tap-columns-table", help="Alternate table name for 'columns'")
+@click.option("--tap-keys-table", help="Alternate table name for 'keys'")
+@click.option("--tap-key-columns-table", help="Alternate table name for 'key_columns'")
+@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema in this environment")
 @click.argument("file", type=click.File())
 def load_tap(
     engine_url: str,
@@ -193,10 +258,46 @@ def load_tap(
     tap_schema_index: int,
     file: io.TextIOBase,
 ) -> None:
-    """Load TAP metadata from a Felis FILE.
+    """Load TAP metadata from a Felis file.
 
-    This command loads the associated TAP metadata from a Felis FILE
-    to the TAP_SCHEMA tables.
+    This command loads the associated TAP metadata from a Felis YAML file
+    into the TAP_SCHEMA tables.
+
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL to catalog.
+    schema_name
+        Alternate schema name. This overrides the schema name in the
+        ``catalog`` field of the Felis file.
+    catalog_name
+        Catalog name for the schema. This possibly duplicates the
+        ``tap_schema_name`` argument (DM-44870).
+    dry_run
+        Dry run only to print out commands instead of executing.
+    tap_schema_name
+        Alternate name for the schema of TAP_SCHEMA in the database.
+    tap_tables_postfix
+        Postfix for TAP table names that will be automatically appended.
+    tap_schemas_table
+        Alternate table name for ``schemas``.
+    tap_tables_table
+        Alternate table name for ``tables``.
+    tap_columns_table
+        Alternate table name for ``columns``.
+    tap_keys_table
+        Alternate table name for ``keys``.
+    tap_key_columns_table
+        Alternate table name for ``key_columns``.
+    tap_schema_index
+        TAP_SCHEMA index of the schema in this TAP environment.
+    file
+        Felis file to read.
+
+    Notes
+    -----
+    The data will be loaded into the TAP_SCHEMA from the engine URL. The
+    tables must have already been initialized or an error will occur.
     """
     yaml_data = yaml.load(file, Loader=yaml.SafeLoader)
     schema = Schema.model_validate(yaml_data)
@@ -240,9 +341,11 @@ def load_tap(
 
 
 @cli.command("validate")
-@click.option("--check-description", is_flag=True, help="Require description for all objects", default=False)
 @click.option(
-    "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatypes", default=False
+    "--check-description", is_flag=True, help="Check that all objects have a description", default=False
+)
+@click.option(
+    "--check-redundant-datatypes", is_flag=True, help="Check for redundant datatype overrides", default=False
 )
 @click.option(
     "--check-tap-table-indexes",
@@ -264,7 +367,33 @@ def validate(
     check_tap_principal: bool,
     files: Iterable[io.TextIOBase],
 ) -> None:
-    """Validate one or more felis YAML files."""
+    """Validate one or more felis YAML files.
+
+    Parameters
+    ----------
+    check_description
+        Check that all objects have a valid description.
+    check_redundant_datatypes
+        Check for redundant type overrides.
+    check_tap_table_indexes
+        Check that every table has a unique TAP table index.
+    check_tap_principal
+        Check that at least one column per table is flagged as TAP principal.
+    files
+        The Felis YAML files to validate.
+
+    Raises
+    ------
+    click.exceptions.Exit
+        If any validation errors are found. The ``ValidationError`` which is
+        thrown when a schema fails to validate will be logged as an error
+        message.
+
+    Notes
+    -----
+    All of the ``check`` flags are turned off by default and represent
+    optional validations controlled by the Pydantic context.
+    """
     rc = 0
     for file in files:
         file_name = getattr(file, "name", None)

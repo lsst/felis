@@ -37,9 +37,11 @@ class CliTestCase(unittest.TestCase):
     """Tests for CLI commands."""
 
     def setUp(self) -> None:
+        """Set up a temporary directory for tests."""
         self.tmpdir = tempfile.mkdtemp(dir=TESTDIR)
 
     def tearDown(self) -> None:
+        """Clean up temporary directory."""
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_create_all(self) -> None:
@@ -55,7 +57,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_create_all_dry_run(self) -> None:
-        """Test for create --dry-run command."""
+        """Test for ``create --dry-run`` command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
 
         runner = CliRunner()
@@ -67,14 +69,14 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_init_tap(self) -> None:
-        """Test for init-tap command."""
+        """Test for ``init-tap`` command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
         runner = CliRunner()
         result = runner.invoke(cli, ["init-tap", url], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
 
     def test_load_tap(self) -> None:
-        """Test for load-tap command."""
+        """Test for ``load-tap`` command."""
         # Cannot use the same url for both init-tap and load-tap in the same
         # process.
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
@@ -88,7 +90,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_load_tap_mock(self) -> None:
-        """Test for load-tap --dry-run command."""
+        """Test for ``load-tap --dry-run`` command."""
         url = "postgresql+psycopg2://"
 
         runner = CliRunner()
@@ -104,7 +106,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_validation_flags(self) -> None:
-        """Test RSP schema type validation."""
+        """Test schema validation flags."""
         runner = CliRunner()
         result = runner.invoke(
             cli,

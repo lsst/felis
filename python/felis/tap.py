@@ -1,3 +1,5 @@
+"""Translate a Felis schema into a TAP_SCHEMA representation."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.
@@ -21,8 +23,6 @@
 
 from __future__ import annotations
 
-__all__ = ["Tap11Base", "TapLoadingVisitor", "init_tables"]
-
 import logging
 from collections.abc import Iterable, MutableMapping
 from typing import Any
@@ -39,8 +39,11 @@ from felis import datamodel
 from .datamodel import Constraint, Index, Schema, Table
 from .types import FelisType
 
-Tap11Base: Any = declarative_base()  # Any to avoid mypy mess with SA 2
+__all__ = ["TapLoadingVisitor", "init_tables"]
+
 logger = logging.getLogger(__name__)
+
+Tap11Base: Any = declarative_base()  # Any to avoid mypy mess with SA 2
 
 IDENTIFIER_LENGTH = 128
 SMALL_FIELD_LENGTH = 32
@@ -60,7 +63,30 @@ def init_tables(
     tap_keys_table: str | None = None,
     tap_key_columns_table: str | None = None,
 ) -> MutableMapping[str, Any]:
-    """Generate definitions for TAP tables."""
+    """Generate definitions for TAP tables.
+
+    Parameters
+    ----------
+    tap_schema_name
+        Name of the TAP schema.
+    tap_tables_postfix
+        Postfix for table names.
+    tap_schemas_table
+        Name of the schemas table.
+    tap_tables_table
+        Name of the tables table.
+    tap_columns_table
+        Name of the columns table.
+    tap_keys_table
+        Name of the keys table.
+    tap_key_columns_table
+        Name of the key columns table.
+
+    Returns
+    -------
+    `dict` [ `str`, `Any`]
+        A dictionary of table definitions.
+    """
     postfix = tap_tables_postfix or ""
 
     # Dirty hack to enable this method to be called more than once, replaces
@@ -133,18 +159,21 @@ def init_tables(
 
 
 class TapLoadingVisitor:
-    """Felis schema visitor for generating TAP schema.
+    """Generate TAP_SCHEMA data and insert it into a database using the
+    SQLAlchemy ORM.
 
     Parameters
     ----------
-    engine : `sqlalchemy.engine.Engine` or `None`
+    engine
         SQLAlchemy engine instance.
-    catalog_name : `str` or `None`
+    catalog_name
         Name of the database catalog.
-    schema_name : `str` or `None`
-        Name of the database schema.
-    tap_tables : `~collections.abc.Mapping`
-        Optional mapping of table name to its declarative base class.
+    schema_name
+        Name of the schema.
+    tap_tables
+        Mapping of TAP_SCHEMA table name to its SQLAlchemy table object.
+    tap_schema_index
+        The index of the schema for this TAP environment.
     """
 
     def __init__(
@@ -154,7 +183,8 @@ class TapLoadingVisitor:
         schema_name: str | None = None,
         tap_tables: MutableMapping[str, Any] | None = None,
         tap_schema_index: int | None = None,
-    ):
+    ) -> None:
+        """Create a TAP loading visitor."""
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
@@ -172,12 +202,39 @@ class TapLoadingVisitor:
         tap_tables: MutableMapping[str, Any] | None = None,
         tap_schema_index: int | None = None,
     ) -> TapLoadingVisitor:
+        """Create a TAP visitor from a mock connection.
+
+        Parameters
+        ----------
+        mock_connection
+            Mock connection object.
+        catalog_name
+            Name of the database catalog.
+        schema_name
+            Name of the database schema.
+        tap_tables
+            Optional mapping of table name to its SQLAlchemy table object.
+        tap_schema_index
+            The index of the schema for this TAP environment.
+
+        Returns
+        -------
+        `TapLoadingVisitor`
+            The TAP loading visitor.
+        """
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
         visitor._mock_connection = mock_connection
         visitor.tap_schema_index = tap_schema_index
         return visitor
 
     def visit_schema(self, schema_obj: Schema) -> None:
+        """Visit a schema object and insert it into the TAP_SCHEMA database.
+
+        Parameters
+        ----------
+        schema_obj
+            The schema object to visit.
+        """
         schema = self.tables["schemas"]()
         # Override with default
         self.schema_name = self.schema_name or schema_obj.name
@@ -226,6 +283,18 @@ class TapLoadingVisitor:
                 conn.execute(_insert(self.tables["key_columns"], key_column))
 
     def visit_constraints(self, schema_obj: Schema) -> tuple:
+        """Visit all constraints in a schema.
+
+        Parameters
+        ----------
+        schema_obj
+            The schema object to visit.
+
+        Returns
+        -------
+        `tuple`
+            A tuple of all TAP_SCHEMA keys and key columns that were created.
+        """
         all_keys = []
         all_key_columns = []
         for table_obj in schema_obj.tables:
@@ -238,6 +307,20 @@ class TapLoadingVisitor:
         return all_keys, all_key_columns
 
     def visit_table(self, table_obj: Table, schema_obj: Schema) -> tuple:
+        """Visit a table object and build its TAP_SCHEMA representation.
+
+        Parameters
+        ----------
+        table_obj
+            The table object to visit.
+        schema_obj
+            The schema object which the table belongs to.
+
+        Returns
+        -------
+        `tuple`
+            A tuple of the SQLAlchemy ORM objects for the tables and columns.
+        """
         table_id = table_obj.id
         table = self.tables["tables"]()
         table.schema_name = self._schema_name()
@@ -257,6 +340,20 @@ class TapLoadingVisitor:
         return table, columns
 
     def check_column(self, column_obj: datamodel.Column) -> None:
+        """Check consistency of VOTable attributes for a column.
+
+        Parameters
+        ----------
+        column_obj
+            The column object to check.
+
+        Notes
+        -----
+        This method checks that a column with a sized datatype has either a
+        ``votable:arraysize`` or a ``length`` attribute and issues a warning
+        message if not. It also checks if a column with a timestamp datatype
+        has a ``arraysize`` attribute and issues a warning if not.
+        """
         _id = column_obj.id
         datatype_name = column_obj.datatype
         felis_type = FelisType.felis_type(datatype_name.value)
@@ -283,6 +380,20 @@ class TapLoadingVisitor:
                 )
 
     def visit_column(self, column_obj: datamodel.Column, table_obj: Table) -> Tap11Base:
+        """Visit a column object and build its TAP_SCHEMA representation.
+
+        Parameters
+        ----------
+        column_obj
+            The column object to visit.
+        table_obj
+            The table object which the column belongs to.
+
+        Returns
+        -------
+        ``Tap11Base``
+            The SQLAlchemy ORM object for the column.
+        """
         self.check_column(column_obj)
         column_id = column_obj.id
         table_name = self._table_name(table_obj.name)
@@ -321,6 +432,15 @@ class TapLoadingVisitor:
         return column
 
     def visit_primary_key(self, primary_key_obj: str | Iterable[str] | None, table_obj: Table) -> None:
+        """Visit a primary key object and update the TAP_SCHEMA representation.
+
+        Parameters
+        ----------
+        primary_key_obj
+            The primary key object to visit.
+        table_obj
+            The table object which the primary key belongs to.
+        """
         if primary_key_obj:
             if isinstance(primary_key_obj, str):
                 primary_key_obj = [primary_key_obj]
@@ -328,9 +448,21 @@ class TapLoadingVisitor:
             # if just one column and it's indexed, update the object
             if len(columns) == 1:
                 columns[0].indexed = 1
-        return None
 
     def visit_constraint(self, constraint_obj: Constraint) -> tuple:
+        """Visit a constraint object and build its TAP_SCHEMA representation.
+
+        Parameters
+        ----------
+        constraint_obj
+            The constraint object to visit.
+
+        Returns
+        -------
+        `tuple`
+            A tuple of the SQLAlchemy ORM objects for the TAP_SCHEMA ``key``
+            and ``key_columns`` data.
+        """
         constraint_type = constraint_obj.type
         key = None
         key_columns = []
@@ -375,13 +507,36 @@ class TapLoadingVisitor:
         return key, key_columns
 
     def visit_index(self, index_obj: Index, table_obj: Table) -> None:
+        """Visit an index object and update the TAP_SCHEMA representation.
+
+        Parameters
+        ----------
+        index_obj
+            The index object to visit.
+        table_obj
+            The table object which the index belongs to.
+        """
         columns = [self.graph_index[col_id] for col_id in getattr(index_obj, "columns", [])]
         # if just one column and it's indexed, update the object
         if len(columns) == 1:
             columns[0].indexed = 1
         return None
 
-    def _schema_name(self, schema_name: str | None = None) -> str | None:
+    def _schema_name(
+        self, schema_name: str | None = None
+    ) -> str | None:  # DM-44870: Usage of this method needs to be better understood and possibly removed
+        """Return the schema name.
+
+        Parameters
+        ----------
+        schema_name
+            Name of the schema.
+
+        Returns
+        -------
+        schema_name
+            The schema name.
+        """
         # If _schema_name is None, SQLAlchemy will catch it
         _schema_name = schema_name or self.schema_name
         if self.catalog_name and _schema_name:
@@ -389,6 +544,13 @@ class TapLoadingVisitor:
         return _schema_name
 
     def _table_name(self, table_name: str) -> str:
+        """Return the table name.
+
+        Parameters
+        ----------
+        table_name
+            Name of the table.
+        """
         schema_name = self._schema_name()
         if schema_name:
             return ".".join([schema_name, table_name])
@@ -400,15 +562,15 @@ def _insert(table: Tap11Base, value: Any) -> Insert:
 
     Parameters
     ----------
-    table : `Tap11Base`
+    table
         The table we are inserting into.
-    value : `Any`
+    value
         An object representing the object we are inserting to the table.
 
     Returns
     -------
-    statement
-        A SQLAlchemy insert statement
+    `Insert`
+        SQLAlchemy insert statement.
     """
     values_dict = {}
     for i in table.__table__.columns:

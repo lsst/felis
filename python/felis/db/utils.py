@@ -1,3 +1,5 @@
+"""Database utility functions and classes."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.
@@ -36,17 +38,44 @@ from sqlalchemy.types import TypeEngine
 
 from .dialects import get_dialect_module
 
+__all__ = ["string_to_typeengine", "SQLWriter", "ConnectionWrapper", "DatabaseContext"]
+
 logger = logging.getLogger("felis")
 
 _DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
-"""Regular expression to match data types in the form "type(length)"""
+"""Regular expression to match data types with parameters in parentheses."""
 
 
 def string_to_typeengine(
     type_string: str, dialect: Dialect | None = None, length: int | None = None
 ) -> TypeEngine:
-    """Convert a string representation of a data type to a SQLAlchemy
-    TypeEngine.
+    """Convert a string representation of a datatype to a SQLAlchemy type.
+
+    Parameters
+    ----------
+    type_string
+        The string representation of the data type.
+    dialect
+        The SQLAlchemy dialect to use. If None, the default dialect will be
+        used.
+    length
+        The length of the data type. If the data type does not have a length
+        attribute, this parameter will be ignored.
+
+    Returns
+    -------
+    `sqlalchemy.types.TypeEngine`
+        The SQLAlchemy type engine object.
+
+    Raises
+    ------
+    ValueError
+        If the type string is invalid or the type is not supported.
+
+    Notes
+    -----
+    This function is used when converting type override strings defined in
+    fields such as ``mysql:datatype`` in the schema data.
     """
     match = _DATATYPE_REGEXP.search(type_string)
     if not match:
@@ -78,17 +107,17 @@ def string_to_typeengine(
 
 
 class SQLWriter:
-    """Writes SQL statements to stdout or a file."""
+    """Write SQL statements to stdout or a file.
+
+    Parameters
+    ----------
+    file
+        The file to write the SQL statements to. If None, the statements
+        will be written to stdout.
+    """
 
     def __init__(self, file: IO[str] | None = None) -> None:
-        """Initialize the SQL writer.
-
-        Parameters
-        ----------
-        file : `io.TextIOBase` or `None`, optional
-            The file to write the SQL statements to. If None, the statements
-            will be written to stdout.
-        """
+        """Initialize the SQL writer."""
         self.file = file
         self.dialect: Dialect | None = None
 
@@ -100,12 +129,17 @@ class SQLWriter:
 
         Parameters
         ----------
-        sql : `typing.Any`
+        sql
             The SQL statement to write.
-        multiparams : `typing.Any`
+        *multiparams
             The multiparams to use for the SQL statement.
-        params : `typing.Any`
+        **params
             The params to use for the SQL statement.
+
+        Notes
+        -----
+        The functions arguments are typed very loosely because this method in
+        SQLAlchemy is untyped, amd we do not call it directly.
         """
         compiled = sql.compile(dialect=self.dialect)
         sql_str = str(compiled) + ";"
@@ -126,22 +160,37 @@ class SQLWriter:
 
 
 class ConnectionWrapper:
-    """A wrapper for a SQLAlchemy engine or mock connection which provides a
-    consistent interface for executing SQL statements.
+    """Wrap a SQLAlchemy engine or mock connection to provide a consistent
+    interface for executing SQL statements.
+
+    Parameters
+    ----------
+    engine
+        The SQLAlchemy engine or mock connection to wrap.
     """
 
     def __init__(self, engine: Engine | MockConnection):
-        """Initialize the connection wrapper.
-
-        Parameters
-        ----------
-        engine : `sqlalchemy.Engine` or `sqlalchemy.MockConnection`
-            The SQLAlchemy engine or mock connection to wrap.
-        """
+        """Initialize the connection wrapper."""
         self.engine = engine
 
     def execute(self, statement: Any) -> ResultProxy:
-        """Execute a SQL statement on the engine and return the result."""
+        """Execute a SQL statement on the engine and return the result.
+
+        Parameters
+        ----------
+        statement
+            The SQL statement to execute.
+
+        Returns
+        -------
+        ``sqlalchemy.engine.ResultProxy``
+            The result of the statement execution.
+
+        Notes
+        -----
+        The statement will be executed in a transaction block if not using
+        a mock connection.
+        """
         if isinstance(statement, str):
             statement = text(statement)
         if isinstance(self.engine, MockConnection):
@@ -153,19 +202,19 @@ class ConnectionWrapper:
 
 
 class DatabaseContext:
-    """A class for managing the schema and its database connection."""
+    """Manage the database connection and SQLAlchemy metadata.
+
+    Parameters
+    ----------
+    metadata
+        The SQLAlchemy metadata object.
+
+    engine
+        The SQLAlchemy engine or mock connection object.
+    """
 
     def __init__(self, metadata: MetaData, engine: Engine | MockConnection):
-        """Initialize the database context.
-
-        Parameters
-        ----------
-        metadata : `sqlalchemy.MetaData`
-            The SQLAlchemy metadata object.
-
-        engine : `sqlalchemy.Engine` or `sqlalchemy.MockConnection`
-            The SQLAlchemy engine or mock connection object.
-        """
+        """Initialize the database context."""
         self.engine = engine
         self.dialect_name = engine.dialect.name
         self.metadata = metadata
@@ -174,16 +223,18 @@ class DatabaseContext:
     def create_if_not_exists(self) -> None:
         """Create the schema in the database if it does not exist.
 
-        In MySQL, this will create a new database. In PostgreSQL, it will
+        Raises
+        ------
+        ValueError
+            If the database is not supported.
+        sqlalchemy.exc.SQLAlchemyError
+            If there is an error creating the schema.
+
+        Notes
+        -----
+        In MySQL, this will create a new database and, in PostgreSQL, it will
         create a new schema. For other variants, this is an unsupported
         operation.
-
-        Parameters
-        ----------
-        engine: `sqlalchemy.Engine`
-            The SQLAlchemy engine object.
-        schema_name: `str`
-            The name of the schema (or database) to create.
         """
         schema_name = self.metadata.schema
         try:
@@ -202,15 +253,15 @@ class DatabaseContext:
     def drop_if_exists(self) -> None:
         """Drop the schema in the database if it exists.
 
-        In MySQL, this will drop a database. In PostgreSQL, it will drop a
-        schema. For other variants, this is unsupported for now.
+        Raises
+        ------
+        ValueError
+            If the database is not supported.
 
-        Parameters
-        ----------
-        engine: `sqlalchemy.Engine`
-            The SQLAlchemy engine object.
-        schema_name: `str`
-            The name of the schema (or database) to drop.
+        Notes
+        -----
+        In MySQL, this will drop a database. In PostgreSQL, it will drop a
+        schema. For other variants, this is an unsupported operation.
         """
         schema_name = self.metadata.schema
         try:
@@ -236,11 +287,16 @@ class DatabaseContext:
 
         Parameters
         ----------
-        engine_url : `sqlalchemy.engine.url.URL`
+        engine_url
             The SQLAlchemy engine URL.
-        output_file : `typing.IO` [ `str` ] or `None`, optional
+        output_file
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
+
+        Returns
+        -------
+        ``sqlalchemy.engine.mock.MockConnection``
+            The mock connection object.
         """
         writer = SQLWriter(output_file)
         engine = create_mock_engine(engine_url, executor=writer.write)

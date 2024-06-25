@@ -1,3 +1,5 @@
+"""Define Pydantic data models for Felis."""
+
 # This file is part of felis.
 #
 # Developed for the LSST Data Management System.
@@ -42,7 +44,6 @@ __all__ = (
     "Column",
     "CheckConstraint",
     "Constraint",
-    "DescriptionStr",
     "ForeignKeyConstraint",
     "Index",
     "Schema",
@@ -64,37 +65,45 @@ DESCR_MIN_LENGTH = 3
 """Minimum length for a description field."""
 
 DescriptionStr: TypeAlias = Annotated[str, Field(min_length=DESCR_MIN_LENGTH)]
-"""Define a type for a description string, which must be three or more
-characters long. Stripping of whitespace is done globally on all str fields."""
+"""Type for a description, which must be three or more characters long."""
 
 
 class BaseObject(BaseModel):
-    """Base class for all Felis objects."""
+    """Base model.
+
+    All classes representing objects in the Felis data model should inherit
+    from this class.
+    """
 
     model_config = CONFIG
     """Pydantic model configuration."""
 
     name: str
-    """The name of the database object.
-
-    All Felis database objects must have a name.
-    """
+    """Name of the database object."""
 
     id: str = Field(alias="@id")
-    """The unique identifier of the database object.
-
-    All Felis database objects must have a unique identifier.
-    """
+    """Unique identifier of the database object."""
 
     description: DescriptionStr | None = None
-    """A description of the database object."""
+    """Description of the database object."""
 
     votable_utype: str | None = Field(None, alias="votable:utype")
-    """The VOTable utype (usage-specific or unique type) of the object."""
+    """VOTable utype (usage-specific or unique type) of the object."""
 
     @model_validator(mode="after")
     def check_description(self, info: ValidationInfo) -> BaseObject:
-        """Check that the description is present if required."""
+        """Check that the description is present if required.
+
+        Parameters
+        ----------
+        info
+            Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `BaseObject`
+            The object being validated.
+        """
         context = info.context
         if not context or not context.get("check_description", False):
             return self
@@ -124,61 +133,66 @@ class DataType(StrEnum):
 
 
 class Column(BaseObject):
-    """A column in a table."""
+    """Column model."""
 
     datatype: DataType
-    """The datatype of the column."""
+    """Datatype of the column."""
 
     length: int | None = Field(None, gt=0)
-    """The length of the column."""
+    """Length of the column."""
 
     nullable: bool = True
     """Whether the column can be ``NULL``."""
 
     value: str | int | float | bool | None = None
-    """The default value of the column."""
+    """Default value of the column."""
 
     autoincrement: bool | None = None
     """Whether the column is autoincremented."""
 
     mysql_datatype: str | None = Field(None, alias="mysql:datatype")
-    """The MySQL datatype of the column."""
+    """MySQL datatype override on the column."""
 
     postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
-    """The PostgreSQL datatype of the column."""
+    """PostgreSQL datatype override on the column."""
 
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
-    """The IVOA UCD of the column."""
+    """IVOA UCD of the column."""
 
     fits_tunit: str | None = Field(None, alias="fits:tunit")
-    """The FITS TUNIT of the column."""
+    """FITS TUNIT of the column."""
 
     ivoa_unit: str | None = Field(None, alias="ivoa:unit")
-    """The IVOA unit of the column."""
+    """IVOA unit of the column."""
 
     tap_column_index: int | None = Field(None, alias="tap:column_index")
-    """The TAP_SCHEMA column index of the column."""
+    """TAP_SCHEMA column index of the column."""
 
     tap_principal: int | None = Field(0, alias="tap:principal", ge=0, le=1)
-    """Whether this is a TAP_SCHEMA principal column; can be either 0 or 1.
-    """
+    """Whether this is a TAP_SCHEMA principal column."""
 
     votable_arraysize: int | Literal["*"] | None = Field(None, alias="votable:arraysize")
-    """The VOTable arraysize of the column."""
+    """VOTable arraysize of the column."""
 
     tap_std: int | None = Field(0, alias="tap:std", ge=0, le=1)
     """TAP_SCHEMA indication that this column is defined by an IVOA standard.
     """
 
     votable_xtype: str | None = Field(None, alias="votable:xtype")
-    """The VOTable xtype (extended type) of the column."""
+    """VOTable xtype (extended type) of the column."""
 
     votable_datatype: str | None = Field(None, alias="votable:datatype")
-    """The VOTable datatype of the column."""
+    """VOTable datatype of the column."""
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
-        """Check that the default value is valid."""
+        """Check that the default value is valid.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
+        """
         if (value := self.value) is not None:
             if value is not None and self.autoincrement is True:
                 raise ValueError("Column cannot have both a default value and be autoincremented")
@@ -200,7 +214,18 @@ class Column(BaseObject):
     @field_validator("ivoa_ucd")
     @classmethod
     def check_ivoa_ucd(cls, ivoa_ucd: str) -> str:
-        """Check that IVOA UCD values are valid."""
+        """Check that IVOA UCD values are valid.
+
+        Parameters
+        ----------
+        ivoa_ucd
+            IVOA UCD value to check.
+
+        Returns
+        -------
+        `str`
+            The IVOA UCD value if it is valid.
+        """
         if ivoa_ucd is not None:
             try:
                 ucd.parse_ucd(ivoa_ucd, check_controlled_vocabulary=True, has_colon=";" in ivoa_ucd)
@@ -210,7 +235,20 @@ class Column(BaseObject):
 
     @model_validator(mode="after")
     def check_units(self) -> Column:
-        """Check that units are valid."""
+        """Check that the ``fits:tunit`` or ``ivoa:unit`` field has valid
+        units according to astropy. Only one may be provided.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
+
+        Raises
+        ------
+        ValueError
+            If both FITS and IVOA units are provided, or if the unit is
+            invalid.
+        """
         fits_unit = self.fits_tunit
         ivoa_unit = self.ivoa_unit
 
@@ -229,7 +267,23 @@ class Column(BaseObject):
     @model_validator(mode="before")
     @classmethod
     def check_length(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Check that a valid length is provided for sized types."""
+        """Check that a valid length is provided for sized types.
+
+        Parameters
+        ----------
+        values
+            Values of the column.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the column.
+
+        Raises
+        ------
+        ValueError
+            If a length is not provided for a sized type.
+        """
         datatype = values.get("datatype")
         if datatype is None:
             # Skip this validation if datatype is not provided
@@ -250,7 +304,23 @@ class Column(BaseObject):
 
     @model_validator(mode="after")
     def check_redundant_datatypes(self, info: ValidationInfo) -> Column:
-        """Check for redundant datatypes on columns."""
+        """Check for redundant datatypes on columns.
+
+        Parameters
+        ----------
+        info
+            Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
+
+        Raises
+        ------
+        ValueError
+            If a datatype override is redundant.
+        """
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
             return self
@@ -295,51 +365,69 @@ class Column(BaseObject):
 
 
 class Constraint(BaseObject):
-    """A database table constraint."""
+    """Table constraint model."""
 
     deferrable: bool = False
-    """If `True` then this constraint will be declared as deferrable."""
+    """Whether this constraint will be declared as deferrable."""
 
     initially: str | None = None
-    """Value for ``INITIALLY`` clause, only used if ``deferrable`` is True."""
+    """Value for ``INITIALLY`` clause; only used if `deferrable` is
+    `True`."""
 
     annotations: Mapping[str, Any] = Field(default_factory=dict)
     """Additional annotations for this constraint."""
 
     type: str | None = Field(None, alias="@type")
-    """The type of the constraint."""
+    """Type of the constraint."""
 
 
 class CheckConstraint(Constraint):
-    """A check constraint on a table."""
+    """Table check constraint model."""
 
     expression: str
-    """The expression for the check constraint."""
+    """Expression for the check constraint."""
 
 
 class UniqueConstraint(Constraint):
-    """A unique constraint on a table."""
+    """Table unique constraint model."""
 
     columns: list[str]
-    """The columns in the unique constraint."""
+    """Columns in the unique constraint."""
 
 
 class Index(BaseObject):
-    """A database table index.
+    """Table index model.
 
     An index can be defined on either columns or expressions, but not both.
     """
 
     columns: list[str] | None = None
-    """The columns in the index."""
+    """Columns in the index."""
 
     expressions: list[str] | None = None
-    """The expressions in the index."""
+    """Expressions in the index."""
 
     @model_validator(mode="before")
     @classmethod
     def check_columns_or_expressions(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Check that columns or expressions are specified, but not both."""
+        """Check that columns or expressions are specified, but not both.
+
+        Parameters
+        ----------
+        values
+            Values of the index.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the index.
+
+        Raises
+        ------
+        ValueError
+            If both columns and expressions are specified, or if neither are
+            specified.
+        """
         if "columns" in values and "expressions" in values:
             raise ValueError("Defining columns and expressions is not valid")
         elif "columns" not in values and "expressions" not in values:
@@ -348,9 +436,15 @@ class Index(BaseObject):
 
 
 class ForeignKeyConstraint(Constraint):
-    """A foreign key constraint on a table.
+    """Table foreign key constraint model.
 
-    These will be reflected in the TAP_SCHEMA keys and key_columns data.
+    This constraint is used to define a foreign key relationship between two
+    tables in the schema.
+
+    Notes
+    -----
+    These relationships will be reflected in the TAP_SCHEMA ``keys`` and
+    ``key_columns`` data.
     """
 
     columns: list[str]
@@ -361,41 +455,46 @@ class ForeignKeyConstraint(Constraint):
 
 
 class Table(BaseObject):
-    """A database table."""
+    """Table model."""
 
     columns: Sequence[Column]
-    """The columns in the table."""
+    """Columns in the table."""
 
     constraints: list[Constraint] = Field(default_factory=list)
-    """The constraints on the table."""
+    """Constraints on the table."""
 
     indexes: list[Index] = Field(default_factory=list)
-    """The indexes on the table."""
+    """Indexes on the table."""
 
     primary_key: str | list[str] | None = Field(None, alias="primaryKey")
-    """The primary key of the table."""
+    """Primary key of the table."""
 
     tap_table_index: int | None = Field(None, alias="tap:table_index")
-    """The IVOA TAP_SCHEMA table index of the table."""
+    """IVOA TAP_SCHEMA table index of the table."""
 
     mysql_engine: str | None = Field(None, alias="mysql:engine")
-    """The mysql engine to use for the table.
-
-    For now this is a freeform string but it could be constrained to a list of
-    known engines in the future.
-    """
+    """MySQL engine to use for the table."""
 
     mysql_charset: str | None = Field(None, alias="mysql:charset")
-    """The mysql charset to use for the table.
-
-    For now this is a freeform string but it could be constrained to a list of
-    known charsets in the future.
-    """
+    """MySQL charset to use for the table."""
 
     @model_validator(mode="before")
     @classmethod
     def create_constraints(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Create constraints from the ``constraints`` field."""
+        """Create specific constraint types from the data in the
+        ``constraints`` field of a table.
+
+        Parameters
+        ----------
+        values
+            The values of the table containing the constraint data.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the table with the constraints converted to their
+            respective types.
+        """
         if "constraints" in values:
             new_constraints: list[Constraint] = []
             for item in values["constraints"]:
@@ -413,14 +512,46 @@ class Table(BaseObject):
     @field_validator("columns", mode="after")
     @classmethod
     def check_unique_column_names(cls, columns: list[Column]) -> list[Column]:
-        """Check that column names are unique."""
+        """Check that column names are unique.
+
+        Parameters
+        ----------
+        columns
+            The columns to check.
+
+        Returns
+        -------
+        `list` [ `Column` ]
+            The columns if they are unique.
+
+        Raises
+        ------
+        ValueError
+            If column names are not unique.
+        """
         if len(columns) != len(set(column.name for column in columns)):
             raise ValueError("Column names must be unique")
         return columns
 
     @model_validator(mode="after")
     def check_tap_table_index(self, info: ValidationInfo) -> Table:
-        """Check that the table has a TAP table index."""
+        """Check that the table has a TAP table index.
+
+        Parameters
+        ----------
+        info
+            Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Table`
+            The table being validated.
+
+        Raises
+        ------
+        ValueError
+            If the table is missing a TAP table index.
+        """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
             return self
@@ -432,6 +563,21 @@ class Table(BaseObject):
     def check_tap_principal(self, info: ValidationInfo) -> Table:
         """Check that at least one column is flagged as 'principal' for TAP
         purposes.
+
+        Parameters
+        ----------
+        info
+            Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Table`
+            The table being validated.
+
+        Raises
+        ------
+        ValueError
+            If the table is missing a column flagged as 'principal'.
         """
         context = info.context
         if not context or not context.get("check_tap_principal", False):
@@ -443,7 +589,7 @@ class Table(BaseObject):
 
 
 class SchemaVersion(BaseModel):
-    """The version of the schema."""
+    """Schema version model."""
 
     current: str
     """The current version of the schema."""
@@ -456,15 +602,16 @@ class SchemaVersion(BaseModel):
 
 
 class SchemaIdVisitor:
-    """Visitor to build a Schema object's map of IDs to objects.
+    """Visit a schema and build the map of IDs to objects.
 
+    Notes
+    -----
     Duplicates are added to a set when they are encountered, which can be
-    accessed via the `duplicates` attribute. The presence of duplicates will
+    accessed via the ``duplicates`` attribute. The presence of duplicates will
     not throw an error. Only the first object with a given ID will be added to
-    the map, but this should not matter, since a ValidationError will be thrown
-    by the `model_validator` method if any duplicates are found in the schema.
-
-    This class is intended for internal use only.
+    the map, but this should not matter, since a ``ValidationError`` will be
+    thrown by the ``model_validator`` method if any duplicates are found in the
+    schema.
     """
 
     def __init__(self) -> None:
@@ -473,7 +620,13 @@ class SchemaIdVisitor:
         self.duplicates: set[str] = set()
 
     def add(self, obj: BaseObject) -> None:
-        """Add an object to the ID map."""
+        """Add an object to the ID map.
+
+        Parameters
+        ----------
+        obj
+            The object to add to the ID map.
+        """
         if hasattr(obj, "id"):
             obj_id = getattr(obj, "id")
             if self.schema is not None:
@@ -483,8 +636,15 @@ class SchemaIdVisitor:
                     self.schema.id_map[obj_id] = obj
 
     def visit_schema(self, schema: Schema) -> None:
-        """Visit the schema object that was added during initialization.
+        """Visit the objects in a schema and build the ID map.
 
+        Parameters
+        ----------
+        schema
+            The schema object to visit.
+
+        Notes
+        -----
         This will set an internal variable pointing to the schema object.
         """
         self.schema = schema
@@ -494,7 +654,13 @@ class SchemaIdVisitor:
             self.visit_table(table)
 
     def visit_table(self, table: Table) -> None:
-        """Visit a table object."""
+        """Visit a table object.
+
+        Parameters
+        ----------
+        table
+            The table object to visit.
+        """
         self.add(table)
         for column in table.columns:
             self.visit_column(column)
@@ -502,16 +668,31 @@ class SchemaIdVisitor:
             self.visit_constraint(constraint)
 
     def visit_column(self, column: Column) -> None:
-        """Visit a column object."""
+        """Visit a column object.
+
+        Parameters
+        ----------
+        column
+            The column object to visit.
+        """
         self.add(column)
 
     def visit_constraint(self, constraint: Constraint) -> None:
-        """Visit a constraint object."""
+        """Visit a constraint object.
+
+        Parameters
+        ----------
+        constraint
+            The constraint object to visit.
+        """
         self.add(constraint)
 
 
 class Schema(BaseObject):
-    """The database schema containing the tables."""
+    """Database schema model.
+
+    This is the root object of the Felis data model.
+    """
 
     version: SchemaVersion | str | None = None
     """The version of the schema."""
@@ -525,14 +706,41 @@ class Schema(BaseObject):
     @field_validator("tables", mode="after")
     @classmethod
     def check_unique_table_names(cls, tables: list[Table]) -> list[Table]:
-        """Check that table names are unique."""
+        """Check that table names are unique.
+
+        Parameters
+        ----------
+        tables
+            The tables to check.
+
+        Returns
+        -------
+        `list` [ `Table` ]
+            The tables if they are unique.
+
+        Raises
+        ------
+        ValueError
+            If table names are not unique.
+        """
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
         return tables
 
     @model_validator(mode="after")
     def check_tap_table_indexes(self, info: ValidationInfo) -> Schema:
-        """Check that the TAP table indexes are unique."""
+        """Check that the TAP table indexes are unique.
+
+        Parameters
+        ----------
+        info
+            The validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+        """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
             return self
@@ -548,9 +756,15 @@ class Schema(BaseObject):
     def _create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.
 
-        This method should not be called by users. It is called automatically
-        by the ``model_post_init()`` method. If the ID map is already
-        populated, this method will return immediately.
+        Raises
+        ------
+        ValueError
+            If duplicate IDs are found in the schema.
+
+        Notes
+        -----
+        This is called automatically by the `model_post_init` method. If the
+        ID map is already populated, this method will return immediately.
         """
         if len(self.id_map):
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")
@@ -564,15 +778,46 @@ class Schema(BaseObject):
         return self
 
     def model_post_init(self, ctx: Any) -> None:
-        """Post-initialization hook for the model."""
+        """Post-initialization hook for the model.
+
+        Parameters
+        ----------
+        ctx
+            The context object which was passed to the model.
+
+        Notes
+        -----
+        This method is called automatically by Pydantic after the model is
+        initialized. It is used to create the ID map for the schema.
+
+        The ``ctx`` argument has the type `Any` because this is the function
+        signature in Pydantic itself.
+        """
         self._create_id_map()
 
     def __getitem__(self, id: str) -> BaseObject:
-        """Get an object by its ID."""
+        """Get an object by its ID.
+
+        Parameters
+        ----------
+        id
+            The ID of the object to get.
+
+        Raises
+        ------
+        KeyError
+            If the object with the given ID is not found in the schema.
+        """
         if id not in self:
             raise KeyError(f"Object with ID '{id}' not found in schema")
         return self.id_map[id]
 
     def __contains__(self, id: str) -> bool:
-        """Check if an object with the given ID is in the schema."""
+        """Check if an object with the given ID is in the schema.
+
+        Parameters
+        ----------
+        id
+            The ID of the object to check.
+        """
         return id in self.id_map

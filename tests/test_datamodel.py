@@ -42,23 +42,11 @@ TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 
 
-class DataModelTestCase(unittest.TestCase):
-    """Test validation of a test schema from a YAML file."""
-
-    schema_obj: Schema
-
-    def test_validation(self) -> None:
-        """Load test file and validate it using the data model."""
-        with open(TEST_YAML) as test_yaml:
-            data = yaml.safe_load(test_yaml)
-            self.schema_obj = Schema.model_validate(data)
-
-
 class ColumnTestCase(unittest.TestCase):
-    """Test the `Column` class."""
+    """Test the ``Column`` class."""
 
     def test_validation(self) -> None:
-        """Test validation of the `Column` class."""
+        """Test Pydantic validation of the ``Column`` class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Column()
@@ -123,7 +111,7 @@ class ColumnTestCase(unittest.TestCase):
             Column(**units_data)
 
     def test_description(self) -> None:
-        """Test the validation of the description attribute."""
+        """Test Pydantic validation of the ``description`` attribute."""
         # Creating a column with a description of 'None' should throw.
         with self.assertRaises(ValueError):
             Column(
@@ -158,7 +146,7 @@ class ColumnTestCase(unittest.TestCase):
             )
 
     def test_values(self) -> None:
-        """Test the `value` field of the `Column` class."""
+        """Test Pydantic validation of the ``value`` attribute."""
 
         # Define a function to return the default column data
         def default_coldata():
@@ -235,13 +223,43 @@ class ColumnTestCase(unittest.TestCase):
         Column(**bool_coldata)
 
 
+class TableTestCase(unittest.TestCase):
+    """Test Pydantic validation of the ``Table`` class."""
+
+    def test_validation(self) -> None:
+        """Test Pydantic validation of the ``Table`` class."""
+        # Default initialization should throw an exception.
+        with self.assertRaises(ValidationError):
+            Table()
+
+        # Setting only name should throw an exception.
+        with self.assertRaises(ValidationError):
+            Table(name="testTable")
+
+        # Setting name and id should throw an exception from missing columns.
+        with self.assertRaises(ValidationError):
+            Index(name="testTable", id="#test_id")
+
+        testCol = Column(name="testColumn", id="#test_id", datatype="string", length=256)
+
+        # Setting name, id, and columns should not throw an exception and
+        # should load data correctly.
+        tbl = Table(name="testTable", id="#test_id", columns=[testCol])
+        self.assertEqual(tbl.name, "testTable", "name should be 'testTable'")
+        self.assertEqual(tbl.id, "#test_id", "id should be '#test_id'")
+        self.assertEqual(tbl.columns, [testCol], "columns should be ['testColumn']")
+
+        # Creating a table with duplicate column names should raise an
+        # exception.
+        with self.assertRaises(ValidationError):
+            Table(name="testTable", id="#test_id", columns=[testCol, testCol])
+
+
 class ConstraintTestCase(unittest.TestCase):
-    """Test the `UniqueConstraint`, `Index`, `CheckConstraint`, and
-    `ForeignKeyConstraint` classes.
-    """
+    """Test Pydantic validation of the different constraint classes."""
 
     def test_unique_constraint_validation(self) -> None:
-        """Test validation of the `UniqueConstraint` class."""
+        """Test validation of unique constraints."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             UniqueConstraint()
@@ -269,7 +287,7 @@ class ConstraintTestCase(unittest.TestCase):
         self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
 
     def test_index_validation(self) -> None:
-        """Test validation of the `Index` class."""
+        """Test validation of indexes."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Index()
@@ -302,7 +320,7 @@ class ConstraintTestCase(unittest.TestCase):
             Index(name="testConstraint", id="#test_id", columns=["testColumn"], expressions=["1+2"])
 
     def test_foreign_key_validation(self) -> None:
-        """Test validation of the `ForeignKeyConstraint` class."""
+        """Test validation of foreign key constraints."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             ForeignKeyConstraint()
@@ -343,7 +361,7 @@ class ConstraintTestCase(unittest.TestCase):
         )
 
     def test_check_constraint_validation(self) -> None:
-        """Check validation of the `CheckConstraint` class."""
+        """Test validation of check constraints."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             CheckConstraint()
@@ -376,41 +394,11 @@ class ConstraintTestCase(unittest.TestCase):
         self.assertEqual(col.expression, "1+2", "expression should be '1+2'")
 
 
-class TableTestCase(unittest.TestCase):
-    """Test the `Table` class."""
-
-    def test_validation(self) -> None:
-        # Default initialization should throw an exception.
-        with self.assertRaises(ValidationError):
-            Table()
-
-        # Setting only name should throw an exception.
-        with self.assertRaises(ValidationError):
-            Table(name="testTable")
-
-        # Setting name and id should throw an exception from missing columns.
-        with self.assertRaises(ValidationError):
-            Index(name="testTable", id="#test_id")
-
-        testCol = Column(name="testColumn", id="#test_id", datatype="string", length=256)
-
-        # Setting name, id, and columns should not throw an exception and
-        # should load data correctly.
-        tbl = Table(name="testTable", id="#test_id", columns=[testCol])
-        self.assertEqual(tbl.name, "testTable", "name should be 'testTable'")
-        self.assertEqual(tbl.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(tbl.columns, [testCol], "columns should be ['testColumn']")
-
-        # Creating a table with duplicate column names should raise an
-        # exception.
-        with self.assertRaises(ValidationError):
-            Table(name="testTable", id="#test_id", columns=[testCol, testCol])
-
-
 class SchemaTestCase(unittest.TestCase):
-    """Test the `Schema` class."""
+    """Test Pydantic validation of the ``Schema`` class."""
 
     def test_validation(self) -> None:
+        """Test Pydantic validation of the main schema class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             Schema()
@@ -460,7 +448,7 @@ class SchemaTestCase(unittest.TestCase):
             )
 
     def test_schema_object_ids(self) -> None:
-        """Test that the id_map is properly populated."""
+        """Test that the ``id_map`` is properly populated."""
         test_col = Column(name="testColumn", id="#test_col_id", datatype="string", length=256)
         test_tbl = Table(name="testTable", id="#test_table_id", columns=[test_col])
         sch = Schema(name="testSchema", id="#test_schema_id", tables=[test_tbl])
@@ -478,11 +466,18 @@ class SchemaTestCase(unittest.TestCase):
             # Test that an invalid id raises an exception.
             sch["#bad_id"]
 
+    def test_model_validate(self) -> None:
+        """Load a YAML test file and validate the schema data model."""
+        with open(TEST_YAML) as test_yaml:
+            data = yaml.safe_load(test_yaml)
+            Schema.model_validate(data)
+
 
 class SchemaVersionTest(unittest.TestCase):
-    """Test the `SchemaVersion` class."""
+    """Test the schema version."""
 
     def test_validation(self) -> None:
+        """Test validation of the schema version class."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
             SchemaVersion()
@@ -520,10 +515,10 @@ class SchemaVersionTest(unittest.TestCase):
 
 
 class ValidationFlagsTest(unittest.TestCase):
-    """Test the validation flags for the `Schema` class."""
+    """Test optional validation flags on the schema."""
 
     def test_check_tap_table_indexes(self) -> None:
-        """Test the `check_tap_table_indexes` validation flag."""
+        """Test the ``check_tap_table_indexes`` validation flag."""
         cxt = {"check_tap_table_indexes": True}
         schema_dict = {
             "name": "testSchema",
@@ -562,7 +557,7 @@ class ValidationFlagsTest(unittest.TestCase):
         Schema.model_validate(schema_dict, context=cxt)
 
     def test_check_tap_principal(self) -> None:
-        """Test the validation flags for the `Schema` class."""
+        """Test the ``check_tap_principal` validation flag."""
         cxt = {"check_tap_principal": True}
         schema_dict = {
             "name": "testSchema",
@@ -585,7 +580,7 @@ class ValidationFlagsTest(unittest.TestCase):
         Schema.model_validate(schema_dict, context=cxt)
 
     def test_check_description(self) -> None:
-        """Test the `check_description` flag for the `Column` class."""
+        """Test the ``check_description`` flag."""
         cxt = {"check_description": True}
         schema_dict = {
             "name": "testSchema",
@@ -608,6 +603,91 @@ class ValidationFlagsTest(unittest.TestCase):
         schema_dict["tables"][0]["description"] = "Test table"
         schema_dict["tables"][0]["columns"][0]["description"] = "Test column"
         Schema.model_validate(schema_dict, context=cxt)
+
+
+class RedundantDatatypesTest(unittest.TestCase):
+    """Test validation of redundant datatype definitions."""
+
+    def test_mysql_datatypes(self) -> None:
+        class ColumnGenerator:
+            """Generate column data for redundant datatype testing."""
+
+            def __init__(self, name, id, db_name):
+                self.name = name
+                self.id = id
+                self.db_name = db_name
+                self.context = {"check_redundant_datatypes": True}
+
+            def col(self, datatype: str, db_datatype: str, length=None):
+                return Column.model_validate(
+                    {
+                        "name": self.name,
+                        "@id": self.id,
+                        "datatype": datatype,
+                        f"{self.db_name}:datatype": db_datatype,
+                        "length": length,
+                    },
+                    context=self.context,
+                )
+
+        """Test that redundant datatype definitions raise an error."""
+        coldata = ColumnGenerator("test_col", "#test_col_id", "mysql")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("double", "DOUBLE")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("int", "INTEGER")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("float", "FLOAT")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("char", "CHAR", length=8)
+
+        with self.assertRaises(ValidationError):
+            coldata.col("string", "VARCHAR", length=32)
+
+        with self.assertRaises(ValidationError):
+            coldata.col("byte", "TINYINT")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("short", "SMALLINT")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("long", "BIGINT")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("boolean", "BOOLEAN")
+
+        with self.assertRaises(ValidationError):
+            coldata.col("unicode", "NVARCHAR", length=32)
+
+        with self.assertRaises(ValidationError):
+            coldata.col("timestamp", "TIMESTAMP")
+
+        # DM-42257: Felis does not handle unbounded text types properly.
+        # coldata.col("text", "TEXT", length=32)
+
+        with self.assertRaises(ValidationError):
+            coldata.col("binary", "LONGBLOB", length=1024)
+
+        with self.assertRaises(ValidationError):
+            # Same type and length
+            coldata.col("string", "VARCHAR(128)", length=128)
+
+        # Check the old type mapping for MySQL, which is now okay
+        coldata.col("boolean", "BIT(1)")
+
+        # Different types, which is okay
+        coldata.col("double", "FLOAT")
+
+        # Same base type with different lengths, which is okay
+        coldata.col("string", "VARCHAR(128)", length=32)
+
+        # Different string types, which is okay
+        coldata.col("string", "CHAR", length=32)
+        coldata.col("unicode", "CHAR", length=32)
 
 
 if __name__ == "__main__":
