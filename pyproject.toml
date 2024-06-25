@@ -63,7 +63,6 @@ version = { attr = "lsst_versions.get_lsst_version" }
 [project.scripts]
 felis = "felis.cli:cli"
 
-
 [tool.towncrier]
     package = "felis"
     package_dir = "python"
@@ -153,6 +152,22 @@ select = [
     "D",  # pydocstyle
     "UP",  # pyupgrade
 ]
+
+[tool.pydocstyle]
+convention = "numpy"
+# Our coding style does not require docstrings for magic methods (D105)
+# Our docstyle documents __init__ at the class level (D107)
+# We allow methods to inherit docstrings and this is not compatible with D102.
+# Docstring at the very first line is not required
+# D200, D205 and D400 all complain if the first sentence of the docstring does
+# not fit on one line. We do not require docstrings in __init__ files (D104).
+add-ignore = ["D107", "D105", "D102", "D100", "D200", "D205", "D400", "D104"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 79
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.numpydoc_validation]
 checks = [
