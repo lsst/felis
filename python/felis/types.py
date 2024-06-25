@@ -115,11 +115,11 @@ class FelisType:
         Parameters
         ----------
         felis_name
-            name of the felis type as defined in felis schema.
+            Name of the felis type as defined in felis schema.
 
         Returns
         -------
-        felis_type : `type` [ `FelisType` ]
+        `type` [ `FelisType` ]
             A specific Felis type class.
 
         Raises

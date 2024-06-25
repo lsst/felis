@@ -63,6 +63,11 @@ def string_to_typeengine(
         The length of the data type. If the data type does not have a length
         attribute, this parameter will be ignored.
 
+    Returns
+    -------
+    `sqlalchemy.types.TypeEngine`
+        The SQLAlchemy type engine object.
+
     Raises
     ------
     ValueError
@@ -103,17 +108,17 @@ def string_to_typeengine(
 
 
 class SQLWriter:
-    """Write SQL statements to stdout or a file."""
+    """Write SQL statements to stdout or a file.
+
+    Parameters
+    ----------
+    file
+        The file to write the SQL statements to. If None, the statements
+        will be written to stdout.
+    """
 
     def __init__(self, file: IO[str] | None = None) -> None:
-        """Initialize the SQL writer.
-
-        Parameters
-        ----------
-        file
-            The file to write the SQL statements to. If None, the statements
-            will be written to stdout.
-        """
+        """Initialize the SQL writer."""
         self.file = file
         self.dialect: Dialect | None = None
 
@@ -127,9 +132,9 @@ class SQLWriter:
         ----------
         sql
             The SQL statement to write.
-        multiparams
+        *multiparams
             The multiparams to use for the SQL statement.
-        params
+        **params
             The params to use for the SQL statement.
 
         Notes
@@ -158,16 +163,15 @@ class SQLWriter:
 class ConnectionWrapper:
     """Wrap a SQLAlchemy engine or mock connection to provide a consistent
     interface for executing SQL statements.
+
+    Parameters
+    ----------
+    engine
+        The SQLAlchemy engine or mock connection to wrap.
     """
 
     def __init__(self, engine: Engine | MockConnection):
-        """Initialize the connection wrapper.
-
-        Parameters
-        ----------
-        engine
-            The SQLAlchemy engine or mock connection to wrap.
-        """
+        """Initialize the connection wrapper."""
         self.engine = engine
 
     def execute(self, statement: Any) -> ResultProxy:
@@ -177,6 +181,11 @@ class ConnectionWrapper:
         ----------
         statement
             The SQL statement to execute.
+
+        Returns
+        -------
+        ``sqlalchemy.engine.ResultProxy``
+            The result of the statement execution.
 
         Notes
         -----
@@ -194,19 +203,19 @@ class ConnectionWrapper:
 
 
 class DatabaseContext:
-    """Manage the database connection and SQLAlchemy metadata."""
+    """Manage the database connection and SQLAlchemy metadata.
+
+    Parameters
+    ----------
+    metadata
+        The SQLAlchemy metadata object.
+
+    engine
+        The SQLAlchemy engine or mock connection object.
+    """
 
     def __init__(self, metadata: MetaData, engine: Engine | MockConnection):
-        """Initialize the database context.
-
-        Parameters
-        ----------
-        metadata
-            The SQLAlchemy metadata object.
-
-        engine
-            The SQLAlchemy engine or mock connection object.
-        """
+        """Initialize the database context."""
         self.engine = engine
         self.dialect_name = engine.dialect.name
         self.metadata = metadata
@@ -214,13 +223,6 @@ class DatabaseContext:
 
     def create_if_not_exists(self) -> None:
         """Create the schema in the database if it does not exist.
-
-        Parameters
-        ----------
-        engine
-            The SQLAlchemy engine object.
-        schema_name
-            The name of the schema (or database) to create.
 
         Raises
         ------
@@ -251,13 +253,6 @@ class DatabaseContext:
 
     def drop_if_exists(self) -> None:
         """Drop the schema in the database if it exists.
-
-        Parameters
-        ----------
-        engine
-            The SQLAlchemy engine object.
-        schema_name
-            The name of the schema (or database) to drop.
 
         Raises
         ------
@@ -298,6 +293,11 @@ class DatabaseContext:
         output_file
             The file to write the SQL statements to. If None, the statements
             will be written to stdout.
+
+        Returns
+        -------
+        ``sqlalchemy.engine.mock.MockConnection``
+            The mock connection object.
         """
         writer = SQLWriter(output_file)
         engine = create_mock_engine(engine_url, executor=writer.write)

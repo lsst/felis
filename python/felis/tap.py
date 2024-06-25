@@ -161,6 +161,19 @@ def init_tables(
 class TapLoadingVisitor:
     """Generate TAP_SCHEMA data and insert it into a database using the
     SQLAlchemy ORM.
+
+    Parameters
+    ----------
+    engine
+        SQLAlchemy engine instance.
+    catalog_name
+        Name of the database catalog.
+    schema_name
+        Name of the schema.
+    tap_tables
+        Mapping of TAP_SCHEMA table name to its SQLAlchemy table object.
+    tap_schema_index
+        The index of the schema for this TAP environment.
     """
 
     def __init__(
@@ -171,21 +184,7 @@ class TapLoadingVisitor:
         tap_tables: MutableMapping[str, Any] | None = None,
         tap_schema_index: int | None = None,
     ) -> None:
-        """Create a TAP loading visitor.
-
-        Parameters
-        ----------
-        engine
-            SQLAlchemy engine instance.
-        catalog_name
-            Name of the database catalog.
-        schema_name
-            Name of the schema.
-        tap_tables
-            Mapping of TAP_SCHEMA table name to its SQLAlchemy table object.
-        tap_schema_index
-            The index of the schema for this TAP environment.
-        """
+        """Create a TAP loading visitor."""
         self.graph_index: MutableMapping[str, Any] = {}
         self.catalog_name = catalog_name
         self.schema_name = schema_name
@@ -220,7 +219,7 @@ class TapLoadingVisitor:
 
         Returns
         -------
-        visitor : `TapLoadingVisitor`
+        `TapLoadingVisitor`
             The TAP loading visitor.
         """
         visitor = cls(engine=None, catalog_name=catalog_name, schema_name=schema_name, tap_tables=tap_tables)
@@ -293,7 +292,7 @@ class TapLoadingVisitor:
 
         Returns
         -------
-        all_keys : `tuple`
+        `tuple`
             A tuple of all TAP_SCHEMA keys and key columns that were created.
         """
         all_keys = []
@@ -319,7 +318,7 @@ class TapLoadingVisitor:
 
         Returns
         -------
-        table : `tuple`
+        `tuple`
             A tuple of the SQLAlchemy ORM objects for the tables and columns.
         """
         table_id = table_obj.id
@@ -392,7 +391,7 @@ class TapLoadingVisitor:
 
         Returns
         -------
-        column : ``Tap11Base``
+        ``Tap11Base``
             The SQLAlchemy ORM object for the column.
         """
         self.check_column(column_obj)
@@ -457,6 +456,12 @@ class TapLoadingVisitor:
         ----------
         constraint_obj
             The constraint object to visit.
+
+        Returns
+        -------
+        `tuple`
+            A tuple of the SQLAlchemy ORM objects for the TAP_SCHEMA ``key``
+            and ``key_columns`` data.
         """
         constraint_type = constraint_obj.type
         key = None

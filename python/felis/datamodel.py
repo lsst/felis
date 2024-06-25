@@ -98,6 +98,11 @@ class BaseObject(BaseModel):
         ----------
         info
             Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `BaseObject`
+            The object being validated.
         """
         context = info.context
         if not context or not context.get("check_description", False):
@@ -181,7 +186,13 @@ class Column(BaseObject):
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
-        """Check that the default value is valid."""
+        """Check that the default value is valid.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
+        """
         if (value := self.value) is not None:
             if value is not None and self.autoincrement is True:
                 raise ValueError("Column cannot have both a default value and be autoincremented")
@@ -209,6 +220,11 @@ class Column(BaseObject):
         ----------
         ivoa_ucd
             IVOA UCD value to check.
+
+        Returns
+        -------
+        `str`
+            The IVOA UCD value if it is valid.
         """
         if ivoa_ucd is not None:
             try:
@@ -221,6 +237,11 @@ class Column(BaseObject):
     def check_units(self) -> Column:
         """Check that the ``fits:tunit`` or ``ivoa:unit`` field has valid
         units according to astropy. Only one may be provided.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
 
         Raises
         ------
@@ -253,6 +274,11 @@ class Column(BaseObject):
         values
             Values of the column.
 
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the column.
+
         Raises
         ------
         ValueError
@@ -284,6 +310,11 @@ class Column(BaseObject):
         ----------
         info
             Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
 
         Raises
         ------
@@ -386,6 +417,11 @@ class Index(BaseObject):
         values
             Values of the index.
 
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the index.
+
         Raises
         ------
         ValueError
@@ -452,6 +488,12 @@ class Table(BaseObject):
         ----------
         values
             The values of the table containing the constraint data.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the table with the constraints converted to their
+            respective types.
         """
         if "constraints" in values:
             new_constraints: list[Constraint] = []
@@ -477,6 +519,11 @@ class Table(BaseObject):
         columns
             The columns to check.
 
+        Returns
+        -------
+        `list` [ `Column` ]
+            The columns if they are unique.
+
         Raises
         ------
         ValueError
@@ -494,6 +541,11 @@ class Table(BaseObject):
         ----------
         info
             Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Table`
+            The table being validated.
 
         Raises
         ------
@@ -516,6 +568,11 @@ class Table(BaseObject):
         ----------
         info
             Validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Table`
+            The table being validated.
 
         Raises
         ------
@@ -657,6 +714,16 @@ class Schema(BaseObject):
         ----------
         tables
             The tables to check.
+
+        Returns
+        -------
+        `list` [ `Table` ]
+            The tables if they are unique.
+
+        Raises
+        ------
+        ValueError
+            If table names are not unique.
         """
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
@@ -670,6 +737,11 @@ class Schema(BaseObject):
         ----------
         info
             The validation context used to determine if the check is enabled.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
         """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):

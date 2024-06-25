@@ -63,6 +63,11 @@ _DIALECTS = MappingProxyType({name: _dialect(name) for name in _DIALECT_NAMES})
 def get_supported_dialects() -> Mapping[str, Dialect]:
     """Get a dictionary of the supported SQLAlchemy dialects.
 
+    Returns
+    -------
+    `dict` [ `str`, `~sqlalchemy.engine.Dialect`]
+        A dictionary of the supported SQLAlchemy dialects.
+
     Notes
     -----
     The dictionary is keyed by the dialect name and the value is the SQLAlchemy
@@ -99,6 +104,11 @@ def get_dialect_module(dialect_name: str) -> ModuleType:
     ----------
     dialect_name
         The name of the dialect module to get from the SQLAlchemy package.
+
+    Returns
+    -------
+    `~types.ModuleType`
+        The SQLAlchemy dialect module.
 
     Raises
     ------

@@ -63,6 +63,11 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     column_obj
         The column object from which to get the datatype.
 
+    Returns
+    -------
+    `~sqlalchemy.types.TypeEngine`
+        The SQLAlchemy datatype object.
+
     Raises
     ------
     ValueError
@@ -84,22 +89,22 @@ _VALID_SERVER_DEFAULTS = ("CURRENT_TIMESTAMP", "NOW()", "LOCALTIMESTAMP", "NULL"
 
 
 class MetaDataBuilder:
-    """Build a SQLAlchemy metadata object from a Felis schema."""
+    """Build a SQLAlchemy metadata object from a Felis schema.
+
+    Parameters
+    ----------
+    schema
+        The schema object from which to build the SQLAlchemy metadata.
+    apply_schema_to_metadata
+        Whether to apply the schema name to the metadata object.
+    apply_schema_to_tables
+        Whether to apply the schema name to the tables.
+    """
 
     def __init__(
         self, schema: Schema, apply_schema_to_metadata: bool = True, apply_schema_to_tables: bool = True
     ) -> None:
-        """Initialize the metadata builder.
-
-        Parameters
-        ----------
-        schema
-            The schema object from which to build the SQLAlchemy metadata.
-        apply_schema_to_metadata
-            Whether to apply the schema name to the metadata object.
-        apply_schema_to_tables
-            Whether to apply the schema name to the tables.
-        """
+        """Initialize the metadata builder."""
         self.schema = schema
         if not apply_schema_to_metadata:
             logger.debug("Schema name will not be applied to metadata")
@@ -117,6 +122,11 @@ class MetaDataBuilder:
         This first builds the tables and then makes a second pass to build the
         constraints. This is necessary because the constraints may reference
         objects that are not yet created when the tables are built.
+
+        Returns
+        -------
+        `~sqlalchemy.sql.schema.MetaData`
+            The SQLAlchemy metadata object.
         """
         self.build_tables()
         self.build_constraints()
@@ -139,6 +149,11 @@ class MetaDataBuilder:
         primary_key_columns
             The column ID or list of column IDs from which to build the primary
             key.
+
+        Returns
+        -------
+        `~sqlalchemy.sql.schema.PrimaryKeyConstraint`
+            The SQLAlchemy primary key constraint object.
 
         Notes
         -----
@@ -201,6 +216,11 @@ class MetaDataBuilder:
         ----------
         column_obj
             The column object from which to build the SQLAlchemy column.
+
+        Returns
+        -------
+        `~sqlalchemy.sql.schema.Column`
+            The SQLAlchemy column object.
         """
         # Get basic column attributes.
         name = column_obj.name
@@ -265,6 +285,11 @@ class MetaDataBuilder:
         constraint_obj
             The Felis object from which to build the constraint.
 
+        Returns
+        -------
+        `~sqlalchemy.sql.schema.Constraint`
+            The SQLAlchemy constraint object.
+
         Raises
         ------
         ValueError
@@ -302,7 +327,7 @@ class MetaDataBuilder:
         return constraint
 
     def build_index(self, index_obj: datamodel.Index) -> Index:
-        """Build a SQLAlchemy ``Index`` from a Felis index.
+        """Build a SQLAlchemy ``Index`` from a Felis `~felis.datamodel.Index`.
 
         Parameters
         ----------
@@ -311,7 +336,7 @@ class MetaDataBuilder:
 
         Returns
         -------
-        index : `~sqlalchemy.sql.schema.Index`
+        `~sqlalchemy.sql.schema.Index`
             The SQLAlchemy index object.
         """
         columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]

@@ -140,7 +140,7 @@ def make_variant_dict(column_obj: Column) -> dict[str, TypeEngine[Any]]:
 
     Returns
     -------
-    variant_dict : `dict` [ `str`, `~sqlalchemy.types.TypeEngine` ]
+    `dict` [ `str`, `~sqlalchemy.types.TypeEngine` ]
         The dictionary of `str` to `sqlalchemy.types.TypeEngine` containing
         variant datatype information (e.g., for mysql, postgresql, etc).
     """
