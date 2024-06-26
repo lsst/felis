@@ -61,9 +61,7 @@ def _handle_timestamp(
     """Handle timezone and precision for timestamp types."""
     args.append(False)  # Timezone handling is always hard-coded to off.
     if column_obj.precision:
-        logger.debug(
-            "Setting timestamp precision on column '%s' to %d", (column_obj.id, column_obj.precision)
-        )
+        logger.debug("Setting timestamp precision on column '%s' to %d", column_obj.id, column_obj.precision)
         args.append(column_obj.precision)  # Precision is always the second argument, if provided.
     variant_dict.update({"postgresql": postgresql.TIMESTAMP(*args), "mysql": mysql.DATETIME(*args)})
     logger.debug("Updated variant dict with timestamp: %s", variant_dict)
