@@ -63,27 +63,14 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     help="Felis log file path",
 )
 def cli(log_level: str, log_file: str | None) -> None:
-    """Felis command line tools.
-
-    Parameters
-    ----------
-    log_level
-        Felis log level.
-    log_file
-        Felis log file path.
-
-    Notes
-    -----
-    These options are used to configure the logging level and file for the
-    command line tools.
-    """
+    """Felis command line tools"""
     if log_file:
         logging.basicConfig(filename=log_file, level=log_level)
     else:
         logging.basicConfig(level=log_level)
 
 
-@cli.command("create")
+@cli.command("create", help="Create database objects from the Felis file")
 @click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.option(
@@ -174,7 +161,7 @@ def create(
     context.create_all()
 
 
-@cli.command("init-tap")
+@cli.command("init-tap", help="Initialize TAP_SCHEMA objects in the database")
 @click.option("--tap-schema-name", help="Alternate database schema name for 'TAP_SCHEMA'")
 @click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
 @click.option("--tap-tables-table", help="Alternate table name for 'tables'")
@@ -229,7 +216,7 @@ def init_tap(
     Tap11Base.metadata.create_all(engine)
 
 
-@cli.command("load-tap")
+@cli.command("load-tap", help="Load metadata from a Felis file into a TAP_SCHEMA database")
 @click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL to catalog")
 @click.option("--schema-name", help="Alternate Schema Name for Felis file")
 @click.option("--catalog-name", help="Catalog Name for Schema")
@@ -340,7 +327,7 @@ def load_tap(
         tap_visitor.visit_schema(schema)
 
 
-@cli.command("validate")
+@cli.command("validate", help="Validate one or more Felis YAML files")
 @click.option(
     "--check-description", is_flag=True, help="Check that all objects have a description", default=False
 )
