@@ -141,6 +141,13 @@ class Column(BaseObject):
     length: int | None = Field(None, gt=0)
     """Length of the column."""
 
+    precision: int | None = Field(None, ge=0)
+    """The numerical precision of the column.
+
+    For timestamps, this is the number of fractional digits retained in the
+    seconds field.
+    """
+
     nullable: bool = True
     """Whether the column can be ``NULL``."""
 

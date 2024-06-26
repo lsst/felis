@@ -664,7 +664,7 @@ class RedundantDatatypesTest(unittest.TestCase):
             coldata.col("unicode", "NVARCHAR", length=32)
 
         with self.assertRaises(ValidationError):
-            coldata.col("timestamp", "TIMESTAMP")
+            coldata.col("timestamp", "DATETIME")
 
         # DM-42257: Felis does not handle unbounded text types properly.
         # coldata.col("text", "TEXT", length=32)
