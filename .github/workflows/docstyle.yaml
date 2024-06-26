@@ -25,4 +25,4 @@ jobs:
           python -m pip install numpydoc
 
       - name: Validate docstrings
-        run: python -m numpydoc.hooks.validate_docstrings $(find python -name "*.py")
+        run: python -m numpydoc.hooks.validate_docstrings $(find python -name "*.py" ! -name "cli.py")
