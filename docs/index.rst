@@ -4,7 +4,8 @@ Felis
 Introduction
 ------------
 
-Felis is a way of describing database catalogs, scientific and otherwise, in a language and DBMS
+Felis is a way of describing database catalogs, scientific and otherwise, in a
+language and DBMS
 agnostic way. It's built on concepts from JSON-LD/RDF and CSVW, but intended to provide a
 comprehensive way to describe tabular data, using annotations on tables, columns, and schemas, to
 document scientifically useful metadata as well as implementation-specific metadata for database
