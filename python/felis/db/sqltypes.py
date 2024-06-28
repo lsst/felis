@@ -157,8 +157,8 @@ binary_map: _TypeMap = {
 }
 
 timestamp_map: _TypeMap = {
-    MYSQL: mysql.DATETIME,
-    POSTGRES: postgresql.TIMESTAMP,
+    MYSQL: mysql.DATETIME(timezone=False),
+    POSTGRES: postgresql.TIMESTAMP(timezone=False),
 }
 
 
