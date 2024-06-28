@@ -40,6 +40,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.types import TypeEngine
 
 from felis.datamodel import Schema
@@ -52,6 +53,28 @@ from .types import FelisType
 __all__ = ("MetaDataBuilder", "get_datatype_with_variants")
 
 logger = logging.getLogger(__name__)
+
+
+def _handle_timestamp_column(column_obj: datamodel.Column, variant_dict: dict[str, TypeEngine[Any]]) -> None:
+    """Handle columns with the timestamp datatype.
+
+    Parameters
+    ----------
+    column_obj
+        The column object representing the timestamp.
+    variant_dict
+        The dictionary of variant overrides for the datatype.
+
+    Notes
+    -----
+    This function updates the variant dictionary with the appropriate
+    timestamp type for the column object but only if the precision is set.
+    Otherwise, the default timestamp objects defined in the Felis type system
+    will be used instead.
+    """
+    if column_obj.precision is not None:
+        args: Any = [False, column_obj.precision]  # Turn off timezone.
+        variant_dict.update({"postgresql": postgresql.TIMESTAMP(*args), "mysql": mysql.DATETIME(*args)})
 
 
 def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
@@ -71,18 +94,23 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     Raises
     ------
     ValueError
-        If the column has a sized type but no length.
+        If the column has a sized type but no length or if the datatype is
+        invalid.
     """
     variant_dict = make_variant_dict(column_obj)
     felis_type = FelisType.felis_type(column_obj.datatype.value)
-    datatype_fun = getattr(sqltypes, column_obj.datatype.value)
+    datatype_fun = getattr(sqltypes, column_obj.datatype.value, None)
+    if datatype_fun is None:
+        raise ValueError(f"Unknown datatype: {column_obj.datatype.value}")
+    args = []
     if felis_type.is_sized:
+        # Add length argument for size types.
         if not column_obj.length:
             raise ValueError(f"Column {column_obj.name} has sized type '{column_obj.datatype}' but no length")
-        datatype = datatype_fun(column_obj.length, **variant_dict)
-    else:
-        datatype = datatype_fun(**variant_dict)
-    return datatype
+        args = [column_obj.length]
+    if felis_type.is_timestamp:
+        _handle_timestamp_column(column_obj, variant_dict)
+    return datatype_fun(*args, **variant_dict)
 
 
 _VALID_SERVER_DEFAULTS = ("CURRENT_TIMESTAMP", "NOW()", "LOCALTIMESTAMP", "NULL")

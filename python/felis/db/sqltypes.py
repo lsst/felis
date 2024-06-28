@@ -156,6 +156,11 @@ binary_map: _TypeMap = {
     POSTGRES: postgresql.BYTEA,
 }
 
+timestamp_map: _TypeMap = {
+    MYSQL: mysql.DATETIME(timezone=False),
+    POSTGRES: postgresql.TIMESTAMP(timezone=False),
+}
+
 
 def boolean(**kwargs: Any) -> types.TypeEngine:
     """Get the SQL type for Felis `~felis.types.Boolean` with variants.
@@ -370,7 +375,7 @@ def timestamp(**kwargs: Any) -> types.TypeEngine:
     `~sqlalchemy.types.TypeEngine`
         The SQL type for a Felis timestamp.
     """
-    return types.TIMESTAMP()
+    return _vary(types.TIMESTAMP(timezone=False), timestamp_map, kwargs)
 
 
 def get_type_func(type_name: str) -> Callable:
