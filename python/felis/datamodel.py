@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from enum import StrEnum, auto
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, TypeAlias
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
@@ -178,7 +178,7 @@ class Column(BaseObject):
     tap_principal: int | None = Field(0, alias="tap:principal", ge=0, le=1)
     """Whether this is a TAP_SCHEMA principal column."""
 
-    votable_arraysize: int | Literal["*"] | None = Field(None, alias="votable:arraysize")
+    votable_arraysize: int | str | None = Field(None, alias="votable:arraysize")
     """VOTable arraysize of the column."""
 
     tap_std: int | None = Field(0, alias="tap:std", ge=0, le=1)
