@@ -124,8 +124,7 @@ def init_tables(
         datatype = Column(String(SIMPLE_FIELD_LENGTH), nullable=False)
         arraysize = Column(String(10))
         xtype = Column(String(SIMPLE_FIELD_LENGTH))
-        # Size is deprecated
-        # size = Column(Integer(), quote=True)
+        size = Column(Integer(), name="size", quote=True)
         description = Column(String(TEXT_FIELD_LENGTH))
         utype = Column(String(SIMPLE_FIELD_LENGTH))
         unit = Column(String(SIMPLE_FIELD_LENGTH))
@@ -412,7 +411,7 @@ class TapLoadingVisitor:
         if felis_type.is_timestamp:
             arraysize = column_obj.votable_arraysize or "*"
         column.arraysize = arraysize
-
+        column.size = arraysize if arraysize is not "*" else None
         column.xtype = column_obj.votable_xtype
         column.description = column_obj.description
         column.utype = column_obj.votable_utype

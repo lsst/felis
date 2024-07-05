@@ -141,9 +141,18 @@ class SQLWriter:
         The functions arguments are typed very loosely because this method in
         SQLAlchemy is untyped, amd we do not call it directly.
         """
+        param_styles = {
+            'postgresql': 'named',
+            'sqlite': 'named',
+            'mysql': 'positional',
+            'oracle': 'named',
+            'mssql': 'named',
+        }
+
         compiled = sql.compile(dialect=self.dialect)
         sql_str = str(compiled) + ";"
         params_list = [compiled.params]
+
         for params in params_list:
             if not params:
                 print(sql_str, file=self.file)
@@ -156,7 +165,13 @@ class SQLWriter:
                     new_params[key] = "null"
                 else:
                     new_params[key] = value
-            print(sql_str % new_params, file=self.file)
+
+            param_style = param_styles.get(self.dialect.name, 'positional')
+            if param_style == 'named':
+                formatted_sql = sql_str % new_params
+            else:
+                formatted_sql = sql_str % tuple(new_params.values())
+            print(formatted_sql, file=self.file)
 
 
 class ConnectionWrapper:
