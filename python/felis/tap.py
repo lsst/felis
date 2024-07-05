@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Iterable, MutableMapping
 from typing import Any
 
@@ -125,7 +126,7 @@ def init_tables(
         arraysize = Column(String(10))
         xtype = Column(String(SIMPLE_FIELD_LENGTH))
         # Size is deprecated
-        # size = Column(Integer(), quote=True)
+        size = Column("size", Integer(), quote=True)
         description = Column(String(TEXT_FIELD_LENGTH))
         utype = Column(String(SIMPLE_FIELD_LENGTH))
         unit = Column(String(SIMPLE_FIELD_LENGTH))
@@ -409,6 +410,25 @@ class TapLoadingVisitor:
         column.arraysize = column_obj.votable_arraysize or column_obj.length
         if (felis_type.is_timestamp or column_obj.datatype == "text") and column.arraysize is None:
             column.arraysize = "*"
+
+        def _is_int(s: str) -> bool:
+            try:
+                int(s)
+                return True
+            except ValueError:
+                return False
+
+        # Handle the deprecated size attribute
+        arraysize = column_obj.votable_arraysize
+        if arraysize is not None and arraysize != "":
+            if isinstance(arraysize, int):
+                column.size = arraysize
+            elif _is_int(arraysize):
+                column.size = int(arraysize)
+            elif bool(re.match(r"^[0-9]+\*$", arraysize)):
+                column.size = int(arraysize.replace("*", ""))
+            if column.size is not None:
+                logger.debug(f"Set size to {column.size} for {column.column_name} from arraysize {arraysize}")
 
         column.xtype = column_obj.votable_xtype
         column.description = column_obj.description
