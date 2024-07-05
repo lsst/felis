@@ -188,6 +188,28 @@ class MetaDataTestCase(unittest.TestCase):
                 for primary_key in primary_keys:
                     self.assertTrue(md_table.columns[primary_key].primary_key)
 
+    def test_timestamp(self):
+        """Test that the `timestamp` datatype is created correctly."""
+        for precision in [None, 6]:
+            col = dm.Column(
+                **{
+                    "name": "timestamp_test",
+                    "id": "#timestamp_test",
+                    "datatype": "timestamp",
+                    "precision": precision,
+                }
+            )
+            datatype = get_datatype_with_variants(col)
+            variant_dict = datatype._variant_mapping
+            self.assertTrue("mysql" in variant_dict)
+            self.assertTrue("postgresql" in variant_dict)
+            pg_timestamp = variant_dict["postgresql"]
+            self.assertEqual(pg_timestamp.timezone, False)
+            self.assertEqual(pg_timestamp.precision, precision)
+            mysql_timestamp = variant_dict["mysql"]
+            self.assertEqual(mysql_timestamp.timezone, False)
+            self.assertEqual(mysql_timestamp.fsp, precision)
+
 
 if __name__ == "__main__":
     unittest.main()
