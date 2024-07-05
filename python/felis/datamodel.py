@@ -370,6 +370,19 @@ class Column(BaseObject):
                     )
         return self
 
+    @model_validator(mode="after")
+    def check_precision(self) -> Column:
+        """Check that precision is only valid for timestamp columns.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
+        """
+        if self.precision is not None and self.datatype != "timestamp":
+            raise ValueError("Precision is only valid for timestamp columns")
+        return self
+
 
 class Constraint(BaseObject):
     """Table constraint model."""

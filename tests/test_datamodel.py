@@ -689,6 +689,13 @@ class RedundantDatatypesTest(unittest.TestCase):
         coldata.col("string", "CHAR", length=32)
         coldata.col("unicode", "CHAR", length=32)
 
+    def test_precision(self) -> None:
+        """Test that precision is not allowed for datatypes other than
+        timestamp.
+        """
+        with self.assertRaises(ValidationError):
+            Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "double", "precision": 6})
+
 
 if __name__ == "__main__":
     unittest.main()
