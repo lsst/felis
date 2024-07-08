@@ -711,7 +711,7 @@ class SchemaIdVisitor:
 class Schema(BaseObject):
     """Database schema model.
 
-    This is the root object of the Felis data model.
+    This represents a database schema, which contains one or more tables.
     """
 
     version: SchemaVersion | str | None = None
