@@ -299,6 +299,7 @@ class DatabaseContext:
             The mock connection object.
         """
         writer = SQLWriter(output_file)
-        engine = create_mock_engine(engine_url, executor=writer.write)
+        engine = create_mock_engine(engine_url, executor=writer.write,
+                                    paramstyle="pyformat")
         writer.dialect = engine.dialect
         return engine
