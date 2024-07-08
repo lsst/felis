@@ -27,6 +27,7 @@ import unittest
 from click.testing import CliRunner
 
 from felis.cli import cli
+from felis.db.dialects import get_supported_dialects
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
@@ -90,14 +91,15 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_load_tap_mock(self) -> None:
-        """Test for ``load-tap --dry-run`` command."""
-        url = "postgresql+psycopg2://"
+        """Test ``load-tap --dry-run`` command on supported dialects."""
+        urls = [f"{dialect_name}://" for dialect_name in get_supported_dialects().keys()]
 
-        runner = CliRunner()
-        result = runner.invoke(
-            cli, ["load-tap", f"--engine-url={url}", "--dry-run", TEST_YAML], catch_exceptions=False
-        )
-        self.assertEqual(result.exit_code, 0)
+        for url in urls:
+            runner = CliRunner()
+            result = runner.invoke(
+                cli, ["load-tap", f"--engine-url={url}", "--dry-run", TEST_YAML], catch_exceptions=False
+            )
+            self.assertEqual(result.exit_code, 0)
 
     def test_validate_default(self) -> None:
         """Test validate command."""
