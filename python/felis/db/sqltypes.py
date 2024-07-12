@@ -28,7 +28,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from sqlalchemy import SmallInteger, types
-from sqlalchemy.dialects import mysql, oracle, postgresql
+from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.ext.compiler import compiles
 
 __all__ = [
@@ -49,7 +49,6 @@ __all__ = [
 ]
 
 MYSQL = "mysql"
-ORACLE = "oracle"
 POSTGRES = "postgresql"
 SQLITE = "sqlite"
 
@@ -88,21 +87,18 @@ def compile_tinyint(type_: Any, compiler: Any, **kwargs: Any) -> str:
 
 _TypeMap = Mapping[str, types.TypeEngine | type[types.TypeEngine]]
 
-boolean_map: _TypeMap = {MYSQL: mysql.BOOLEAN, ORACLE: oracle.NUMBER(1), POSTGRES: postgresql.BOOLEAN()}
+boolean_map: _TypeMap = {MYSQL: mysql.BOOLEAN, POSTGRES: postgresql.BOOLEAN()}
 
 byte_map: _TypeMap = {
     MYSQL: mysql.TINYINT(),
-    ORACLE: oracle.NUMBER(3),
     POSTGRES: postgresql.SMALLINT(),
 }
 
 short_map: _TypeMap = {
     MYSQL: mysql.SMALLINT(),
-    ORACLE: oracle.NUMBER(5),
     POSTGRES: postgresql.SMALLINT(),
 }
 
-# Skip Oracle
 int_map: _TypeMap = {
     MYSQL: mysql.INTEGER(),
     POSTGRES: postgresql.INTEGER(),
@@ -110,49 +106,41 @@ int_map: _TypeMap = {
 
 long_map: _TypeMap = {
     MYSQL: mysql.BIGINT(),
-    ORACLE: oracle.NUMBER(38, 0),
     POSTGRES: postgresql.BIGINT(),
 }
 
 float_map: _TypeMap = {
     MYSQL: mysql.FLOAT(),
-    ORACLE: oracle.BINARY_FLOAT(),
     POSTGRES: postgresql.FLOAT(),
 }
 
 double_map: _TypeMap = {
     MYSQL: mysql.DOUBLE(),
-    ORACLE: oracle.BINARY_DOUBLE(),
     POSTGRES: postgresql.DOUBLE_PRECISION(),
 }
 
 char_map: _TypeMap = {
     MYSQL: mysql.CHAR,
-    ORACLE: oracle.CHAR,
     POSTGRES: postgresql.CHAR,
 }
 
 string_map: _TypeMap = {
     MYSQL: mysql.VARCHAR,
-    ORACLE: oracle.VARCHAR2,
     POSTGRES: postgresql.VARCHAR,
 }
 
 unicode_map: _TypeMap = {
     MYSQL: mysql.NVARCHAR,
-    ORACLE: oracle.NVARCHAR2,
     POSTGRES: postgresql.VARCHAR,
 }
 
 text_map: _TypeMap = {
     MYSQL: mysql.LONGTEXT,
-    ORACLE: oracle.CLOB,
     POSTGRES: postgresql.TEXT,
 }
 
 binary_map: _TypeMap = {
     MYSQL: mysql.LONGBLOB,
-    ORACLE: oracle.BLOB,
     POSTGRES: postgresql.BYTEA,
 }
 

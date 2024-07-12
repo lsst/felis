@@ -23,7 +23,7 @@ validity using an internal `Pydantic <https://docs.pydantic.dev/latest/>`_ data
 model to ensure strict conformance to the format. SQL Data Definition language
 (DDL) statements can be generated to instantiate corresponding database
 objects, such as tables and columns, in a number of different database
-variants, including MySQL, PostgreSQL, Oracle, and SQLite. The schema can also
+variants, including MySQL, PostgreSQL, and SQLite. The schema can also
 be used to update the TAP schema information in a
 `TAP <https://www.ivoa.net/documents/TAP/>`_ service.
 
