@@ -30,11 +30,11 @@ from sqlalchemy import dialects
 from sqlalchemy.engine import Dialect
 from sqlalchemy.engine.mock import create_mock_engine
 
-from .sqltypes import MYSQL, ORACLE, POSTGRES, SQLITE
+from .sqltypes import MYSQL, POSTGRES, SQLITE
 
 __all__ = ["get_supported_dialects", "get_dialect_module"]
 
-_DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE, ORACLE)
+_DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE)
 """List of supported dialect names.
 
 This list is used to create the dialect and module dictionaries.
