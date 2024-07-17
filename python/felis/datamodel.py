@@ -28,6 +28,7 @@ from collections.abc import Mapping, Sequence
 from enum import StrEnum, auto
 from typing import Annotated, Any, Literal, TypeAlias
 
+import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
@@ -841,3 +842,20 @@ class Schema(BaseObject):
             The ID of the object to check.
         """
         return id in self.id_map
+
+    @staticmethod
+    def load(path: str) -> Schema:
+        """Load a schema from a YAML file.
+
+        Parameters
+        ----------
+        path
+            The path to the YAML file containing the schema.
+
+        Returns
+        -------
+        `Schema`
+            The loaded schema.
+        """
+        data = yaml.safe_load(open(path))
+        return Schema.model_validate(data)
