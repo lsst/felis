@@ -942,3 +942,26 @@ class Schema(BaseObject):
             The ID of the object to check.
         """
         return id in self.id_map
+
+    def get_table_by_column(self, column: Column) -> Table:
+        """Find the table that contains a column.
+
+        Parameters
+        ----------
+        column
+            The column to find.
+
+        Returns
+        -------
+        `Table`
+            The table that contains the column.
+
+        Raises
+        ------
+        ValueError
+            If the column is not found in any table.
+        """
+        for table in self.tables:
+            if column in table.columns:
+                return table
+        raise ValueError(f"Column '{column.name}' not found in any table")
