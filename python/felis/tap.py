@@ -406,12 +406,9 @@ class TapLoadingVisitor:
         felis_type = FelisType.felis_type(felis_datatype.value)
         column.datatype = column_obj.votable_datatype or felis_type.votable_name
 
-        arraysize = None
-        if felis_type.is_sized:
-            arraysize = column_obj.votable_arraysize or column_obj.length or "*"
-        if felis_type.is_timestamp:
-            arraysize = column_obj.votable_arraysize or "*"
-        column.arraysize = arraysize
+        column.arraysize = column_obj.votable_arraysize or column_obj.length
+        if (felis_type.is_timestamp or column_obj.datatype == "text") and column.arraysize is None:
+            column.arraysize = "*"
 
         column.xtype = column_obj.votable_xtype
         column.description = column_obj.description
