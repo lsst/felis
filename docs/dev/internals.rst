@@ -1,8 +1,8 @@
 :og:description: Internal API documentation for Felis.
 
-########################
-Python API Documentation
-########################
+##########
+Python API
+##########
 
 .. automodapi:: felis.datamodel
    :include-all-objects:
