@@ -2,8 +2,10 @@
 Examples
 ########
 
-The `SDM Schemas github repository <https://github.com/lsst/sdm_schemas>`_ contains Felis schema files used by the Rubin Observatory, which will be used as examples to illustrate the features of Felis.
-The following is an excerpt from the `DP0.2 DC2 schema <https://github.com/lsst/sdm_schemas/blob/main/yml/dp02_dc2.yaml>`_:
+The `SDM Schemas github repository <https://github.com/lsst/sdm_schemas>`_ contains Felis schema files used by
+the Rubin Observatory, which will be used as examples to illustrate the features of Felis.
+The following is an excerpt from the
+`DP0.2 DC2 schema <https://github.com/lsst/sdm_schemas/blob/main/yml/dp02_dc2.yaml>`_:
 
 .. code-block:: yaml
    :linenos:
@@ -33,22 +35,27 @@ The following is an excerpt from the `DP0.2 DC2 schema <https://github.com/lsst/
         ivoa:ucd: pos.eq.ra;meta.main
 
 Lines 2-6 define the schema name, id, and description.
-Name and id are always required.
+Name and id are required for all objects in Felis schemas.
 The description is optional but highly recommended for documentation purposes.
 
 Next is a list of table definitions, starting with the Object table on line 18.
 Each table definition includes a name, id, description, and a list of columns, and may also include TAP-specific metadata.
 
-Each table defines one or more columns, starting with the objectId column on line 23.
-A column must have a name, id, and datatype, and an optional (but highly recommended to include) description.
-The `Column <../dev/internals/felis.datamodel.Column.html>`_ class provides a full list of available fields, including TAP and VOTable-specific metadata.
+A table is comprised of one or more columns which must must have a name, id, and datatype, and an optional
+(but highly recommended to include) description.
+The `Column <../dev/internals/felis.datamodel.Column.html>`_ class provides a full list of available fields,
+including TAP and VOTable-specific metadata.
 
-The second exerted column is coord_ra, which is a measurement field including units of measurement.
-
-Both fields shown here have an `IVOA UCD <https://www.ivoa.net/documents/cover/UCD-20050812.html>`_ field, which is a "vocabulary for describing astrononomical data quantities," describing the semantics of the fields.
+Both fields shown here have an `IVOA UCD <https://www.ivoa.net/documents/cover/UCD-20050812.html>`_ field,
+which is a "vocabulary for describing astrononomical data quantities," describing the semantics of the fields.
+The first column in the Object table is ``objectId``, which is a long integer field defining a unique identifier
+for records in the table.
+The ``meta.id`` word in the column's UCD flags the field semantically as an identifier.
+The second exerted column is ``coord_ra``, which is a measurement field including units of measurement.
 
 Felis also supports table constraints, such as foreign keys.
-The DP0.2 DC2 schema includes a foreign key constraint on the ccdVisitId field of the Source table, defined as follows:
+The `DP0.2 DC2 schema <https://github.com/lsst/sdm_schemas/blob/main/yml/dp02_dc2.yaml>`_ includes a foreign
+key constraint on the ``ccdVisitId`` field of the ``Source`` table, defined as follows:
 
 .. code-block:: yaml
    :linenos:
@@ -63,6 +70,7 @@ The DP0.2 DC2 schema includes a foreign key constraint on the ccdVisitId field o
      referencedColumns:
      - "#CcdVisit.ccdVisitId"
 
-The ccdVisitId field in the Source table is linked to the ccdVisitId field in the CcdVisit table.
+The ``ccdVisitId`` field in the ``Source`` table is linked to the ``ccdVisitId`` field in the ``CcdVisit``
+table.
 
-Felis supports many additional features. Refer to the `model documentation <model>`_ for a complete list.
+Felis schemas support many additional features. Refer to the `model documentation <model>`_ for a complete list.

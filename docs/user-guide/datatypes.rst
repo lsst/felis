@@ -2,12 +2,12 @@
 Data Types
 ##########
 
-Felis has an internal type system that is used to define the data types of columns in a schema.
-These are mapped to the appropriate SQL data types when the schema is created in a database and the
-corresponding `VOTable <https://ivoa.net/documents/VOTable/>`__ data type when writing information to
+Felis provides an internal type system that is used to define the data types of columns in a schema.
+These data types are mapped to the appropriate SQL types when instantiating a database and the corresponding
+`VOTable <https://ivoa.net/documents/VOTable/>`__ data types when writing information to
 `TAP_SCHEMA <https://www.ivoa.net/documents/TAP/20190927/REC-TAP-1.1.html#tth_sEc4>`_.
 
-The following values are supported for the
+The following values are supported by the
 `datatype <../dev/internals/felis.datamodel.Column.html#felis.datamodel.Column.datatype>`_ field of a column
 object:
 

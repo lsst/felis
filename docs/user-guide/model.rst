@@ -3,9 +3,9 @@ Data Model
 ##########
 
 Felis's `data model <../dev/internals.html#module-felis.datamodel>`__ is defined by a set of
-`Pydantic <https://docs.pydantic.dev/latest/>`__ classes which describe the semantics of tabular data.
+`Pydantic <https://docs.pydantic.dev/latest/>`__ classes defining the semantics of tabular data.
 In addition to the standard conceptual constructs of a relational database schema, such as tables and columns,
-Felis provides a way to attach extra metadata to these elements like units of measurement on columns.
+Felis provides a way to attach extra metadata to these elements, like units of measurement on columns.
 
 ******
 Schema
@@ -18,10 +18,12 @@ A schema is defined by a name and will be instantiated as a
 and a `database object in MySQL <https://dev.mysql.com/doc/refman/8.4/en/database-use.html>`__ with ``CREATE
 DATABASE``.
 
+Schemas may contain the following fields:
+
 :``name``: The name of this schema. This is the name that will be used to create the schema in the database.
 :``@id``: An identifier for this schema. This may be used for relating schemas together at a higher level. Typically, the name of the schema can be used as the id.
 :``description``: A textual description of this schema.
-:``tables``: The list of tables in the schema. A schema MUST have one or more tables.
+:``tables``: The list of tables in the schema. A schema must have one or more tables.
 :``version``: Optional schema version description.
 
 **************
@@ -30,16 +32,16 @@ Schema Version
 
 A `schema version <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.SchemaVersion>`__ can be used
 to track changes to a schema over time.
-The version is defined by either a simple version string or a more complex version object.
+The version is defined by either a simple string or a more complex version object.
 Felis does not enforce any particular format for version strings.
-A version string may simply be defined as ``version: v1``, for instance.
+A version string could simply be defined as ``v1``, for instance.
 
 The `schema version <../dev/internals/felis.datamodel.SchemaVersion.html>`_ object has the following
 attributes:
 
 :``current``: The current version of the schema.
 :``compatible``: A list of fully compatible versions.
-:``read_compatible``: A list of versions that are read-compatible. A read compatible version is one where a database created with the older version can be read by the newer version. An example of a non-read compatible change is removing a column from a table.
+:``read_compatible``: A list of versions that are read-compatible. A read compatible version is one where a database created with the older version can be read by the newer version. An example of a non-read compatible change would be removing a column from a table.
 
 While Felis does not enforce any particular format for version strings, it is recommended to use a format that
 can be compared using `semantic versioning <https://semver.org/>`__.
@@ -55,9 +57,9 @@ columns along with their indexes and constraints and has these attributes:
 :``@id``: A unique identifier for this table.
 :``description``: A textual description of this table.
 :``columns``: The list of columns in the table.
-:``primaryKey``: A list of column names that make up the primary key for this table.
-:``constraints``: The list of constraints for the table. The most typical type is a foreign key constraint.
-:``indexes``: The list of indexes for the table.
+:``primaryKey``: The ID of the table's primary key column or a list of IDs that make up a composite primary key.
+:``constraints``: The list of constraints for the table. Refer to the :ref:`Constraint` section for more information.
+:``indexes``: The list of indexes for the table. Refer to the :ref:`Index` section for more information.
 
 A table may also have the following optional attributes:
 
@@ -72,6 +74,8 @@ Column
 A `column <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Column>`__ represents a single field
 in a table.
 A column has a name and a data type and may have additional metadata like units of measurement.
+
+Columns have the following primary attributes:
 
 :``name``: The name of this column. This is the name that will be used to create the column in the database.
 :``@id``: A unique identifier for this column.
@@ -94,13 +98,14 @@ A column may also have the following optional properties:
 :``votable:arraysize``: The VOTable ``arraysize`` for this column [3]_.
 :``votable:datatype``: The VOTable ``datatype`` for this column [3]_.
 :``votable:xtype``: The VOTable ``xtype``, if any, for this column [3]_.
-:``mysql:datatype``: The `MySQL data type <https://dev.mysql.com/doc/refman/8.4/en/data-types.html>`__ for this column.
-:``postgresql:datatype``: The `PostgreSQL data type <https://www.postgresql.org/docs/13/datatype.html>`__ for this column.
+:``mysql:datatype``: A `MySQL data type <https://dev.mysql.com/doc/refman/8.4/en/data-types.html>`__ override for this column.
+:``postgresql:datatype``: A `PostgreSQL data type <https://www.postgresql.org/docs/13/datatype.html>`__ override for this column.
 
 .. [1] The ``ivoa:unit`` and ``fits:tunit`` fields are mutually exclusive. Only one of these fields should be set on a column object.
 .. [2] `TAP Access Protocol (TAP) specification <https://www.ivoa.net/documents/TAP/>`__
 .. [3] `VOTable specification <http://www.ivoa.net/documents/VOTable/>`__
 
+.. _Constraint:
 
 **********
 Constraint
@@ -152,6 +157,8 @@ The constraint is defined by one or more columns in the table. Unique constraint
 additional attributes:
 
 :``columns``: One or more column names in the current table that are part of the unique constraint. This should be one or more ``@id`` values pointing to columns in the current table.
+
+.. _Index:
 
 *****
 Index
