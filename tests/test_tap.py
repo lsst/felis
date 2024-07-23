@@ -23,8 +23,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from collections.abc import MutableMapping
-from typing import Any
 
 import sqlalchemy
 import yaml
@@ -39,7 +37,7 @@ TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
 class VisitorTestCase(unittest.TestCase):
     """Test the TAP loading visitor."""
 
-    schema_obj: MutableMapping[str, Any] = {}
+    schema_obj: Schema
 
     def setUp(self) -> None:
         """Load data from a test file."""
