@@ -26,8 +26,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from enum import StrEnum, auto
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, TypeVar
 
+import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
@@ -708,6 +709,9 @@ class SchemaIdVisitor:
         self.add(constraint)
 
 
+T = TypeVar("T", bound=BaseObject)
+
+
 class Schema(BaseObject):
     """Database schema model.
 
@@ -841,3 +845,75 @@ class Schema(BaseObject):
             The ID of the object to check.
         """
         return id in self.id_map
+
+    def find_object_by_id(self, id: str, obj_type: type[T] = BaseObject) -> T:  # type: ignore
+        """Find an object with the given type by its ID.
+
+        Parameters
+        ----------
+        id
+            The ID of the object to find.
+        obj_type
+            The type of the object to find.
+
+        Returns
+        -------
+        BaseObject
+            The object with the given ID and type.
+
+        Raises
+        ------
+        KeyError
+            If the object with the given ID is not found in the schema.
+        TypeError
+            If the object that is found does not have the right type.
+
+        Notes
+        -----
+        The actual return type is the user-specified argument ``T``, which is
+        expected to be a subclass of `BaseObject`.
+        """
+        obj = self[id]
+        if not isinstance(obj, obj_type):
+            raise TypeError(f"Object with ID '{id}' is not of type '{obj_type.__name__}'")
+        return obj
+
+    def get_table_by_column(self, column: Column) -> Table:
+        """Find the table that contains a column.
+
+        Parameters
+        ----------
+        column
+            The column to find.
+
+        Returns
+        -------
+        `Table`
+            The table that contains the column.
+
+        Raises
+        ------
+        ValueError
+            If the column is not found in any table.
+        """
+        for table in self.tables:
+            if column in table.columns:
+                return table
+        raise ValueError(f"Column '{column.name}' not found in any table")
+
+    @staticmethod
+    def load(path: str) -> Schema:
+        """Load a schema from a YAML file.
+
+        Parameters
+        ----------
+        path
+            The path to the YAML file containing the schema.
+
+        Returns
+        -------
+        `Schema`
+            The loaded schema.
+        """
+        data = yaml.safe_load(open(path))
+        return Schema.model_validate(data)
