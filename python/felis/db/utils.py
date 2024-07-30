@@ -260,8 +260,6 @@ class DatabaseContext:
                     raise ValueError(f"PostgreSQL schema '{schema_name}' already exists.")
                 logger.debug(f"Creating PG schema: {schema_name}")
                 self.conn.execute(CreateSchema(schema_name))
-            else:
-                raise ValueError("Unsupported database type: " + self.dialect_name)
         except SQLAlchemyError as e:
             logger.error(f"Error creating schema: {e}")
             raise
