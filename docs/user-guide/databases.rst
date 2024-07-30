@@ -142,19 +142,17 @@ Creating a New Database
 -----------------------
 
 Felis can also be used to create the database itself, rather than use an existing one, by using the
-``--create-if-not-exists`` option.
-
-Here is an example of creating a new MySQL database:
+``--initialize`` option:
 
 .. code-block:: bash
 
-    felis create --engine-url mysql+mysqlconnector://username:password@localhost --create-if-not-exists schema.yaml
+    felis create --engine-url mysql+mysqlconnector://username:password@localhost --initialize schema.yaml
 
 Felis can also drop an existing database first and then recreate it:
 
 .. code-block:: bash
 
-    felis create --engine-url mysql+mysqlconnector://username:password@localhost --drop-if-exists schema.yaml
+    felis create --engine-url mysql+mysqlconnector://username:password@localhost --drop schema.yaml
 
 The commands to create or drop databases will require that the database user has the necessary permissions on
 the server.
@@ -211,9 +209,9 @@ supports creation of the database or schema itself:
 
         engine = create_engine("mysql+mysqlconnector://username:password@localhost")
         ctx = DatabaseContext(metadata, engine)
-        ctx.create_if_not_exists()
+        ctx.initialize()
         ctx.create_all()
 
 An advantage of using this class is that it can automatically handle the creation of the database if it does
-not already exist with the ``create_if_not_exists`` method; an existing database may also be dropped and
-recreated using the ``drop_and_create`` method.
+not already exist with the ``create_if_not_exists`` method or drop and recreate the database with the
+``drop_and_create`` method.
