@@ -220,6 +220,24 @@ class MetaDataTestCase(unittest.TestCase):
             self.assertEqual(mysql_timestamp.timezone, False)
             self.assertEqual(mysql_timestamp.fsp, precision)
 
+    def test_ignore_constraints(self) -> None:
+        """Test that constraints are not created when the
+        ``ignore_constraints`` flag is set on the metadata builder.
+        """
+        schema = Schema.model_validate(self.yaml_data)
+        schema.name = "main"
+        builder = MetaDataBuilder(schema, ignore_constraints=True)
+        md = builder.build()
+        for table in md.tables.values():
+            non_primary_key_constraints = [
+                c for c in table.constraints if not isinstance(c, PrimaryKeyConstraint)
+            ]
+            self.assertEqual(
+                len(non_primary_key_constraints),
+                0,
+                msg=f"Table {table.name} has non-primary key constraints defined",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
