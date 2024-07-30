@@ -123,6 +123,16 @@ class CliTestCase(unittest.TestCase):
         )
         self.assertEqual(result.exit_code, 0)
 
+    def test_initialize_and_drop(self) -> None:
+        """Test that initialize and drop can't be used together."""
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["create", "--initialize", "--drop", TEST_YAML],
+            catch_exceptions=False,
+        )
+        self.assertTrue(result.exit_code != 0)
+
 
 if __name__ == "__main__":
     unittest.main()
