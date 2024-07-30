@@ -25,6 +25,7 @@ import unittest
 import yaml
 from sqlalchemy import (
     CheckConstraint,
+    Connection,
     Constraint,
     ForeignKeyConstraint,
     Index,
@@ -52,11 +53,11 @@ class MetaDataTestCase(unittest.TestCase):
         with open(TEST_YAML) as data:
             self.yaml_data = yaml.safe_load(data)
 
-    def connection(self):
+    def connection(self) -> Connection:
         """Return a connection to the database."""
         return self.engine.connect()
 
-    def test_create_all(self):
+    def test_create_all(self) -> None:
         """Create all tables in the schema using the metadata object and a
         SQLite connection.
 
@@ -113,16 +114,25 @@ class MetaDataTestCase(unittest.TestCase):
                         self.assertEqual(md_constraint.name, md_db_constraint.name)
                         self.assertEqual(md_constraint.deferrable, md_db_constraint.deferrable)
                         self.assertEqual(md_constraint.initially, md_db_constraint.initially)
-                        if isinstance(md_constraint, ForeignKeyConstraint):
+                        self.assertEqual(
+                            type(md_constraint), type(md_db_constraint), "Constraint types do not match"
+                        )
+                        if isinstance(md_constraint, ForeignKeyConstraint) and isinstance(
+                            md_db_constraint, ForeignKeyConstraint
+                        ):
                             md_fk: ForeignKeyConstraint = md_constraint
                             md_db_fk: ForeignKeyConstraint = md_db_constraint
                             self.assertEqual(md_fk.referred_table.name, md_db_fk.referred_table.name)
                             self.assertEqual(md_fk.column_keys, md_db_fk.column_keys)
-                        elif isinstance(md_constraint, UniqueConstraint):
+                        elif isinstance(md_constraint, UniqueConstraint) and isinstance(
+                            md_db_constraint, UniqueConstraint
+                        ):
                             md_uniq: UniqueConstraint = md_constraint
                             md_db_uniq: UniqueConstraint = md_db_constraint
                             self.assertEqual(md_uniq.columns.keys(), md_db_uniq.columns.keys())
-                        elif isinstance(md_constraint, CheckConstraint):
+                        elif isinstance(md_constraint, CheckConstraint) and isinstance(
+                            md_db_constraint, CheckConstraint
+                        ):
                             md_check: CheckConstraint = md_constraint
                             md_db_check: CheckConstraint = md_db_constraint
                             self.assertEqual(str(md_check.sqltext), str(md_db_check.sqltext))
@@ -139,7 +149,7 @@ class MetaDataTestCase(unittest.TestCase):
                         self.assertEqual(md_index.name, md_db_index.name)
                         self.assertEqual(md_index.columns.keys(), md_db_index.columns.keys())
 
-    def test_builder(self):
+    def test_builder(self) -> None:
         """Test that the information in the metadata object created by the
         builder matches the data in the Felis schema used to create it.
         """
@@ -188,7 +198,7 @@ class MetaDataTestCase(unittest.TestCase):
                 for primary_key in primary_keys:
                     self.assertTrue(md_table.columns[primary_key].primary_key)
 
-    def test_timestamp(self):
+    def test_timestamp(self) -> None:
         """Test that the `timestamp` datatype is created correctly."""
         for precision in [None, 6]:
             col = dm.Column(
