@@ -73,7 +73,11 @@ def cli(log_level: str, log_file: str | None) -> None:
 @cli.command("create", help="Create database objects from the Felis file")
 @click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
-@click.option("--initialize", is_flag=True, help="Create the schema in the database if it does not exist")
+@click.option(
+    "--initialize",
+    is_flag=True,
+    help="Create the schema in the database if it does not exist (error if already exists)",
+)
 @click.option(
     "--drop", is_flag=True, help="Drop schema if it already exists in the database (implies --initialize)"
 )
@@ -113,14 +117,6 @@ def create(
         Write SQL commands to a file instead of executing.
     file
         Felis file to read.
-
-    Notes
-    -----
-    This command creates database objects from the Felis file. The
-    ``--initialize`` or ``--drop`` flags can be used to create a new MySQL
-    database or PostgreSQL schema if it does not exist already. These options
-    are mutually exclusive and an error will be raised if they are used
-    together, because ``--drop`` always implies ``--initialize``.
     """
     try:
         yaml_data = yaml.safe_load(file)

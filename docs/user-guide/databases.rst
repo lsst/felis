@@ -138,21 +138,38 @@ To show the tables which were instantiated, use the following command from withi
 
 SQLite will ignore the name of the schema, as it does not support named schemas or databases.
 
-Creating a New Database
------------------------
+Initializing and Dropping Databases
+-----------------------------------
 
-Felis can also be used to create the database itself, rather than use an existing one, by using the
-``--initialize`` option:
+Felis can create the schema's database, rather than use an existing one, with the ``--initialize`` option:
 
 .. code-block:: bash
 
     felis create --engine-url mysql+mysqlconnector://username:password@localhost --initialize schema.yaml
+
+If the database exists already, this command would raise an error to protect against inadvertant updates. To
+update an existing database, simply omit this option.
+
+Initialization is unneeded for SQLite, as a new database file will be created automatically if it does not
+exist, as in the following example:
+
+.. code-block:: bash
+
+    felis create --engine-url sqlite:///example.db schema.yaml
+
+In this case, the ``--initialize`` flag will be silently ignored if present.
 
 Felis can also drop an existing database first and then recreate it:
 
 .. code-block:: bash
 
     felis create --engine-url mysql+mysqlconnector://username:password@localhost --drop schema.yaml
+
+If the database does not exist, then the ``--drop`` option will be ignored and the database will be created
+normally.
+
+The ``--initialize`` and ``--drop`` options are mutually exclusive, as dropping always initializes the
+database. If they are used together then an error will be raised.
 
 The commands to create or drop databases will require that the database user has the necessary permissions on
 the server.
