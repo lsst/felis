@@ -165,8 +165,8 @@ def create(
 
         context.create_all()
     except Exception as e:
-        logger.error(e)
-        raise click.exceptions.Exit(1)
+        logger.exception(e)
+        raise click.ClickException(str(e))
 
 
 @cli.command("init-tap", help="Initialize TAP_SCHEMA objects in the database")
