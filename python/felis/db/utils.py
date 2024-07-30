@@ -260,6 +260,13 @@ class DatabaseContext:
                     raise ValueError(f"PostgreSQL schema '{schema_name}' already exists.")
                 logger.debug(f"Creating PG schema: {schema_name}")
                 self.conn.execute(CreateSchema(schema_name))
+            elif self.dialect_name == "sqlite":
+                # Just silently ignore this operation for SQLite. The database
+                # will still be created if it does not exist and the engine
+                # URL is valid.
+                pass
+            else:
+                raise ValueError(f"Initialization not supported for: {self.dialect_name}")
         except SQLAlchemyError as e:
             logger.error(f"Error creating schema: {e}")
             raise
@@ -285,8 +292,12 @@ class DatabaseContext:
             elif self.dialect_name == "postgresql":
                 logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
                 self.conn.execute(DropSchema(schema_name, if_exists=True, cascade=True))
+            elif self.dialect_name == "sqlite":
+                if isinstance(self.engine, Engine):
+                    logger.debug("Dropping tables in SQLite schema")
+                    self.metadata.drop_all(bind=self.engine)
             else:
-                raise ValueError(f"Unsupported database type: {self.dialect_name}")
+                raise ValueError(f"Drop operation not supported for: {self.dialect_name}")
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
