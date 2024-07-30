@@ -82,7 +82,7 @@ def _get_column_variant_override(field_name: str) -> str:
     Raises
     ------
     ValueError
-        If the field name is not found in the column variant overrides.
+        Raised if the field name is not found in the column variant overrides.
     """
     if field_name not in _COLUMN_VARIANT_OVERRIDES:
         raise ValueError(f"Field name {field_name} not found in column variant overrides")
@@ -111,7 +111,7 @@ def _process_variant_override(dialect_name: str, variant_override_str: str) -> t
     Raises
     ------
     ValueError
-        If the type is not found in the dialect.
+        Raised if the type is not found in the dialect.
 
     Notes
     -----

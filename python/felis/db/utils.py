@@ -70,7 +70,7 @@ def string_to_typeengine(
     Raises
     ------
     ValueError
-        If the type string is invalid or the type is not supported.
+        Raised if the type string is invalid or the type is not supported.
 
     Notes
     -----
@@ -226,9 +226,9 @@ class DatabaseContext:
         Raises
         ------
         ValueError
-            If the database is not supported or it already exists.
+            Raised if the database is not supported or it already exists.
         sqlalchemy.exc.SQLAlchemyError
-            If there is an error creating the schema.
+            Raised if there is an error creating the schema.
 
         Notes
         -----
@@ -277,7 +277,7 @@ class DatabaseContext:
         Raises
         ------
         ValueError
-            If the database is not supported.
+            Raised if the database is not supported.
 
         Notes
         -----

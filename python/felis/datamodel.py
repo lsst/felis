@@ -253,7 +253,7 @@ class Column(BaseObject):
         Raises
         ------
         ValueError
-            If both FITS and IVOA units are provided, or if the unit is
+            Raised If both FITS and IVOA units are provided, or if the unit is
             invalid.
         """
         fits_unit = self.fits_tunit
@@ -289,7 +289,7 @@ class Column(BaseObject):
         Raises
         ------
         ValueError
-            If a length is not provided for a sized type.
+            Raised if a length is not provided for a sized type.
         """
         datatype = values.get("datatype")
         if datatype is None:
@@ -326,7 +326,7 @@ class Column(BaseObject):
         Raises
         ------
         ValueError
-            If a datatype override is redundant.
+            Raised if a datatype override is redundant.
         """
         context = info.context
         if not context or not context.get("check_redundant_datatypes", False):
@@ -445,8 +445,8 @@ class Index(BaseObject):
         Raises
         ------
         ValueError
-            If both columns and expressions are specified, or if neither are
-            specified.
+            Raised if both columns and expressions are specified, or if neither
+            are specified.
         """
         if "columns" in values and "expressions" in values:
             raise ValueError("Defining columns and expressions is not valid")
@@ -547,7 +547,7 @@ class Table(BaseObject):
         Raises
         ------
         ValueError
-            If column names are not unique.
+            Raised if column names are not unique.
         """
         if len(columns) != len(set(column.name for column in columns)):
             raise ValueError("Column names must be unique")
@@ -570,7 +570,7 @@ class Table(BaseObject):
         Raises
         ------
         ValueError
-            If the table is missing a TAP table index.
+            Raised If the table is missing a TAP table index.
         """
         context = info.context
         if not context or not context.get("check_tap_table_indexes", False):
@@ -597,7 +597,7 @@ class Table(BaseObject):
         Raises
         ------
         ValueError
-            If the table is missing a column flagged as 'principal'.
+            Raised if the table is missing a column flagged as 'principal'.
         """
         context = info.context
         if not context or not context.get("check_tap_principal", False):
@@ -741,7 +741,7 @@ class Schema(BaseObject):
         Raises
         ------
         ValueError
-            If table names are not unique.
+            Raised if table names are not unique.
         """
         if len(tables) != len(set(table.name for table in tables)):
             raise ValueError("Table names must be unique")
@@ -779,7 +779,7 @@ class Schema(BaseObject):
         Raises
         ------
         ValueError
-            If duplicate IDs are found in the schema.
+            Raised if duplicate identifiers are found in the schema.
 
         Notes
         -----
@@ -826,7 +826,7 @@ class Schema(BaseObject):
         Raises
         ------
         KeyError
-            If the object with the given ID is not found in the schema.
+            Raised if the object with the given ID is not found in the schema.
         """
         if id not in self:
             raise KeyError(f"Object with ID '{id}' not found in schema")

@@ -376,9 +376,9 @@ def validate(
     Raises
     ------
     click.exceptions.Exit
-        If any validation errors are found. The ``ValidationError`` which is
-        thrown when a schema fails to validate will be logged as an error
-        message.
+        Raised if any validation errors are found. The ``ValidationError``
+        which is thrown when a schema fails to validate will be logged as an
+        error message.
 
     Notes
     -----
