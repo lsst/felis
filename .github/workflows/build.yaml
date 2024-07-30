@@ -27,11 +27,22 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
+      - name: Set up PostgreSQL
+        uses: Harmon758/postgresql-action@v1.0.0
+        with:
+          postgresql version: '16'
+
       - name: Install prereqs for setuptools
         run: pip install wheel
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Install psycopg2
+        run: pip install psycopg2
+
+      - name: Install testing.postgresql
+        run: pip install testing.postgresql
 
       # We have two cores so we can speed up the testing with xdist
       - name: Install pytest packages
