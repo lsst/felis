@@ -1,7 +1,7 @@
 Felis
 =====
 
-|PyPI| |Python|
+|PyPI| |Python| |Codecov|
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/lsst-felis
     :target: https://pypi.org/project/lsst-felis
