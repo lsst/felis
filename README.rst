@@ -11,6 +11,10 @@ Felis
     :target: https://pypi.org/project/lsst-felis
     :alt: PyPI - Python Version
 
+.. |Codecov| image:: https://codecov.io/gh/lsst/felis/branch/main/graph/badge.svg
+    :target: https://codecov.io/gh/lsst/felis
+    :alt: Codecov
+
 YAML Schema Definition Language for Databases
 
 Overview
