@@ -11,6 +11,10 @@ Felis
     :target: https://pypi.org/project/lsst-felis
     :alt: PyPI - Python Version
 
+.. |Codecov| image:: https://codecov.io/gh/lsst/felis/branch/main/graph/badge.svg
+    :target: https://codecov.io/gh/lsst/felis
+    :alt: Codecov
+
 YAML Schema Definition Language for Databases
 
 Overview
@@ -39,44 +43,11 @@ that it can be used as a general tool to define, update, and manage database
 schemas in a way that is independent of database variant or implementation
 language such as SQL.
 
-Installation and Usage
-----------------------
-
-Felis is designed to work with Python 3.11 and 3.12 and may be installed using
-`pip <https://pypi.org/project/pip/>`_::
-
-    pip install lsst-felis
-
-The `felis` command-line tool that is installed with the package can be used to
-perform various actions on the YAML schema files, including validating the
-schema definitions, generating DDL statements for various databases, or
-updating a TAP service with schema metadata. The command line help provides
-documentation on all of these utilities::
-
-    felis --help
-
-Individual subcommands also have their own documentation::
-
-    felis validate --help
-
-For instance, this command can be used to validate a schema file::
-
-    felis validate myschema.yaml
-
-If the schema generates validation errors, then these will be printed to the
-terminal. These errors may include missing required attributes, misspelled YAML
-keys, invalid data values, etc.
-
 Documentation
 -------------
 
 Detailed information on usage, customization, and design is available at the
 `Felis documentation site <https://felis.lsst.io>`_.
-
-Presentations
--------------
-
-- `IVOA Inter Op 2018 <https://wiki.ivoa.net/internal/IVOA/InterOpNov2018Apps/Felis_ivoa-11_2018.pdf>`_ - "Felis: A YAML Schema Definition Language for Database Schemas" - `slides <https://wiki.ivoa.net/internal/IVOA/InterOpNov2018Apps/Felis_ivoa-11_2018.pdf>`__
 
 Support
 -------
