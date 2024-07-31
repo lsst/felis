@@ -1,7 +1,7 @@
 Felis
 =====
 
-|Release| |PyPI| |Python| |Codecov|
+|Tag| |PyPI| |Python| |Codecov|
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/lsst-felis
     :target: https://pypi.org/project/lsst-felis
@@ -15,9 +15,9 @@ Felis
     :target: https://codecov.io/gh/lsst/felis
     :alt: Codecov
 
-.. |Release| image:: https://img.shields.io/github/v/tag/lsst/felis
-    :target: https://github.com/lsst/felis/releases
-    :alt: Latest Release
+.. |Tag| image:: https://img.shields.io/github/v/tag/lsst/felis
+    :target: https://github.com/lsst/felis/tags
+    :alt: Latest Tag
 
 YAML Schema Definition Language for Databases
 
