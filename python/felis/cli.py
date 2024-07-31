@@ -74,9 +74,13 @@ def cli(log_level: str, log_file: str | None) -> None:
 @click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.option(
-    "--create-if-not-exists", is_flag=True, help="Create the schema in the database if it does not exist"
+    "--initialize",
+    is_flag=True,
+    help="Create the schema in the database if it does not exist (error if already exists)",
 )
-@click.option("--drop-if-exists", is_flag=True, help="Drop schema if it already exists in the database")
+@click.option(
+    "--drop", is_flag=True, help="Drop schema if it already exists in the database (implies --initialize)"
+)
 @click.option("--echo", is_flag=True, help="Echo database commands as they are executed")
 @click.option("--dry-run", is_flag=True, help="Dry run only to print out commands instead of executing")
 @click.option(
@@ -86,8 +90,8 @@ def cli(log_level: str, log_file: str | None) -> None:
 def create(
     engine_url: str,
     schema_name: str | None,
-    create_if_not_exists: bool,
-    drop_if_exists: bool,
+    initialize: bool,
+    drop: bool,
     echo: bool,
     dry_run: bool,
     output_file: IO[str] | None,
@@ -101,9 +105,9 @@ def create(
         SQLAlchemy Engine URL.
     schema_name
         Alternate schema name to override Felis file.
-    create_if_not_exists
+    initialize
         Create the schema in the database if it does not exist.
-    drop_if_exists
+    drop
         Drop schema if it already exists in the database.
     echo
         Echo database commands as they are executed.
@@ -113,52 +117,52 @@ def create(
         Write SQL commands to a file instead of executing.
     file
         Felis file to read.
-
-    Notes
-    -----
-    This command creates database objects from the Felis file. The
-    ``--create-if-not-exists`` or ``--drop-if-exists`` flags can be used to
-    create a new MySQL database or PostgreSQL schema if it does not exist
-    already.
     """
-    yaml_data = yaml.safe_load(file)
-    schema = Schema.model_validate(yaml_data)
-    url = make_url(engine_url)
-    if schema_name:
-        logger.info(f"Overriding schema name with: {schema_name}")
-        schema.name = schema_name
-    elif url.drivername == "sqlite":
-        logger.info("Overriding schema name for sqlite with: main")
-        schema.name = "main"
-    if not url.host and not url.drivername == "sqlite":
-        dry_run = True
-        logger.info("Forcing dry run for non-sqlite engine URL with no host")
+    try:
+        yaml_data = yaml.safe_load(file)
+        schema = Schema.model_validate(yaml_data)
+        url = make_url(engine_url)
+        if schema_name:
+            logger.info(f"Overriding schema name with: {schema_name}")
+            schema.name = schema_name
+        elif url.drivername == "sqlite":
+            logger.info("Overriding schema name for sqlite with: main")
+            schema.name = "main"
+        if not url.host and not url.drivername == "sqlite":
+            dry_run = True
+            logger.info("Forcing dry run for non-sqlite engine URL with no host")
 
-    metadata = MetaDataBuilder(schema).build()
-    logger.debug(f"Created metadata with schema name: {metadata.schema}")
+        metadata = MetaDataBuilder(schema).build()
+        logger.debug(f"Created metadata with schema name: {metadata.schema}")
 
-    engine: Engine | MockConnection
-    if not dry_run and not output_file:
-        engine = create_engine(url, echo=echo)
-    else:
-        if dry_run:
-            logger.info("Dry run will be executed")
-        engine = DatabaseContext.create_mock_engine(url, output_file)
-        if output_file:
-            logger.info("Writing SQL output to: " + output_file.name)
+        engine: Engine | MockConnection
+        if not dry_run and not output_file:
+            engine = create_engine(url, echo=echo)
+        else:
+            if dry_run:
+                logger.info("Dry run will be executed")
+            engine = DatabaseContext.create_mock_engine(url, output_file)
+            if output_file:
+                logger.info("Writing SQL output to: " + output_file.name)
 
-    context = DatabaseContext(metadata, engine)
+        context = DatabaseContext(metadata, engine)
 
-    if drop_if_exists:
-        logger.debug("Dropping schema if it exists")
-        context.drop_if_exists()
-        create_if_not_exists = True  # If schema is dropped, it needs to be recreated.
+        if drop and initialize:
+            raise ValueError("Cannot drop and initialize schema at the same time")
 
-    if create_if_not_exists:
-        logger.debug("Creating schema if not exists")
-        context.create_if_not_exists()
+        if drop:
+            logger.debug("Dropping schema if it exists")
+            context.drop()
+            initialize = True  # If schema is dropped, it needs to be recreated.
 
-    context.create_all()
+        if initialize:
+            logger.debug("Creating schema if not exists")
+            context.initialize()
+
+        context.create_all()
+    except Exception as e:
+        logger.exception(e)
+        raise click.ClickException(str(e))
 
 
 @cli.command("init-tap", help="Initialize TAP_SCHEMA objects in the database")
@@ -372,9 +376,9 @@ def validate(
     Raises
     ------
     click.exceptions.Exit
-        If any validation errors are found. The ``ValidationError`` which is
-        thrown when a schema fails to validate will be logged as an error
-        message.
+        Raised if any validation errors are found. The ``ValidationError``
+        which is thrown when a schema fails to validate will be logged as an
+        error message.
 
     Notes
     -----

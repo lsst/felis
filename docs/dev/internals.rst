@@ -33,3 +33,7 @@ Python API
 .. automodapi:: felis.db.variants
    :include-all-objects:
    :no-inheritance-diagram:
+
+.. automodapi:: felis.tests.postgresql
+    :include-all-objects:
+    :no-inheritance-diagram:

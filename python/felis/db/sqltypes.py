@@ -383,7 +383,7 @@ def get_type_func(type_name: str) -> Callable:
     Raises
     ------
     ValueError
-        If the type name is not recognized.
+        Raised if the type name is not recognized.
 
     Notes
     -----

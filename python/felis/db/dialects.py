@@ -109,7 +109,7 @@ def get_dialect_module(dialect_name: str) -> ModuleType:
     Raises
     ------
     ValueError
-        If the dialect name is not supported.
+        Raised if the dialect name is not supported.
     """
     if dialect_name not in _DIALECT_MODULES:
         raise ValueError(f"Unsupported dialect: {dialect_name}")

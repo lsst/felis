@@ -94,8 +94,8 @@ def get_datatype_with_variants(column_obj: datamodel.Column) -> TypeEngine:
     Raises
     ------
     ValueError
-        If the column has a sized type but no length or if the datatype is
-        invalid.
+        Raised if the column has a sized type but no length or if the datatype
+        is invalid.
     """
     variant_dict = make_variant_dict(column_obj)
     felis_type = FelisType.felis_type(column_obj.datatype.value)

@@ -22,4 +22,3 @@ Felis also provides a mechanism for instantiating a catalog from its schema repr
 relational database including the table, constraint and column definitions.
 This can be done using the command line interface or the Python API.
 Supported databases include SQLite, MySQL/MariaDB, and PostgreSQL.
-

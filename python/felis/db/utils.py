@@ -70,7 +70,7 @@ def string_to_typeengine(
     Raises
     ------
     ValueError
-        If the type string is invalid or the type is not supported.
+        Raised if the type string is invalid or the type is not supported.
 
     Notes
     -----
@@ -220,15 +220,15 @@ class DatabaseContext:
         self.metadata = metadata
         self.conn = ConnectionWrapper(engine)
 
-    def create_if_not_exists(self) -> None:
+    def initialize(self) -> None:
         """Create the schema in the database if it does not exist.
 
         Raises
         ------
         ValueError
-            If the database is not supported.
+            Raised if the database is not supported or it already exists.
         sqlalchemy.exc.SQLAlchemyError
-            If there is an error creating the schema.
+            Raised if there is an error creating the schema.
 
         Notes
         -----
@@ -239,24 +239,45 @@ class DatabaseContext:
         schema_name = self.metadata.schema
         try:
             if self.dialect_name == "mysql":
+                logger.debug(f"Checking if MySQL database exists: {schema_name}")
+                result = self.conn.execute(text(f"SHOW DATABASES LIKE '{schema_name}'"))
+                if result.fetchone():
+                    raise ValueError(f"MySQL database '{schema_name}' already exists.")
                 logger.debug(f"Creating MySQL database: {schema_name}")
-                self.conn.execute(text(f"CREATE DATABASE IF NOT EXISTS {schema_name}"))
+                self.conn.execute(text(f"CREATE DATABASE {schema_name}"))
             elif self.dialect_name == "postgresql":
+                logger.debug(f"Checking if PG schema exists: {schema_name}")
+                result = self.conn.execute(
+                    text(
+                        f"""
+                        SELECT schema_name
+                        FROM information_schema.schemata
+                        WHERE schema_name = '{schema_name}'
+                        """
+                    )
+                )
+                if result.fetchone():
+                    raise ValueError(f"PostgreSQL schema '{schema_name}' already exists.")
                 logger.debug(f"Creating PG schema: {schema_name}")
-                self.conn.execute(CreateSchema(schema_name, if_not_exists=True))
+                self.conn.execute(CreateSchema(schema_name))
+            elif self.dialect_name == "sqlite":
+                # Just silently ignore this operation for SQLite. The database
+                # will still be created if it does not exist and the engine
+                # URL is valid.
+                pass
             else:
-                raise ValueError("Unsupported database type:" + self.dialect_name)
+                raise ValueError(f"Initialization not supported for: {self.dialect_name}")
         except SQLAlchemyError as e:
             logger.error(f"Error creating schema: {e}")
             raise
 
-    def drop_if_exists(self) -> None:
+    def drop(self) -> None:
         """Drop the schema in the database if it exists.
 
         Raises
         ------
         ValueError
-            If the database is not supported.
+            Raised if the database is not supported.
 
         Notes
         -----
@@ -271,8 +292,12 @@ class DatabaseContext:
             elif self.dialect_name == "postgresql":
                 logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
                 self.conn.execute(DropSchema(schema_name, if_exists=True, cascade=True))
+            elif self.dialect_name == "sqlite":
+                if isinstance(self.engine, Engine):
+                    logger.debug("Dropping tables in SQLite schema")
+                    self.metadata.drop_all(bind=self.engine)
             else:
-                raise ValueError(f"Unsupported database type: {self.dialect_name}")
+                raise ValueError(f"Drop operation not supported for: {self.dialect_name}")
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
