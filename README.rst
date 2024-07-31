@@ -77,11 +77,6 @@ Documentation
 Detailed information on usage, customization, and design is available at the
 `Felis documentation site <https://felis.lsst.io>`_.
 
-Presentations
--------------
-
-- `IVOA Inter Op 2018 <https://wiki.ivoa.net/internal/IVOA/InterOpNov2018Apps/Felis_ivoa-11_2018.pdf>`_ - "Felis: A YAML Schema Definition Language for Database Schemas" - `slides <https://wiki.ivoa.net/internal/IVOA/InterOpNov2018Apps/Felis_ivoa-11_2018.pdf>`__
-
 Support
 -------
 
