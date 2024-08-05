@@ -71,7 +71,7 @@ def cli(log_level: str, log_file: str | None) -> None:
 
 
 @cli.command("create", help="Create database objects from the Felis file")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.option(
     "--initialize",
@@ -221,7 +221,7 @@ def init_tap(
 
 
 @cli.command("load-tap", help="Load metadata from a Felis file into a TAP_SCHEMA database")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL to catalog")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
 @click.option("--schema-name", help="Alternate Schema Name for Felis file")
 @click.option("--catalog-name", help="Catalog Name for Schema")
 @click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
