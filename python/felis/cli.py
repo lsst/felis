@@ -212,7 +212,7 @@ def init_tap(
     tables are created in the database schema specified by the engine URL,
     which must be a PostgreSQL schema or MySQL database that already exists.
     """
-    engine = create_engine(engine_url, echo=True)
+    engine = create_engine(engine_url)
     init_tables(
         tap_schema_name,
         tap_schemas_table,
