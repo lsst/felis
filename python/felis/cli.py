@@ -71,7 +71,7 @@ def cli(log_level: str, log_file: str | None) -> None:
 
 
 @cli.command("create", help="Create database objects from the Felis file")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.option(
     "--initialize",
@@ -86,6 +86,7 @@ def cli(log_level: str, log_file: str | None) -> None:
 @click.option(
     "--output-file", "-o", type=click.File(mode="w"), help="Write SQL commands to a file instead of executing"
 )
+@click.option("--ignore-constraints", is_flag=True, help="Ignore constraints when creating tables")
 @click.argument("file", type=click.File())
 def create(
     engine_url: str,
@@ -95,6 +96,7 @@ def create(
     echo: bool,
     dry_run: bool,
     output_file: IO[str] | None,
+    ignore_constraints: bool,
     file: IO,
 ) -> None:
     """Create database objects from the Felis file.
@@ -115,6 +117,8 @@ def create(
         Dry run only to print out commands instead of executing.
     output_file
         Write SQL commands to a file instead of executing.
+    ignore_constraints
+        Ignore constraints when creating tables.
     file
         Felis file to read.
     """
@@ -132,7 +136,7 @@ def create(
             dry_run = True
             logger.info("Forcing dry run for non-sqlite engine URL with no host")
 
-        metadata = MetaDataBuilder(schema).build()
+        metadata = MetaDataBuilder(schema, ignore_constraints=ignore_constraints).build()
         logger.debug(f"Created metadata with schema name: {metadata.schema}")
 
         engine: Engine | MockConnection
@@ -208,7 +212,7 @@ def init_tap(
     tables are created in the database schema specified by the engine URL,
     which must be a PostgreSQL schema or MySQL database that already exists.
     """
-    engine = create_engine(engine_url, echo=True)
+    engine = create_engine(engine_url)
     init_tables(
         tap_schema_name,
         tap_schemas_table,
@@ -221,7 +225,7 @@ def init_tap(
 
 
 @cli.command("load-tap", help="Load metadata from a Felis file into a TAP_SCHEMA database")
-@click.option("--engine-url", envvar="ENGINE_URL", help="SQLAlchemy Engine URL to catalog")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
 @click.option("--schema-name", help="Alternate Schema Name for Felis file")
 @click.option("--catalog-name", help="Catalog Name for Schema")
 @click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")

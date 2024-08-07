@@ -69,6 +69,25 @@ class CliTestCase(unittest.TestCase):
         )
         self.assertEqual(result.exit_code, 0)
 
+    def test_ignore_constraints(self) -> None:
+        """Test ``--ignore-constraints`` flag of ``create`` command."""
+        url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "create",
+                "--schema-name=main",
+                "--ignore-constraints",
+                f"--engine-url={url}",
+                "--dry-run",
+                TEST_YAML,
+            ],
+            catch_exceptions=False,
+        )
+        self.assertEqual(result.exit_code, 0)
+
     def test_init_tap(self) -> None:
         """Test for ``init-tap`` command."""
         url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
