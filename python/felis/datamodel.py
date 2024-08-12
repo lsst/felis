@@ -492,7 +492,7 @@ class Table(BaseObject):
     tap_table_index: int | None = Field(None, alias="tap:table_index")
     """IVOA TAP_SCHEMA table index of the table."""
 
-    mysql_engine: str | None = Field(None, alias="mysql:engine")
+    mysql_engine: str | None = Field("MyISAM", alias="mysql:engine")
     """MySQL engine to use for the table."""
 
     mysql_charset: str | None = Field(None, alias="mysql:charset")
