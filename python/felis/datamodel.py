@@ -773,6 +773,31 @@ class Schema(BaseObject):
                 table_indicies.add(table_index)
         return self
 
+    @model_validator(mode="after")
+    def check_unique_constraint_names(self: Schema) -> Schema:
+        """Check for duplicate constraint names in the schema.
+
+        Raises
+        ------
+        ValueError
+            Raised if duplicate constraint names are found in the schema.
+        """
+        constraint_names = set()
+        duplicate_names = []
+
+        for table in self.tables:
+            for constraint in table.constraints:
+                constraint_name = constraint.name
+                if constraint_name in constraint_names:
+                    duplicate_names.append(constraint_name)
+                else:
+                    constraint_names.add(constraint_name)
+
+        if duplicate_names:
+            raise ValueError(f"Duplicate constraint names found in schema: {duplicate_names}")
+
+        return self
+
     def _create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.
 
