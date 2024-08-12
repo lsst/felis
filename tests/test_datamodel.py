@@ -466,6 +466,18 @@ class SchemaTestCase(unittest.TestCase):
             # Test that an invalid id raises an exception.
             sch["#bad_id"]
 
+    def test_check_unique_constraint_names(self) -> None:
+        """Test that constraint names are unique."""
+        test_col = Column(name="testColumn", id="#test_col_id", datatype="string", length=256)
+        test_tbl = Table(name="testTable", id="#test_table_id", columns=[test_col])
+        test_cons = UniqueConstraint(name="testConstraint", id="#test_constraint_id", columns=["testColumn"])
+        test_cons2 = UniqueConstraint(
+            name="testConstraint", id="#test_constraint2_id", columns=["testColumn"]
+        )
+        test_tbl.constraints = [test_cons, test_cons2]
+        with self.assertRaises(ValidationError):
+            Schema(name="testSchema", id="#test_id", tables=[test_tbl])
+
     def test_model_validate(self) -> None:
         """Load a YAML test file and validate the schema data model."""
         with open(TEST_YAML) as test_yaml:
