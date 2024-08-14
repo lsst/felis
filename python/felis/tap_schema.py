@@ -248,7 +248,7 @@ class TableManager:
             The TAP_SCHEMA schema.
         """
         rp = cls.get_tap_schema_std_resource()
-        return Schema.from_resource(rp, context={"id_generation": True})
+        return Schema.from_uri(rp, context={"id_generation": True})
 
     def _load_schema(self) -> None:
         """Load the TAP_SCHEMA schema from a Felis package resource."""
