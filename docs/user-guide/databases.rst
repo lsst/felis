@@ -49,7 +49,7 @@ The dry run mode may also be explicitly enabled using the ``--dry-run`` option:
 
 .. code-block:: bash
 
-    felis create --dry-run --engine-url mysql+mysqlconnector://username:password@localhost schema.yaml
+    felis create --dry-run --engine-url mysql+pymysql://username:password@localhost schema.yaml
 
 The URL in this case will be used to determine the database dialect and generate the appropriate SQL but will
 otherwise be ignored.
@@ -72,7 +72,7 @@ The URL format follows `SQLAlchemy engine conventions <https://docs.sqlalchemy.o
 The database URL has the following parameters:
 
 - ``dialect``: The name of the database backend, such as ``sqlite``, ``mysql``, or ``postgresql``. The default is ``sqlite``.
-- ``driver``: The name of the DBAPI to use, such as ``mysqlconnector``, or ``psycopg2``. This is optional and the default driver for the dialect will be used if not specified.
+- ``driver``: The name of the DBAPI to use, such as ``pymysql``, or ``psycopg2``. This is optional and the default driver for the dialect will be used if not specified.
 - ``username``: The username to use when connecting to the database.
 - ``password``: The password to use when connecting to the database.
 - ``host``: The host for connection. Typically, this should be set to ``localhost`` if the database is running on the same machine.
@@ -89,7 +89,7 @@ To create a MySQL database from a schema file, the command would look similar to
 
 .. code-block:: bash
 
-    felis create --engine-url mysql+mysqlconnector://username:password@localhost schema.yaml
+    felis create --engine-url mysql+pymysql://username:password@localhost schema.yaml
 
 In this case, the database would already need to have been created or the command will fail.
 
@@ -145,7 +145,7 @@ Felis can create the schema's database, rather than use an existing one, with th
 
 .. code-block:: bash
 
-    felis create --engine-url mysql+mysqlconnector://username:password@localhost --initialize schema.yaml
+    felis create --engine-url mysql+pymysql://username:password@localhost --initialize schema.yaml
 
 If the database exists already, this command would raise an error to protect against inadvertant updates. To
 update an existing database, simply omit this option.
@@ -163,7 +163,7 @@ Felis can also drop an existing database first and then recreate it:
 
 .. code-block:: bash
 
-    felis create --engine-url mysql+mysqlconnector://username:password@localhost --drop schema.yaml
+    felis create --engine-url mysql+pymysql://username:password@localhost --drop schema.yaml
 
 If the database does not exist, then the ``--drop`` option will be ignored and the database will be created
 normally.
@@ -182,7 +182,7 @@ this can be overridden using the ``--schema-name`` option:
 
 .. code-block:: bash
 
-    felis create --engine-url mysql+mysqlconnector://username:password@localhost --schema-name myschema schema.yaml
+    felis create --engine-url mysql+pymysql://username:password@localhost --schema-name myschema schema.yaml
 
 In this case, the schema in the database will be named ``myschema`` instead of the name from the file.
 
@@ -214,7 +214,7 @@ To create a MySQL database, the engine URL should be changed to something like t
 
 .. code-block:: python
 
-    engine = create_engine("mysql+mysqlconnector://username:password@localhost")
+    engine = create_engine("mysql+pymysql://username:password@localhost")
     metadata.create_all(engine)
 
 The database will then be created on the MySQL server at ``localhost``.
@@ -224,7 +224,7 @@ supports creation of the database or schema itself:
 
 .. code-block:: python
 
-        engine = create_engine("mysql+mysqlconnector://username:password@localhost")
+        engine = create_engine("mysql+pymysql://username:password@localhost")
         ctx = DatabaseContext(metadata, engine)
         ctx.initialize()
         ctx.create_all()
