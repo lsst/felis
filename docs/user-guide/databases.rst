@@ -93,6 +93,9 @@ To create a MySQL database from a schema file, the command would look similar to
 
 In this case, the database would already need to have been created or the command will fail.
 
+Tables in MySQL will by default use the ``MyISAM`` storage engine, which does not support foreign keys.
+The engine can be changed in the table object of the schema by setting ``mysql:engine`` to ``InnoDB`` or another valid table engine name.
+
 PostgreSQL
 ^^^^^^^^^^
 
