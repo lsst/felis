@@ -62,8 +62,16 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     envvar="FELIS_LOGFILE",
     help="Felis log file path",
 )
-def cli(log_level: str, log_file: str | None) -> None:
+@click.option(
+    "--id-generation", is_flag=True, help="Generate IDs for all objects that do not have them", default=False
+)
+@click.pass_context
+def cli(ctx: click.Context, log_level: str, log_file: str | None, id_generation: bool) -> None:
     """Felis command line tools"""
+    ctx.ensure_object(dict)
+    ctx.obj["id_generation"] = id_generation
+    if ctx.obj["id_generation"]:
+        logger.info("ID generation is enabled")
     if log_file:
         logging.basicConfig(filename=log_file, level=log_level)
     else:
@@ -88,7 +96,9 @@ def cli(log_level: str, log_file: str | None) -> None:
 )
 @click.option("--ignore-constraints", is_flag=True, help="Ignore constraints when creating tables")
 @click.argument("file", type=click.File())
+@click.pass_context
 def create(
+    ctx: click.Context,
     engine_url: str,
     schema_name: str | None,
     initialize: bool,
@@ -124,7 +134,7 @@ def create(
     """
     try:
         yaml_data = yaml.safe_load(file)
-        schema = Schema.model_validate(yaml_data)
+        schema = Schema.model_validate(yaml_data, context={"id_generation": ctx.obj["id_generation"]})
         url = make_url(engine_url)
         if schema_name:
             logger.info(f"Overriding schema name with: {schema_name}")
@@ -355,7 +365,9 @@ def load_tap(
     default=False,
 )
 @click.argument("files", nargs=-1, type=click.File())
+@click.pass_context
 def validate(
+    ctx: click.Context,
     check_description: bool,
     check_redundant_datatypes: bool,
     check_tap_table_indexes: bool,
@@ -402,6 +414,7 @@ def validate(
                     "check_redundant_datatypes": check_redundant_datatypes,
                     "check_tap_table_indexes": check_tap_table_indexes,
                     "check_tap_principal": check_tap_principal,
+                    "id_generation": ctx.obj["id_generation"],
                 },
             )
         except ValidationError as e:
