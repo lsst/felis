@@ -1,0 +1,23 @@
+name: test_id_generation
+description: Test schema for id generation.
+tables:
+- name: test_table
+  primaryKey: "#test_table.test_column1"
+  mysql:engine: MyISAM
+  columns:
+  - name: test_column1
+    datatype: int
+    description: Test column.
+  - name: test_column2
+    datatype: string
+    description: Test column.
+    length: 30
+  indexes:
+  - name: test_index
+    columns:
+    - test_column1
+  constraints:
+  - name: test_constraint
+    "@type": Unique
+    columns:
+    - test_column2
