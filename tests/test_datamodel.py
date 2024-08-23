@@ -484,6 +484,19 @@ class SchemaTestCase(unittest.TestCase):
             data = yaml.safe_load(test_yaml)
             Schema.model_validate(data)
 
+    def test_id_generation(self) -> None:
+        """Test ID generation."""
+        test_path = os.path.join(TESTDIR, "data", "test_id_generation.yaml")
+        with open(test_path) as test_yaml:
+            yaml_data = yaml.safe_load(test_yaml)
+            # Generate IDs for objects in the test schema.
+            Schema.model_validate(yaml_data, context={"id_generation": True})
+        with open(test_path) as test_yaml:
+            yaml_data = yaml.safe_load(test_yaml)
+            # Test that an error is raised when id generation is disabled.
+            with self.assertRaises(ValidationError):
+                Schema.model_validate(yaml_data, context={"id_generation": False})
+
 
 class SchemaVersionTest(unittest.TestCase):
     """Test the schema version."""
