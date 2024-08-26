@@ -852,6 +852,36 @@ class Schema(BaseObject):
 
         return self
 
+    @model_validator(mode="after")
+    def check_unique_index_names(self: Schema) -> Schema:
+        """Check for duplicate index names in the schema.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        ValueError
+            Raised if duplicate index names are found in the schema.
+        """
+        index_names = set()
+        duplicate_names = []
+
+        for table in self.tables:
+            for index in table.indexes:
+                index_name = index.name
+                if index_name in index_names:
+                    duplicate_names.append(index_name)
+                else:
+                    index_names.add(index_name)
+
+        if duplicate_names:
+            raise ValueError(f"Duplicate index names found in schema: {duplicate_names}")
+
+        return self
+
     def _create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.
 
