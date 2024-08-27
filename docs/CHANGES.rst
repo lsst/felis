@@ -19,17 +19,15 @@ API Changes
   This replaces the old module that was used in the ``create`` command for initializing the database. (`DM-43079 <https://rubinobs.atlassian.net/browse/DM-43079>`__)
 - Made columns nullable by default in the Pydantic data model. (`DM-43753 <https://rubinobs.atlassian.net/browse/DM-43753>`__)
 - Refactored the ``tap`` module to use the Pydantic data model. (`DM-42935 <https://rubinobs.atlassian.net/browse/DM-42935>`__)
+- Moved database utilities into a separate package and refactored them. (`DM-44721 <https://rubinobs.atlassian.net/browse/DM-44721>`__)
 
+An API Removal or Deprecation
+-----------------------------
+
+- Removed JSON-LD commands from the CLI and removed ``pyld`` from ``requirements.txt``. (`DM-43688 <https://rubinobs.atlassian.net/browse/DM-43668>`__)
+- Removed outdated modules. (`DM-43597 <https://rubinobs.atlassian.net/browse/DM-43597>`__)
 
 Documentation Improvements
 --------------------------
 
 - Updated Felis documentation infrastructure. (`DM-43787 <https://rubinobs.atlassian.net/browse/DM-43787>`__)
-
-
-Other Changes and Additions
----------------------------
-
-- Moved database utilities into a separate package and refactored them. (`DM-44721 <https://rubinobs.atlassian.net/browse/DM-44721>`__)
-- Removed JSON-LD commands from the CLI and remove ``pyld`` from ``requirements.txt``. (`DM-43688 <https://rubinobs.atlassian.net/browse/DM-43668>`__)
-- Removed outdated modules. (`DM-43597 <https://rubinobs.atlassian.net/browse/DM-43597>`__)
