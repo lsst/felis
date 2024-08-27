@@ -1,5 +1,7 @@
-Felis 27.0.0
-============
+:html_theme.sidebar_secondary.remove:
+
+Felis 27.0.0 2024-04-17
+=======================
 
 New Features
 ------------
