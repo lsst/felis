@@ -7,8 +7,8 @@ package = "lsst-felis"
 
 [sphinx]
 disable_primary_sidebars = [
-    "**/index",
-    "changelog",
+    "index",
+    "CHANGES",
     "dev/internals",
 ]
 extensions = [
