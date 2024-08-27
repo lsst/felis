@@ -88,6 +88,11 @@ felis = "felis.cli:cli"
         showcontent = true
 
     [[tool.towncrier.type]]
+        directory = "doc"
+        name = "Documentation Improvements"
+        showcontent = true
+
+    [[tool.towncrier.type]]
         directory = "perf"
         name = "Performance Enhancement"
         showcontent = true
