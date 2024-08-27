@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from enum import StrEnum, auto
-from typing import Annotated, Any, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias, Union
 
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
@@ -397,12 +397,12 @@ class Constraint(BaseObject):
     annotations: Mapping[str, Any] = Field(default_factory=dict)
     """Additional annotations for this constraint."""
 
-    type: str | None = Field(None, alias="@type")
-    """Type of the constraint."""
-
 
 class CheckConstraint(Constraint):
     """Table check constraint model."""
+
+    type: Literal["Check"] = Field("Check", alias="@type")
+    """Type of the constraint."""
 
     expression: str
     """Expression for the check constraint."""
@@ -411,8 +411,33 @@ class CheckConstraint(Constraint):
 class UniqueConstraint(Constraint):
     """Table unique constraint model."""
 
+    type: Literal["Unique"] = Field("Unique", alias="@type")
+    """Type of the constraint."""
+
     columns: list[str]
     """Columns in the unique constraint."""
+
+
+class ForeignKeyConstraint(Constraint):
+    """Table foreign key constraint model.
+
+    This constraint is used to define a foreign key relationship between two
+    tables in the schema.
+
+    Notes
+    -----
+    These relationships will be reflected in the TAP_SCHEMA ``keys`` and
+    ``key_columns`` data.
+    """
+
+    type: Literal["ForeignKey"] = Field("ForeignKey", alias="@type")
+    """Type of the constraint."""
+
+    columns: list[str]
+    """The columns comprising the foreign key."""
+
+    referenced_columns: list[str] = Field(alias="referencedColumns")
+    """The columns referenced by the foreign key."""
 
 
 class Index(BaseObject):
@@ -455,23 +480,10 @@ class Index(BaseObject):
         return values
 
 
-class ForeignKeyConstraint(Constraint):
-    """Table foreign key constraint model.
-
-    This constraint is used to define a foreign key relationship between two
-    tables in the schema.
-
-    Notes
-    -----
-    These relationships will be reflected in the TAP_SCHEMA ``keys`` and
-    ``key_columns`` data.
-    """
-
-    columns: list[str]
-    """The columns comprising the foreign key."""
-
-    referenced_columns: list[str] = Field(alias="referencedColumns")
-    """The columns referenced by the foreign key."""
+_ConstraintType = Annotated[
+    Union[CheckConstraint, ForeignKeyConstraint, UniqueConstraint], Field(discriminator="type")
+]
+"""Type alias for a constraint type."""
 
 
 class Table(BaseObject):
@@ -480,7 +492,7 @@ class Table(BaseObject):
     columns: Sequence[Column]
     """Columns in the table."""
 
-    constraints: list[Constraint] = Field(default_factory=list)
+    constraints: list[_ConstraintType] = Field(default_factory=list, discriminator="type")
     """Constraints on the table."""
 
     indexes: list[Index] = Field(default_factory=list)
@@ -497,37 +509,6 @@ class Table(BaseObject):
 
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
-
-    @model_validator(mode="before")
-    @classmethod
-    def create_constraints(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Create specific constraint types from the data in the
-        ``constraints`` field of a table.
-
-        Parameters
-        ----------
-        values
-            The values of the table containing the constraint data.
-
-        Returns
-        -------
-        `dict` [ `str`, `Any` ]
-            The values of the table with the constraints converted to their
-            respective types.
-        """
-        if "constraints" in values:
-            new_constraints: list[Constraint] = []
-            for item in values["constraints"]:
-                if item["@type"] == "ForeignKey":
-                    new_constraints.append(ForeignKeyConstraint(**item))
-                elif item["@type"] == "Unique":
-                    new_constraints.append(UniqueConstraint(**item))
-                elif item["@type"] == "Check":
-                    new_constraints.append(CheckConstraint(**item))
-                else:
-                    raise ValueError(f"Unknown constraint type: {item['@type']}")
-            values["constraints"] = new_constraints
-        return values
 
     @field_validator("columns", mode="after")
     @classmethod
