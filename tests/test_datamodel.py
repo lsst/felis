@@ -286,39 +286,6 @@ class ConstraintTestCase(unittest.TestCase):
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
         self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
 
-    def test_index_validation(self) -> None:
-        """Test validation of indexes."""
-        # Default initialization should throw an exception.
-        with self.assertRaises(ValidationError):
-            Index()
-
-        # Setting only name should throw an exception.
-        with self.assertRaises(ValidationError):
-            Index(name="testConstraint")
-
-        # Setting name and id should throw an exception from missing columns.
-        with self.assertRaises(ValidationError):
-            Index(name="testConstraint", id="#test_id")
-
-        # Setting name, id, and columns should not throw an exception and
-        # should load data correctly.
-        col = Index(name="testConstraint", id="#test_id", columns=["testColumn"])
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
-
-        # Creating from data dictionary should work and load data correctly.
-        data = {"name": "testConstraint", "id": "#test_id", "columns": ["testColumn"]}
-        col = Index(**data)
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
-
-        # Setting both columns and expressions on an index should throw an
-        # exception.
-        with self.assertRaises(ValidationError):
-            Index(name="testConstraint", id="#test_id", columns=["testColumn"], expressions=["1+2"])
-
     def test_foreign_key_validation(self) -> None:
         """Test validation of foreign key constraints."""
         # Default initialization should throw an exception.
@@ -392,6 +359,43 @@ class ConstraintTestCase(unittest.TestCase):
         self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
         self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
         self.assertEqual(col.expression, "1+2", "expression should be '1+2'")
+
+
+class IndexTestCase(unittest.TestCase):
+    """Test Pydantic validation of the ``Index`` class."""
+
+    def test_index_validation(self) -> None:
+        """Test validation of indexes."""
+        # Default initialization should throw an exception.
+        with self.assertRaises(ValidationError):
+            Index()
+
+        # Setting only name should throw an exception.
+        with self.assertRaises(ValidationError):
+            Index(name="idx_test")
+
+        # Setting name and id should throw an exception from missing columns.
+        with self.assertRaises(ValidationError):
+            Index(name="idx_test", id="#idx_test")
+
+        # Setting name, id, and columns should not throw an exception and
+        # should load data correctly.
+        idx = Index(name="idx_test", id="#idx_test", columns=["#test_column"])
+        self.assertEqual(idx.name, "idx_test", "name should be 'test_constraint'")
+        self.assertEqual(idx.id, "#idx_test", "id should be '#test_id'")
+        self.assertEqual(idx.columns, ["#test_column"], "columns should be ['test_column']")
+
+        # Creating from data dictionary should work and load data correctly.
+        data = {"name": "idx_test", "id": "#idx_test", "columns": ["test_column"]}
+        col = Index(**data)
+        self.assertEqual(col.name, "idx_test", "name should be 'idx_test'")
+        self.assertEqual(col.id, "#idx_test", "id should be '#idx_test'")
+        self.assertEqual(col.columns, ["test_column"], "columns should be ['test_column']")
+
+        # Setting both columns and expressions on an index should throw an
+        # exception.
+        with self.assertRaises(ValidationError):
+            Index(name="idx_test", id="#idx_test", columns=["test_column"], expressions=["1+2"])
 
 
 class SchemaTestCase(unittest.TestCase):
