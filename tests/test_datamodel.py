@@ -29,6 +29,7 @@ from pydantic import ValidationError
 from felis.datamodel import (
     CheckConstraint,
     Column,
+    Constraint,
     DataType,
     ForeignKeyConstraint,
     Index,
@@ -258,107 +259,113 @@ class TableTestCase(unittest.TestCase):
 class ConstraintTestCase(unittest.TestCase):
     """Test Pydantic validation of the different constraint classes."""
 
-    def test_unique_constraint_validation(self) -> None:
-        """Test validation of unique constraints."""
+    def test_base_constraint(self) -> None:
+        """Test validation of base constraint type."""
         # Default initialization should throw an exception.
         with self.assertRaises(ValidationError):
-            UniqueConstraint()
+            Constraint()
 
         # Setting only name should throw an exception.
         with self.assertRaises(ValidationError):
-            UniqueConstraint(name="testConstraint")
+            Constraint(name="test_constraint")
 
+        # Setting name and id should not throw an exception and should load
+        # data correctly.
+        Constraint(name="test_constraint", id="#test_constraint")
+
+        # Setting initially without deferrable should throw an exception.
+        with self.assertRaises(ValidationError):
+            Constraint(name="test_constraint", id="#test_constraint", deferrable=False, initially="IMMEDIATE")
+
+        # Seting a bad value for initially should throw an exception.
+        with self.assertRaises(ValidationError):
+            Constraint(name="test_constraint", id="#test_constraint", deferrable=True, initially="BAD_VALUE")
+
+        # Setting a valid value for initially should not throw an exception.
+        Constraint(name="test_constraint", id="#test_constraint", deferrable=True, initially="IMMEDIATE")
+        Constraint(name="test_constraint", id="#test_constraint", deferrable=True, initially="DEFERRED")
+
+    def test_unique_constraint(self) -> None:
+        """Test validation of unique constraints."""
         # Setting name and id should throw an exception from missing columns.
         with self.assertRaises(ValidationError):
-            UniqueConstraint(name="testConstraint", id="#test_id")
+            UniqueConstraint(name="test_constraint", id="#test_constraint")
 
         # Setting name, id, and columns should not throw an exception and
         # should load data correctly.
-        col = UniqueConstraint(name="testConstraint", id="#test_id", columns=["testColumn"])
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
+        constraint = UniqueConstraint(name="uniq_test", id="#uniq_test", columns=["test_column"])
+        self.assertEqual(constraint.name, "uniq_test", "name should be 'uniq_test'")
+        self.assertEqual(constraint.id, "#uniq_test", "id should be '#uniq_test'")
+        self.assertEqual(constraint.columns, ["test_column"], "columns should be ['test_column']")
 
         # Creating from data dictionary should work and load data correctly.
-        data = {"name": "testConstraint", "id": "#test_id", "columns": ["testColumn"]}
-        col = UniqueConstraint(**data)
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
+        data = {"name": "uniq_test", "id": "#uniq_test", "columns": ["test_column"]}
+        constraint = UniqueConstraint(**data)
+        self.assertEqual(constraint.name, "uniq_test", "name should be 'uniq_test'")
+        self.assertEqual(constraint.id, "#uniq_test", "id should be '#uniq_test'")
+        self.assertEqual(constraint.columns, ["test_column"], "columns should be ['test_column']")
 
-    def test_foreign_key_validation(self) -> None:
+    def test_foreign_key_constraint(self) -> None:
         """Test validation of foreign key constraints."""
-        # Default initialization should throw an exception.
-        with self.assertRaises(ValidationError):
-            ForeignKeyConstraint()
-
-        # Setting only name should throw an exception.
-        with self.assertRaises(ValidationError):
-            ForeignKeyConstraint(name="testConstraint")
-
         # Setting name and id should throw an exception from missing columns.
         with self.assertRaises(ValidationError):
-            ForeignKeyConstraint(name="testConstraint", id="#test_id")
+            ForeignKeyConstraint(name="fk_test", id="#fk_test")
 
         # Setting name, id, and columns should not throw an exception and
         # should load data correctly.
-        col = ForeignKeyConstraint(
-            name="testConstraint", id="#test_id", columns=["testColumn"], referenced_columns=["testColumn"]
+        constraint = ForeignKeyConstraint(
+            name="fk_test", id="#fk_test", columns=["test_column"], referenced_columns=["test_column"]
         )
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
+        self.assertEqual(constraint.name, "fk_test", "name should be 'fk_test'")
+        self.assertEqual(constraint.id, "#fk_test", "id should be '#fk_test'")
+        self.assertEqual(constraint.columns, ["test_column"], "columns should be ['test_column']")
         self.assertEqual(
-            col.referenced_columns, ["testColumn"], "referenced_columns should be ['testColumn']"
+            constraint.referenced_columns, ["test_column"], "referenced_columns should be ['test_column']"
         )
 
         # Creating from data dictionary should work and load data correctly.
         data = {
-            "name": "testConstraint",
-            "id": "#test_id",
-            "columns": ["testColumn"],
-            "referenced_columns": ["testColumn"],
+            "name": "fk_test",
+            "id": "#fk_test",
+            "columns": ["test_column"],
+            "referenced_columns": ["test_column"],
         }
-        col = ForeignKeyConstraint(**data)
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.columns, ["testColumn"], "columns should be ['testColumn']")
+        constraint = ForeignKeyConstraint(**data)
+        self.assertEqual(constraint.name, "fk_test", "name should be 'fk_test'")
+        self.assertEqual(constraint.id, "#fk_test", "id should be '#fk_test'")
+        self.assertEqual(constraint.columns, ["test_column"], "columns should be ['test_column']")
         self.assertEqual(
-            col.referenced_columns, ["testColumn"], "referenced_columns should be ['testColumn']"
+            constraint.referenced_columns, ["test_column"], "referenced_columns should be ['test_column']"
         )
 
-    def test_check_constraint_validation(self) -> None:
+    def test_check_constraint(self) -> None:
         """Test validation of check constraints."""
-        # Default initialization should throw an exception.
-        with self.assertRaises(ValidationError):
-            CheckConstraint()
-
-        # Setting only name should throw an exception.
-        with self.assertRaises(ValidationError):
-            CheckConstraint(name="testConstraint")
-
         # Setting name and id should throw an exception from missing
         # expression.
         with self.assertRaises(ValidationError):
-            CheckConstraint(name="testConstraint", id="#test_id")
+            CheckConstraint(name="check_test", id="#check_test")
 
         # Setting name, id, and expression should not throw an exception and
         # should load data correctly.
-        col = CheckConstraint(name="testConstraint", id="#test_id", expression="1+2")
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.expression, "1+2", "expression should be '1+2'")
+        constraint = CheckConstraint(name="check_test", id="#check_test", expression="1+2")
+        self.assertEqual(constraint.name, "check_test", "name should be 'check_test'")
+        self.assertEqual(constraint.id, "#check_test", "id should be '#check_test'")
+        self.assertEqual(constraint.expression, "1+2", "expression should be '1+2'")
 
         # Creating from data dictionary should work and load data correctly.
         data = {
-            "name": "testConstraint",
-            "id": "#test_id",
+            "name": "check_test",
+            "id": "#check_test",
             "expression": "1+2",
         }
-        col = CheckConstraint(**data)
-        self.assertEqual(col.name, "testConstraint", "name should be 'testConstraint'")
-        self.assertEqual(col.id, "#test_id", "id should be '#test_id'")
-        self.assertEqual(col.expression, "1+2", "expression should be '1+2'")
+        constraint = CheckConstraint(**data)
+        self.assertEqual(constraint.name, "check_test", "name should be 'check_test'")
+        self.assertEqual(constraint.id, "#check_test", "id should be '#test_id'")
+        self.assertEqual(constraint.expression, "1+2", "expression should be '1+2'")
+
+    def test_bad_constraint_type(self) -> None:
+        with self.assertRaises(ValidationError):
+            UniqueConstraint(name="uniq_test", id="#uniq_test", columns=["test_column"], type="BAD_TYPE")
 
 
 class IndexTestCase(unittest.TestCase):
@@ -387,10 +394,10 @@ class IndexTestCase(unittest.TestCase):
 
         # Creating from data dictionary should work and load data correctly.
         data = {"name": "idx_test", "id": "#idx_test", "columns": ["test_column"]}
-        col = Index(**data)
-        self.assertEqual(col.name, "idx_test", "name should be 'idx_test'")
-        self.assertEqual(col.id, "#idx_test", "id should be '#idx_test'")
-        self.assertEqual(col.columns, ["test_column"], "columns should be ['test_column']")
+        idx = Index(**data)
+        self.assertEqual(idx.name, "idx_test", "name should be 'idx_test'")
+        self.assertEqual(idx.id, "#idx_test", "id should be '#idx_test'")
+        self.assertEqual(idx.columns, ["test_column"], "columns should be ['test_column']")
 
         # Setting both columns and expressions on an index should throw an
         # exception.
