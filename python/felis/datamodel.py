@@ -390,7 +390,7 @@ class Constraint(BaseObject):
     deferrable: bool = False
     """Whether this constraint will be declared as deferrable."""
 
-    initially: str | None = None
+    initially: Literal["IMMEDIATE", "DEFERRED"] | None = None
     """Value for ``INITIALLY`` clause; only used if `deferrable` is
     `True`."""
 
