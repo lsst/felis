@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from enum import StrEnum, auto
 from typing import Annotated, Any, Literal, TypeAlias, Union
 
@@ -393,9 +393,6 @@ class Constraint(BaseObject):
     initially: str | None = None
     """Value for ``INITIALLY`` clause; only used if `deferrable` is
     `True`."""
-
-    annotations: Mapping[str, Any] = Field(default_factory=dict)
-    """Additional annotations for this constraint."""
 
 
 class CheckConstraint(Constraint):
