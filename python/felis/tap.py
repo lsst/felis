@@ -37,7 +37,7 @@ from sqlalchemy.sql.expression import Insert, insert
 
 from felis import datamodel
 
-from .datamodel import Constraint, Index, Schema, Table
+from .datamodel import Constraint, ForeignKeyConstraint, Index, Schema, Table
 from .types import FelisType
 
 __all__ = ["TapLoadingVisitor", "init_tables"]
@@ -480,10 +480,9 @@ class TapLoadingVisitor:
             A tuple of the SQLAlchemy ORM objects for the TAP_SCHEMA ``key``
             and ``key_columns`` data.
         """
-        constraint_type = constraint_obj.type
         key = None
         key_columns = []
-        if constraint_type == "ForeignKey":
+        if isinstance(constraint_obj, ForeignKeyConstraint):
             constraint_name = constraint_obj.name
             description = constraint_obj.description
             utype = constraint_obj.votable_utype
