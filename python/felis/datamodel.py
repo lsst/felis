@@ -394,6 +394,20 @@ class Constraint(BaseObject):
     """Value for ``INITIALLY`` clause; only used if `deferrable` is
     `True`."""
 
+    @model_validator(mode="after")
+    def check_deferrable(self) -> Constraint:
+        """Check that the ``INITIALLY`` clause is only used if `deferrable` is
+        `True`.
+
+        Returns
+        -------
+        `Constraint`
+            The constraint being validated.
+        """
+        if self.initially is not None and not self.deferrable:
+            raise ValueError("INITIALLY clause can only be used if deferrable is True")
+        return self
+
 
 class CheckConstraint(Constraint):
     """Table check constraint model."""
