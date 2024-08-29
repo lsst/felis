@@ -342,7 +342,6 @@ class MetaDataBuilder:
             "initially": constraint_obj.initially or None,
         }
         constraint: Constraint
-        constraint_type = constraint_obj.type
 
         if isinstance(constraint_obj, datamodel.ForeignKeyConstraint):
             fk_obj: datamodel.ForeignKeyConstraint = constraint_obj
@@ -358,7 +357,7 @@ class MetaDataBuilder:
             columns = [self._objects[column_id] for column_id in uniq_obj.columns]
             constraint = UniqueConstraint(*columns, **args)
         else:
-            raise ValueError(f"Unknown constraint type: {constraint_type}")
+            raise ValueError(f"Unknown constraint type: {type(constraint_obj)}")
 
         self._objects[constraint_obj.id] = constraint
 
