@@ -723,6 +723,55 @@ class Schema(BaseObject):
     id_map: dict[str, Any] = Field(default_factory=dict, exclude=True)
     """Map of IDs to objects."""
 
+    @model_validator(mode="before")
+    @classmethod
+    def generate_ids(cls, values: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+        """Generate IDs for objects that do not have them.
+
+        Parameters
+        ----------
+        values
+            The values of the schema.
+        info
+            Validation context used to determine if ID generation is enabled.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the schema with generated IDs.
+        """
+        context = info.context
+        if not context or not context.get("id_generation", False):
+            logger.debug("Skipping ID generation")
+            return values
+        schema_name = values["name"]
+        if "@id" not in values:
+            values["@id"] = f"#{schema_name}"
+            logger.debug(f"Generated ID '{values['@id']}' for schema '{schema_name}'")
+        if "tables" in values:
+            for table in values["tables"]:
+                if "@id" not in table:
+                    table["@id"] = f"#{table['name']}"
+                    logger.debug(f"Generated ID '{table['@id']}' for table '{table['name']}'")
+                if "columns" in table:
+                    for column in table["columns"]:
+                        if "@id" not in column:
+                            column["@id"] = f"#{table['name']}.{column['name']}"
+                            logger.debug(f"Generated ID '{column['@id']}' for column '{column['name']}'")
+                if "constraints" in table:
+                    for constraint in table["constraints"]:
+                        if "@id" not in constraint:
+                            constraint["@id"] = f"#{constraint['name']}"
+                            logger.debug(
+                                f"Generated ID '{constraint['@id']}' for constraint '{constraint['name']}'"
+                            )
+                if "indexes" in table:
+                    for index in table["indexes"]:
+                        if "@id" not in index:
+                            index["@id"] = f"#{index['name']}"
+                            logger.debug(f"Generated ID '{index['@id']}' for index '{index['name']}'")
+        return values
+
     @field_validator("tables", mode="after")
     @classmethod
     def check_unique_table_names(cls, tables: list[Table]) -> list[Table]:
@@ -777,6 +826,11 @@ class Schema(BaseObject):
     def check_unique_constraint_names(self: Schema) -> Schema:
         """Check for duplicate constraint names in the schema.
 
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
         Raises
         ------
         ValueError
@@ -795,6 +849,36 @@ class Schema(BaseObject):
 
         if duplicate_names:
             raise ValueError(f"Duplicate constraint names found in schema: {duplicate_names}")
+
+        return self
+
+    @model_validator(mode="after")
+    def check_unique_index_names(self: Schema) -> Schema:
+        """Check for duplicate index names in the schema.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        ValueError
+            Raised if duplicate index names are found in the schema.
+        """
+        index_names = set()
+        duplicate_names = []
+
+        for table in self.tables:
+            for index in table.indexes:
+                index_name = index.name
+                if index_name in index_names:
+                    duplicate_names.append(index_name)
+                else:
+                    index_names.add(index_name)
+
+        if duplicate_names:
+            raise ValueError(f"Duplicate index names found in schema: {duplicate_names}")
 
         return self
 

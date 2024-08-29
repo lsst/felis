@@ -31,7 +31,6 @@ from felis.db.dialects import get_supported_dialects
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
-TEST_MERGE_YAML = os.path.join(TESTDIR, "data", "test-merge.yml")
 
 
 class CliTestCase(unittest.TestCase):
@@ -125,6 +124,22 @@ class CliTestCase(unittest.TestCase):
         runner = CliRunner()
         result = runner.invoke(cli, ["validate", TEST_YAML], catch_exceptions=False)
         self.assertEqual(result.exit_code, 0)
+
+    def test_id_generation(self) -> None:
+        """Test the ``--id-generation`` flag."""
+        test_yaml = os.path.join(TESTDIR, "data", "test_id_generation.yaml")
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--id-generation", "validate", test_yaml], catch_exceptions=False)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_no_id_generation(self) -> None:
+        """Test that loading a schema without IDs fails if ID generation is not
+        enabled.
+        """
+        test_yaml = os.path.join(TESTDIR, "data", "test_id_generation.yaml")
+        runner = CliRunner()
+        result = runner.invoke(cli, ["validate", test_yaml], catch_exceptions=False)
+        self.assertNotEqual(result.exit_code, 0)
 
     def test_validation_flags(self) -> None:
         """Test schema validation flags."""
