@@ -26,7 +26,8 @@ dependencies = [
     "click >= 7",
     "pyyaml >= 6",
     "pydantic >= 2, < 3",
-    "lsst-utils"
+    "lsst-utils",
+    "lsst-resources"
 ]
 requires-python = ">=3.11.0"
 dynamic = ["version"]
