@@ -39,5 +39,9 @@ Python API
     :include-all-objects:
     :no-inheritance-diagram:
 
+.. automodapi:: felis.tests.utils
+    :include-all-objects:
+    :no-inheritance-diagram:
+
 .. automodapi:: felis.types
    :include-all-objects:
