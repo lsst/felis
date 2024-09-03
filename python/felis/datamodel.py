@@ -26,10 +26,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from enum import StrEnum, auto
-from typing import Annotated, Any, Literal, TypeAlias, TypeVar, Union
+from typing import IO, Annotated, Any, Literal, TypeAlias, TypeVar, Union
 
+import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
+from lsst.resources import ResourcePath, ResourcePathExpression
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from .db.dialects import get_supported_dialects
@@ -253,7 +255,7 @@ class Column(BaseObject):
         Raises
         ------
         ValueError
-            Raised If both FITS and IVOA units are provided, or if the unit is
+            Raised if both FITS and IVOA units are provided, or if the unit is
             invalid.
         """
         fits_unit = self.fits_tunit
@@ -1039,3 +1041,63 @@ class Schema(BaseObject):
             if column in table.columns:
                 return table
         raise ValueError(f"Column '{column.name}' not found in any table")
+
+    @classmethod
+    def from_uri(cls, resource_path: ResourcePathExpression, context: dict[str, Any] = {}) -> Schema:
+        """Load a `Schema` from a string representing a ``ResourcePath``.
+
+        Parameters
+        ----------
+        resource_path
+            The ``ResourcePath`` pointing to a YAML file.
+        context
+            Pydantic context to be used in validation.
+
+        Returns
+        -------
+        `str`
+            The ID of the object.
+
+        Raises
+        ------
+        yaml.YAMLError
+            Raised if there is an error loading the YAML data.
+        ValueError
+            Raised if there is an error reading the resource.
+        pydantic.ValidationError
+            Raised if the schema fails validation.
+        """
+        logger.debug(f"Loading schema from: '{resource_path}'")
+        try:
+            rp_stream = ResourcePath(resource_path).read()
+        except Exception as e:
+            raise ValueError(f"Error reading resource from '{resource_path}' : {e}") from e
+        yaml_data = yaml.safe_load(rp_stream)
+        return Schema.model_validate(yaml_data, context=context)
+
+    @classmethod
+    def from_stream(cls, source: IO[str], context: dict[str, Any] = {}) -> Schema:
+        """Load a `Schema` from a file stream which should contain YAML data.
+
+        Parameters
+        ----------
+        source
+            The file stream to read from.
+        context
+            Pydantic context to be used in validation.
+
+        Returns
+        -------
+        `Schema`
+            The Felis schema loaded from the stream.
+
+        Raises
+        ------
+        yaml.YAMLError
+            Raised if there is an error loading the YAML file.
+        pydantic.ValidationError
+            Raised if the schema fails validation.
+        """
+        logger.debug("Loading schema from: '%s'", source)
+        yaml_data = yaml.safe_load(source)
+        return Schema.model_validate(yaml_data, context=context)
