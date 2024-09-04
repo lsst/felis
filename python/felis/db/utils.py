@@ -205,7 +205,7 @@ class ConnectionWrapper:
         elif isinstance(self.engine, MockConnection):
             return self.engine.connect().execute(statement)
         else:
-            raise ValueError("Unsupported engine type")
+            raise ValueError("Unsupported engine type:" + str(type(self.engine)))
 
 
 class DatabaseContext:
@@ -327,7 +327,7 @@ class DatabaseContext:
             # Mock connection so no need for a transaction.
             self.metadata.create_all(self.engine)
         else:
-            raise ValueError("Unsupported engine type")
+            raise ValueError("Unsupported engine type: " + str(type(self.engine)))
 
     @staticmethod
     def create_mock_engine(engine_url: str | URL, output_file: IO[str] | None = None) -> MockConnection:
