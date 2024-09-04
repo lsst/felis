@@ -26,6 +26,7 @@ import unittest
 
 from click.testing import CliRunner
 
+import felis.tap_schema as tap_schema
 from felis.cli import cli
 from felis.db.dialects import get_supported_dialects
 
@@ -166,6 +167,26 @@ class CliTestCase(unittest.TestCase):
             catch_exceptions=False,
         )
         self.assertTrue(result.exit_code != 0)
+
+    def test_load_tap_schema(self) -> None:
+        """Test for ``load-tap-schema`` command."""
+        # Create the TAP_SCHEMA database.
+        url = f"sqlite:///{self.tmpdir}/tap_schema.sqlite3"
+        runner = CliRunner()
+        tap_schema_path = tap_schema.TableManager.get_tap_schema_std_path()
+        result = runner.invoke(
+            cli,
+            ["--id-generation", "create", f"--engine-url={url}", tap_schema_path],
+            catch_exceptions=False,
+        )
+        self.assertEqual(result.exit_code, 0)
+
+        # Load the TAP_SCHEMA data.
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["load-tap-schema", f"--engine-url={url}", TEST_YAML], catch_exceptions=False
+        )
+        self.assertEqual(result.exit_code, 0)
 
 
 if __name__ == "__main__":
