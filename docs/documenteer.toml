@@ -31,6 +31,6 @@ nitpick_ignore_regex = [
 python_api_dir = "dev/internals"
 
 [sphinx.intersphinx.projects]
-python = "https://docs.python.org/3/"
-sqlalchemy = "https://docs.sqlalchemy.org/en/latest/"
-lsst = "https://pipelines.lsst.io/v/weekly/"
+python = "https://docs.python.org/3"
+sqlalchemy = "https://docs.sqlalchemy.org/en/latest"
+lsst = "https://pipelines.lsst.io/v/weekly"
