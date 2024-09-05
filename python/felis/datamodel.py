@@ -503,7 +503,7 @@ class Table(BaseObject):
     columns: Sequence[Column]
     """Columns in the table."""
 
-    constraints: list[_ConstraintType] = Field(default_factory=list, discriminator="type")
+    constraints: list[_ConstraintType] = Field(default_factory=list)
     """Constraints on the table."""
 
     indexes: list[Index] = Field(default_factory=list)
