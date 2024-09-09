@@ -438,12 +438,27 @@ class DataLoader:
         }
         self._insert("schemas", schema_record)
 
+    def _get_table_name(self, table: datamodel.Table) -> str:
+        """Get the name of the table with the schema name prepended.
+
+        Parameters
+        ----------
+        table
+            The table to get the name for.
+
+        Returns
+        -------
+        str
+            The name of the table with the schema name prepended.
+        """
+        return f"{self.schema.name}.{table.name}"
+
     def _insert_tables(self) -> None:
         """Insert the table data into the tables table."""
         for table in self.schema.tables:
             table_record = {
                 "schema_name": self.schema.name,
-                "table_name": table.name,
+                "table_name": self._get_table_name(table),
                 "table_type": "table",
                 "utype": table.votable_utype,
                 "description": table.description,
@@ -463,7 +478,7 @@ class DataLoader:
                 unit = column.ivoa_unit or column.fits_tunit
 
                 column_record = {
-                    "table_name": f"{self.schema.name}.{table.name}",
+                    "table_name": self._get_table_name(table),
                     "column_name": column.name,
                     "datatype": felis_type.votable_name,
                     "arraysize": arraysize,
@@ -492,8 +507,8 @@ class DataLoader:
                     referenced_table = self.schema.get_table_by_column(referenced_column)
                     key_record = {
                         "key_id": constraint.name,
-                        "from_table": table.name,
-                        "target_table": referenced_table.name,
+                        "from_table": self._get_table_name(table),
+                        "target_table": self._get_table_name(referenced_table),
                         "description": constraint.description,
                         "utype": constraint.votable_utype,
                     }

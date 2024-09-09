@@ -7,17 +7,6 @@ Python API
 .. automodapi:: felis.datamodel
    :include-all-objects:
 
-.. automodapi:: felis.metadata
-   :include-all-objects:
-   :no-inheritance-diagram:
-
-.. automodapi:: felis.tap
-   :include-all-objects:
-   :no-inheritance-diagram:
-
-.. automodapi:: felis.types
-   :include-all-objects:
-
 .. automodapi:: felis.db.dialects
    :include-all-objects:
    :no-inheritance-diagram:
@@ -34,6 +23,21 @@ Python API
    :include-all-objects:
    :no-inheritance-diagram:
 
+.. automodapi:: felis.metadata
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: felis.tap
+   :include-all-objects:
+   :no-inheritance-diagram:
+
+.. automodapi:: felis.tap_schema
+    :include-all-objects:
+    :no-inheritance-diagram:
+
 .. automodapi:: felis.tests.postgresql
     :include-all-objects:
     :no-inheritance-diagram:
+
+.. automodapi:: felis.types
+   :include-all-objects:
