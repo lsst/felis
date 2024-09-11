@@ -21,6 +21,8 @@ nitpick_ignore = [
     ["py:class", "sqlalchemy.orm.decl_api.Base"],
     ["py:class", "sqlalchemy.engine.mock.MockConnection"],
     ["py:class", "pydantic.main.BaseModel"],
+    ["py:exc", "pydantic.ValidationError"],
+    ["py:exc", "yaml.YAMLError"]
 ]
 nitpick_ignore_regex = [
     # Bug in autodoc_pydantic.
