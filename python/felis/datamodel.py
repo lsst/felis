@@ -383,6 +383,45 @@ class Column(BaseObject):
             raise ValueError("Precision is only valid for timestamp columns")
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def check_votable_arraysize(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Set the default value for the ``votable_arraysize`` field, which
+        corresponds to ``arraysize`` in the IVOA VOTable standard.
+
+        Parameters
+        ----------
+        values
+            Values of the column.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the column.
+
+        Notes
+        -----
+        Following the IVOA VOTable standard, an ``arraysize`` of 1 should not
+        be used.
+        """
+        arraysize = values.get("votable:arraysize")
+        if arraysize is None:
+            length = values.get("length")
+            datatype = values.get("datatype")
+            if datatype is not None:
+                if datatype == "char":
+                    arraysize = str(length)
+                elif datatype in ("string", "unicode", "binary"):
+                    arraysize = f'{"" if length is None else length}*'
+                elif datatype in ("timestamp", "text"):
+                    arraysize = "*"
+            if arraysize is not None:
+                values["votable:arraysize"] = arraysize
+                logger.debug(f"Using default votable_arraysize '{arraysize}' for column '{values['name']}'")
+        else:
+            logger.debug(f"Using provided votable_arraysize '{arraysize}' for column '{values['name']}'")
+        return values
+
 
 class Constraint(BaseObject):
     """Table constraint model."""
