@@ -106,6 +106,43 @@ def string_to_typeengine(
     return type_obj
 
 
+def is_mock_url(url: URL) -> bool:
+    """Check if the engine URL is a mock URL.
+
+    Parameters
+    ----------
+    url
+        The SQLAlchemy engine URL.
+
+    Returns
+    -------
+    bool
+        True if the URL is a mock URL, False otherwise.
+    """
+    return (url.drivername == "sqlite" and url.database is None) or (
+        url.drivername != "sqlite" and url.host is None
+    )
+
+
+def is_valid_engine(engine: Engine | MockConnection | None) -> bool:
+    """Check if the engine is valid.
+
+    The engine cannot be none; it must not be a mock connection; and it must
+    not be a mock URL which is missing a host or, for sqlite, a database name.
+
+    Parameters
+    ----------
+    engine
+        The SQLAlchemy engine or mock connection.
+
+    Returns
+    -------
+    bool
+        True if the engine is valid, False otherwise.
+    """
+    return engine is not None and not isinstance(engine, MockConnection) and not is_mock_url(engine.url)
+
+
 class SQLWriter:
     """Write SQL statements to stdout or a file.
 
