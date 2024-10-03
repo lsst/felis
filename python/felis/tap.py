@@ -407,11 +407,7 @@ class TapLoadingVisitor:
         felis_type = FelisType.felis_type(felis_datatype.value)
         column.datatype = column_obj.votable_datatype or felis_type.votable_name
 
-        column.arraysize = column_obj.votable_arraysize or (
-            column_obj.length if (column_obj.length is not None and column_obj.length > 1) else None
-        )
-        if (felis_type.is_timestamp or column_obj.datatype == "text") and column.arraysize is None:
-            column.arraysize = "*"
+        column.arraysize = column_obj.votable_arraysize
 
         def _is_int(s: str) -> bool:
             try:
