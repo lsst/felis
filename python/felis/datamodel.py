@@ -406,22 +406,35 @@ class Column(BaseObject):
         Following the IVOA VOTable standard, an ``arraysize`` of 1 should not
         be used.
         """
-        arraysize = values.get("votable:arraysize")
+        if values.get("name", None) is None or values.get("datatype", None) is None:
+            # Skip bad column data that will not validate
+            return values
+        arraysize = values.get("votable:arraysize", None)
         if arraysize is None:
-            length = values.get("length")
+            length = values.get("length", None)
             datatype = values.get("datatype")
-            if datatype is not None:
+            if length is not None and length > 1:
+                # Following the IVOA standard, arraysize of 1 is disallowed
                 if datatype == "char":
                     arraysize = str(length)
                 elif datatype in ("string", "unicode", "binary"):
-                    arraysize = f'{"" if length is None else length}*'
-                elif datatype in ("timestamp", "text"):
-                    arraysize = "*"
+                    arraysize = f"{length}*"
+            elif datatype in ("timestamp", "text"):
+                arraysize = "*"
             if arraysize is not None:
                 values["votable:arraysize"] = arraysize
-                logger.debug(f"Using default votable_arraysize '{arraysize}' for column '{values['name']}'")
+                logger.debug(
+                    f"Set default 'votable:arraysize' to '{arraysize}' on column '{values['name']}'"
+                    + f" with datatype '{values['datatype']}' and length '{values.get('length', None)}'"
+                )
         else:
-            logger.debug(f"Using provided votable_arraysize '{arraysize}' for column '{values['name']}'")
+            logger.debug(f"Using existing 'votable:arraysize' of '{arraysize}' on column '{values['name']}'")
+            if isinstance(values["votable:arraysize"], int):
+                logger.warning(
+                    f"Usage of an integer value for 'votable:arraysize' in column '{values['name']}' is "
+                    + "deprecated"
+                )
+                values["votable:arraysize"] = str(arraysize)
         return values
 
 
