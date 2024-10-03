@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from enum import StrEnum, auto
-from typing import IO, Annotated, Any, Literal, TypeAlias, TypeVar, Union
+from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar, Union
 
 import yaml
 from astropy import units as units  # type: ignore
@@ -744,7 +744,7 @@ class SchemaIdVisitor:
 T = TypeVar("T", bound=BaseObject)
 
 
-class Schema(BaseObject):
+class Schema(BaseObject, Generic[T]):
     """Database schema model.
 
     This represents a database schema, which contains one or more tables.
@@ -987,7 +987,7 @@ class Schema(BaseObject):
         """
         return id in self.id_map
 
-    def find_object_by_id(self, id: str, obj_type: type[T] = BaseObject) -> T:  # type: ignore
+    def find_object_by_id(self, id: str, obj_type: type[T]) -> T:
         """Find an object with the given type by its ID.
 
         Parameters
