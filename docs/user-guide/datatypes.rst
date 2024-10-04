@@ -74,7 +74,7 @@ The following table shows these mapping:
 +-----------+---------------+----------+------------------+--------------+
 | unicode   | NVARCHAR      | NVARCHAR | VARCHAR          | unicodeChar  |
 +-----------+---------------+----------+------------------+--------------+
-| text      | TEXT          | LONGTEXT | TEXT             | uncodeChar   |
+| text      | TEXT          | LONGTEXT | TEXT             | char         |
 +-----------+---------------+----------+------------------+--------------+
 | binary    | BLOB          | LONGBLOB | BYTEA            | unsignedByte |
 +-----------+---------------+----------+------------------+--------------+

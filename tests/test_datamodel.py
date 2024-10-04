@@ -20,10 +20,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import pathlib
 import unittest
 from collections import defaultdict
 
 import yaml
+from lsst.resources import ResourcePath
 from pydantic import ValidationError
 
 from felis.datamodel import (
@@ -38,6 +40,7 @@ from felis.datamodel import (
     Table,
     UniqueConstraint,
 )
+from felis.tests.utils import get_test_file_path, open_test_file
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
@@ -518,6 +521,68 @@ class SchemaTestCase(unittest.TestCase):
             # Test that an error is raised when id generation is disabled.
             with self.assertRaises(ValidationError):
                 Schema.model_validate(yaml_data, context={"id_generation": False})
+
+    def test_get_table_by_column(self) -> None:
+        """Test the ``get_table_by_column`` method."""
+        # Test that the correct table is returned when searching by column.
+        test_col = Column(name="test_column", id="#test_tbl.test_col", datatype="string", length=256)
+        test_tbl = Table(name="test_table", id="#test_tbl", columns=[test_col])
+        sch = Schema(name="testSchema", id="#test_sch_id", tables=[test_tbl])
+        self.assertEqual(sch.get_table_by_column(test_col), test_tbl)
+
+        # Test that an error is raised when the column is not found.
+        bad_col = Column(name="bad_column", id="#test_tbl.bad_column", datatype="string", length=256)
+        with self.assertRaises(ValueError):
+            sch.get_table_by_column(bad_col)
+
+    def test_find_object_by_id(self) -> None:
+        test_col = Column(name="test_column", id="#test_tbl.test_col", datatype="string", length=256)
+        test_tbl = Table(name="test_table", id="#test_tbl", columns=[test_col])
+        sch = Schema(name="testSchema", id="#test_sch_id", tables=[test_tbl])
+        self.assertEqual(sch.find_object_by_id("#test_tbl.test_col", Column), test_col)
+        with self.assertRaises(KeyError):
+            sch.find_object_by_id("#bad_id", Column)
+        with self.assertRaises(TypeError):
+            sch.find_object_by_id("#test_tbl", Column)
+
+    def test_from_file(self) -> None:
+        """Test loading a schema from a file."""
+        # Test file object.
+        with open_test_file("sales.yaml") as test_file:
+            schema = Schema.from_stream(test_file)
+            self.assertIsInstance(schema, Schema)
+
+        # Test path string.
+        test_file_str = get_test_file_path("sales.yaml")
+        schema = Schema.from_stream(open(test_file_str))
+        self.assertIsInstance(schema, Schema)
+
+        # Path object.
+        test_file_path = pathlib.Path(test_file_str)
+        schema = Schema.from_uri(test_file_path)
+        self.assertIsInstance(schema, Schema)
+
+    def test_from_resource(self) -> None:
+        """Test loading a schema from a resource."""
+        # Test loading a schema from a resource string.
+        schema = Schema.from_uri(
+            "resource://felis/schemas/tap_schema_std.yaml", context={"id_generation": True}
+        )
+        self.assertIsInstance(schema, Schema)
+
+        # Test loading a schema from a ResourcePath.
+        schema = Schema.from_uri(
+            ResourcePath("resource://felis/schemas/tap_schema_std.yaml"), context={"id_generation": True}
+        )
+        self.assertIsInstance(schema, Schema)
+
+        # Test loading from a nonexistant resource.
+        with self.assertRaises(ValueError):
+            Schema.from_uri("resource://fake/schemas/bad_schema.yaml")
+
+        # Without ID generation enabled, this schema should fail validation.
+        with self.assertRaises(ValidationError):
+            Schema.from_uri("resource://felis/schemas/tap_schema_std.yaml")
 
 
 class SchemaVersionTest(unittest.TestCase):
