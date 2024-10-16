@@ -106,6 +106,43 @@ def string_to_typeengine(
     return type_obj
 
 
+def is_mock_url(url: URL) -> bool:
+    """Check if the engine URL is a mock URL.
+
+    Parameters
+    ----------
+    url
+        The SQLAlchemy engine URL.
+
+    Returns
+    -------
+    bool
+        True if the URL is a mock URL, False otherwise.
+    """
+    return (url.drivername == "sqlite" and url.database is None) or (
+        url.drivername != "sqlite" and url.host is None
+    )
+
+
+def is_valid_engine(engine: Engine | MockConnection | None) -> bool:
+    """Check if the engine is valid.
+
+    The engine cannot be none; it must not be a mock connection; and it must
+    not be a mock URL which is missing a host or, for sqlite, a database name.
+
+    Parameters
+    ----------
+    engine
+        The SQLAlchemy engine or mock connection.
+
+    Returns
+    -------
+    bool
+        True if the engine is valid, False otherwise.
+    """
+    return engine is not None and not isinstance(engine, MockConnection) and not is_mock_url(engine.url)
+
+
 class SQLWriter:
     """Write SQL statements to stdout or a file.
 
@@ -193,12 +230,19 @@ class ConnectionWrapper:
         """
         if isinstance(statement, str):
             statement = text(statement)
-        if isinstance(self.engine, MockConnection):
+        if isinstance(self.engine, Engine):
+            try:
+                with self.engine.begin() as connection:
+                    result = connection.execute(statement)
+                    return result
+            except SQLAlchemyError as e:
+                connection.rollback()
+                logger.error(f"Error executing statement: {e}")
+                raise
+        elif isinstance(self.engine, MockConnection):
             return self.engine.connect().execute(statement)
         else:
-            with self.engine.begin() as connection:
-                result = connection.execute(statement)
-                return result
+            raise ValueError("Unsupported engine type:" + str(type(self.engine)))
 
 
 class DatabaseContext:
@@ -218,7 +262,7 @@ class DatabaseContext:
         self.engine = engine
         self.dialect_name = engine.dialect.name
         self.metadata = metadata
-        self.conn = ConnectionWrapper(engine)
+        self.connection = ConnectionWrapper(engine)
 
     def initialize(self) -> None:
         """Create the schema in the database if it does not exist.
@@ -240,14 +284,14 @@ class DatabaseContext:
         try:
             if self.dialect_name == "mysql":
                 logger.debug(f"Checking if MySQL database exists: {schema_name}")
-                result = self.conn.execute(text(f"SHOW DATABASES LIKE '{schema_name}'"))
+                result = self.execute(text(f"SHOW DATABASES LIKE '{schema_name}'"))
                 if result.fetchone():
                     raise ValueError(f"MySQL database '{schema_name}' already exists.")
                 logger.debug(f"Creating MySQL database: {schema_name}")
-                self.conn.execute(text(f"CREATE DATABASE {schema_name}"))
+                self.execute(text(f"CREATE DATABASE {schema_name}"))
             elif self.dialect_name == "postgresql":
                 logger.debug(f"Checking if PG schema exists: {schema_name}")
-                result = self.conn.execute(
+                result = self.execute(
                     text(
                         f"""
                         SELECT schema_name
@@ -259,7 +303,7 @@ class DatabaseContext:
                 if result.fetchone():
                     raise ValueError(f"PostgreSQL schema '{schema_name}' already exists.")
                 logger.debug(f"Creating PG schema: {schema_name}")
-                self.conn.execute(CreateSchema(schema_name))
+                self.execute(CreateSchema(schema_name))
             elif self.dialect_name == "sqlite":
                 # Just silently ignore this operation for SQLite. The database
                 # will still be created if it does not exist and the engine
@@ -285,13 +329,15 @@ class DatabaseContext:
         schema. For other variants, this is an unsupported operation.
         """
         schema_name = self.metadata.schema
+        if not self.engine.dialect.name == "sqlite" and self.metadata.schema is None:
+            raise ValueError("Schema name is required to drop the schema.")
         try:
             if self.dialect_name == "mysql":
                 logger.debug(f"Dropping MySQL database if exists: {schema_name}")
-                self.conn.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+                self.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
             elif self.dialect_name == "postgresql":
                 logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                self.conn.execute(DropSchema(schema_name, if_exists=True, cascade=True))
+                self.execute(DropSchema(schema_name, if_exists=True, cascade=True))
             elif self.dialect_name == "sqlite":
                 if isinstance(self.engine, Engine):
                     logger.debug("Dropping tables in SQLite schema")
@@ -304,7 +350,21 @@ class DatabaseContext:
 
     def create_all(self) -> None:
         """Create all tables in the schema using the metadata object."""
-        self.metadata.create_all(self.engine)
+        if isinstance(self.engine, Engine):
+            # Use a transaction for a real connection.
+            with self.engine.begin() as conn:
+                try:
+                    self.metadata.create_all(bind=conn)
+                    conn.commit()
+                except SQLAlchemyError as e:
+                    conn.rollback()
+                    logger.error(f"Error creating tables: {e}")
+                    raise
+        elif isinstance(self.engine, MockConnection):
+            # Mock connection so no need for a transaction.
+            self.metadata.create_all(self.engine)
+        else:
+            raise ValueError("Unsupported engine type: " + str(type(self.engine)))
 
     @staticmethod
     def create_mock_engine(engine_url: str | URL, output_file: IO[str] | None = None) -> MockConnection:
@@ -327,3 +387,23 @@ class DatabaseContext:
         engine = create_mock_engine(engine_url, executor=writer.write, paramstyle="pyformat")
         writer.dialect = engine.dialect
         return engine
+
+    def execute(self, statement: Any) -> ResultProxy:
+        """Execute a SQL statement on the engine and return the result.
+
+        Parameters
+        ----------
+        statement
+            The SQL statement to execute.
+
+        Returns
+        -------
+        ``sqlalchemy.engine.ResultProxy``
+            The result of the statement execution.
+
+        Notes
+        -----
+        This is just a wrapper around the execution method of the connection
+        object, which may execute on a real or mock connection.
+        """
+        return self.connection.execute(statement)

@@ -1,0 +1,93 @@
+name: "test_schema"
+description: "Test schema"
+votable:utype: "Schema"
+tables:
+  - name: "table1"
+    description: "Test table 1"
+    primaryKey: "#table1.id"
+    tap:table_index: 2
+    votable:utype: "Table"
+    columns:
+      - name: "id"
+        datatype: "int"
+        description: "Primary key for this table"
+      - name: "fk"
+        datatype: "int"
+        description: "Foreign key pointing to table2"
+      - name: "indexed_field"
+        datatype: "int"
+        description: "Field with index"
+      - name: "boolean_field"
+        datatype: "boolean"
+        description: "Boolean field"
+      - name: "byte_field"
+        datatype: "byte"
+        description: "Byte field"
+      - name: "short_field"
+        datatype: "short"
+        description: "Short field"
+      - name: "int_field"
+        datatype: "int"
+        description: "Int field"
+      - name: "long_field"
+        datatype: "long"
+        description: "Long field"
+      - name: "float_field"
+        datatype: "float"
+        description: "Float field"
+      - name: "double_field"
+        datatype: "double"
+        description: "Double field"
+      - name: "char_field"
+        datatype: "char"
+        length: 64
+        description: "Char field"
+      - name: "string_field"
+        datatype: "string"
+        length: 256
+        description: "String field"
+      - name: "text_field"
+        datatype: "text"
+        description: "Text field"
+      - name: "unicode_field"
+        datatype: "unicode"
+        length: 128
+        description: "Unicode field"
+      - name: "timestamp_field"
+        datatype: "timestamp"
+        # votable:arraysize: 64
+        votable:xtype: "timestamp"
+        description: "Timestamp field"
+        votable:utype: "Obs:Timestamp"
+        ivoa:unit: "s"
+        ivoa:ucd: "time.epoch"
+        tap:principal: 1
+        tap:std: 1
+        tap:column_index: 42
+      - name: "binary_field"
+        datatype: "binary"
+        length: 1024
+        description: "Binary field"
+    constraints:
+      - name: "fk_table1_to_table2"
+        "@type": "ForeignKey"
+        description: "Foreign key from table1 to table2"
+        votable:utype: "ForeignKey"
+        columns:
+          - "#table1.fk"
+        referencedColumns:
+          - "#table2.id"
+    indexes:
+      - name: "idx_table1_indexed_field"
+        columns:
+          - "#table1.indexed_field"
+  - name: "table2"
+    description: "Test table 2"
+    primaryKey: "#table2.id"
+    votable:utype: "Table"
+    tap:table_index: 3
+    columns:
+      - name: "id"
+        datatype: "int"
+        description: "Test column"
+        votable:utype: "Column"

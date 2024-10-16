@@ -21,6 +21,8 @@ nitpick_ignore = [
     ["py:class", "sqlalchemy.orm.decl_api.Base"],
     ["py:class", "sqlalchemy.engine.mock.MockConnection"],
     ["py:class", "pydantic.main.BaseModel"],
+    ["py:exc", "pydantic.ValidationError"],
+    ["py:exc", "yaml.YAMLError"]
 ]
 nitpick_ignore_regex = [
     # Bug in autodoc_pydantic.
@@ -29,5 +31,6 @@ nitpick_ignore_regex = [
 python_api_dir = "dev/internals"
 
 [sphinx.intersphinx.projects]
-python = "https://docs.python.org/3/"
-sqlalchemy = "https://docs.sqlalchemy.org/en/latest/"
+python = "https://docs.python.org/3"
+sqlalchemy = "https://docs.sqlalchemy.org/en/latest"
+lsst = "https://pipelines.lsst.io/v/weekly"

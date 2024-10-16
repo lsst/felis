@@ -23,22 +23,21 @@
 
 from __future__ import annotations
 
-import io
 import logging
 from collections.abc import Iterable
 from typing import IO
 
 import click
-import yaml
 from pydantic import ValidationError
 from sqlalchemy.engine import Engine, create_engine, make_url
-from sqlalchemy.engine.mock import MockConnection
+from sqlalchemy.engine.mock import MockConnection, create_mock_engine
 
 from . import __version__
 from .datamodel import Schema
-from .db.utils import DatabaseContext
+from .db.utils import DatabaseContext, is_mock_url
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
+from .tap_schema import DataLoader, TableManager
 
 __all__ = ["cli"]
 
@@ -107,7 +106,7 @@ def create(
     dry_run: bool,
     output_file: IO[str] | None,
     ignore_constraints: bool,
-    file: IO,
+    file: IO[str],
 ) -> None:
     """Create database objects from the Felis file.
 
@@ -133,8 +132,7 @@ def create(
         Felis file to read.
     """
     try:
-        yaml_data = yaml.safe_load(file)
-        schema = Schema.model_validate(yaml_data, context={"id_generation": ctx.obj["id_generation"]})
+        schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
         url = make_url(engine_url)
         if schema_name:
             logger.info(f"Overriding schema name with: {schema_name}")
@@ -261,7 +259,7 @@ def load_tap(
     tap_keys_table: str,
     tap_key_columns_table: str,
     tap_schema_index: int,
-    file: io.TextIOBase,
+    file: IO[str],
 ) -> None:
     """Load TAP metadata from a Felis file.
 
@@ -304,8 +302,7 @@ def load_tap(
     The data will be loaded into the TAP_SCHEMA from the engine URL. The
     tables must have already been initialized or an error will occur.
     """
-    yaml_data = yaml.load(file, Loader=yaml.SafeLoader)
-    schema = Schema.model_validate(yaml_data)
+    schema = Schema.from_stream(file)
 
     tap_tables = init_tables(
         tap_schema_name,
@@ -345,6 +342,79 @@ def load_tap(
         tap_visitor.visit_schema(schema)
 
 
+@cli.command("load-tap-schema", help="Load metadata from a Felis file into a TAP_SCHEMA database")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
+@click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database")
+@click.option(
+    "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
+)
+@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema in this environment")
+@click.option("--dry-run", is_flag=True, help="Execute dry run only. Does not insert any data.")
+@click.option("--echo", is_flag=True, help="Print out the generated insert statements to stdout")
+@click.option("--output-file", type=click.Path(), help="Write SQL commands to a file")
+@click.argument("file", type=click.File())
+@click.pass_context
+def load_tap_schema(
+    ctx: click.Context,
+    engine_url: str,
+    tap_schema_name: str,
+    tap_tables_postfix: str,
+    tap_schema_index: int,
+    dry_run: bool,
+    echo: bool,
+    output_file: str | None,
+    file: IO[str],
+) -> None:
+    """Load TAP metadata from a Felis file.
+
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL.
+    tap_tables_postfix
+        Postfix which is applied to standard TAP_SCHEMA table names.
+    tap_schema_index
+        TAP_SCHEMA index of the schema in this environment.
+    dry_run
+        Execute dry run only. Does not insert any data.
+    echo
+        Print out the generated insert statements to stdout.
+    output_file
+        Output file for writing generated SQL.
+    file
+        Felis file to read.
+
+    Notes
+    -----
+    The TAP_SCHEMA database must already exist or the command will fail. This
+    command will not initialize the TAP_SCHEMA tables.
+    """
+    url = make_url(engine_url)
+    engine: Engine | MockConnection
+    if dry_run or is_mock_url(url):
+        engine = create_mock_engine(url, executor=None)
+    else:
+        engine = create_engine(engine_url)
+    mgr = TableManager(
+        engine=engine,
+        apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
+        schema_name=tap_schema_name,
+        table_name_postfix=tap_tables_postfix,
+    )
+
+    schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
+
+    DataLoader(
+        schema,
+        mgr,
+        engine,
+        tap_schema_index=tap_schema_index,
+        dry_run=dry_run,
+        print_sql=echo,
+        output_path=output_file,
+    ).load()
+
+
 @cli.command("validate", help="Validate one or more Felis YAML files")
 @click.option(
     "--check-description", is_flag=True, help="Check that all objects have a description", default=False
@@ -372,7 +442,7 @@ def validate(
     check_redundant_datatypes: bool,
     check_tap_table_indexes: bool,
     check_tap_principal: bool,
-    files: Iterable[io.TextIOBase],
+    files: Iterable[IO[str]],
 ) -> None:
     """Validate one or more felis YAML files.
 
@@ -406,9 +476,8 @@ def validate(
         file_name = getattr(file, "name", None)
         logger.info(f"Validating {file_name}")
         try:
-            data = yaml.load(file, Loader=yaml.SafeLoader)
-            Schema.model_validate(
-                data,
+            Schema.from_stream(
+                file,
                 context={
                     "check_description": check_description,
                     "check_redundant_datatypes": check_redundant_datatypes,

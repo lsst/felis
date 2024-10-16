@@ -26,10 +26,12 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from enum import StrEnum, auto
-from typing import Annotated, Any, Literal, TypeAlias, Union
+from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar, Union
 
+import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
+from lsst.resources import ResourcePath, ResourcePathExpression
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from .db.dialects import get_supported_dialects
@@ -253,7 +255,7 @@ class Column(BaseObject):
         Raises
         ------
         ValueError
-            Raised If both FITS and IVOA units are provided, or if the unit is
+            Raised if both FITS and IVOA units are provided, or if the unit is
             invalid.
         """
         fits_unit = self.fits_tunit
@@ -382,6 +384,58 @@ class Column(BaseObject):
         if self.precision is not None and self.datatype != "timestamp":
             raise ValueError("Precision is only valid for timestamp columns")
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_votable_arraysize(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Set the default value for the ``votable_arraysize`` field, which
+        corresponds to ``arraysize`` in the IVOA VOTable standard.
+
+        Parameters
+        ----------
+        values
+            Values of the column.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The values of the column.
+
+        Notes
+        -----
+        Following the IVOA VOTable standard, an ``arraysize`` of 1 should not
+        be used.
+        """
+        if values.get("name", None) is None or values.get("datatype", None) is None:
+            # Skip bad column data that will not validate
+            return values
+        arraysize = values.get("votable:arraysize", None)
+        if arraysize is None:
+            length = values.get("length", None)
+            datatype = values.get("datatype")
+            if length is not None and length > 1:
+                # Following the IVOA standard, arraysize of 1 is disallowed
+                if datatype == "char":
+                    arraysize = str(length)
+                elif datatype in ("string", "unicode", "binary"):
+                    arraysize = f"{length}*"
+            elif datatype in ("timestamp", "text"):
+                arraysize = "*"
+            if arraysize is not None:
+                values["votable:arraysize"] = arraysize
+                logger.debug(
+                    f"Set default 'votable:arraysize' to '{arraysize}' on column '{values['name']}'"
+                    + f" with datatype '{values['datatype']}' and length '{values.get('length', None)}'"
+                )
+        else:
+            logger.debug(f"Using existing 'votable:arraysize' of '{arraysize}' on column '{values['name']}'")
+            if isinstance(values["votable:arraysize"], int):
+                logger.warning(
+                    f"Usage of an integer value for 'votable:arraysize' in column '{values['name']}' is "
+                    + "deprecated"
+                )
+                values["votable:arraysize"] = str(arraysize)
+        return values
 
 
 class Constraint(BaseObject):
@@ -700,7 +754,10 @@ class SchemaIdVisitor:
         self.add(constraint)
 
 
-class Schema(BaseObject):
+T = TypeVar("T", bound=BaseObject)
+
+
+class Schema(BaseObject, Generic[T]):
     """Database schema model.
 
     This represents a database schema, which contains one or more tables.
@@ -942,3 +999,118 @@ class Schema(BaseObject):
             The ID of the object to check.
         """
         return id in self.id_map
+
+    def find_object_by_id(self, id: str, obj_type: type[T]) -> T:
+        """Find an object with the given type by its ID.
+
+        Parameters
+        ----------
+        id
+            The ID of the object to find.
+        obj_type
+            The type of the object to find.
+
+        Returns
+        -------
+        BaseObject
+            The object with the given ID and type.
+
+        Raises
+        ------
+        KeyError
+            If the object with the given ID is not found in the schema.
+        TypeError
+            If the object that is found does not have the right type.
+
+        Notes
+        -----
+        The actual return type is the user-specified argument ``T``, which is
+        expected to be a subclass of `BaseObject`.
+        """
+        obj = self[id]
+        if not isinstance(obj, obj_type):
+            raise TypeError(f"Object with ID '{id}' is not of type '{obj_type.__name__}'")
+        return obj
+
+    def get_table_by_column(self, column: Column) -> Table:
+        """Find the table that contains a column.
+
+        Parameters
+        ----------
+        column
+            The column to find.
+
+        Returns
+        -------
+        `Table`
+            The table that contains the column.
+
+        Raises
+        ------
+        ValueError
+            If the column is not found in any table.
+        """
+        for table in self.tables:
+            if column in table.columns:
+                return table
+        raise ValueError(f"Column '{column.name}' not found in any table")
+
+    @classmethod
+    def from_uri(cls, resource_path: ResourcePathExpression, context: dict[str, Any] = {}) -> Schema:
+        """Load a `Schema` from a string representing a ``ResourcePath``.
+
+        Parameters
+        ----------
+        resource_path
+            The ``ResourcePath`` pointing to a YAML file.
+        context
+            Pydantic context to be used in validation.
+
+        Returns
+        -------
+        `str`
+            The ID of the object.
+
+        Raises
+        ------
+        yaml.YAMLError
+            Raised if there is an error loading the YAML data.
+        ValueError
+            Raised if there is an error reading the resource.
+        pydantic.ValidationError
+            Raised if the schema fails validation.
+        """
+        logger.debug(f"Loading schema from: '{resource_path}'")
+        try:
+            rp_stream = ResourcePath(resource_path).read()
+        except Exception as e:
+            raise ValueError(f"Error reading resource from '{resource_path}' : {e}") from e
+        yaml_data = yaml.safe_load(rp_stream)
+        return Schema.model_validate(yaml_data, context=context)
+
+    @classmethod
+    def from_stream(cls, source: IO[str], context: dict[str, Any] = {}) -> Schema:
+        """Load a `Schema` from a file stream which should contain YAML data.
+
+        Parameters
+        ----------
+        source
+            The file stream to read from.
+        context
+            Pydantic context to be used in validation.
+
+        Returns
+        -------
+        `Schema`
+            The Felis schema loaded from the stream.
+
+        Raises
+        ------
+        yaml.YAMLError
+            Raised if there is an error loading the YAML file.
+        pydantic.ValidationError
+            Raised if the schema fails validation.
+        """
+        logger.debug("Loading schema from: '%s'", source)
+        yaml_data = yaml.safe_load(source)
+        return Schema.model_validate(yaml_data, context=context)
