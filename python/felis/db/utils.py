@@ -280,7 +280,12 @@ class DatabaseContext:
         create a new schema. For other variants, this is an unsupported
         operation.
         """
+        if self.engine.dialect.name == "sqlite":
+            # Initialization is unneeded for sqlite.
+            return
         schema_name = self.metadata.schema
+        if schema_name is None:
+            raise ValueError("Schema name is required to initialize the schema.")
         try:
             if self.dialect_name == "mysql":
                 logger.debug(f"Checking if MySQL database exists: {schema_name}")
@@ -304,11 +309,6 @@ class DatabaseContext:
                     raise ValueError(f"PostgreSQL schema '{schema_name}' already exists.")
                 logger.debug(f"Creating PG schema: {schema_name}")
                 self.execute(CreateSchema(schema_name))
-            elif self.dialect_name == "sqlite":
-                # Just silently ignore this operation for SQLite. The database
-                # will still be created if it does not exist and the engine
-                # URL is valid.
-                pass
             else:
                 raise ValueError(f"Initialization not supported for: {self.dialect_name}")
         except SQLAlchemyError as e:
