@@ -326,24 +326,24 @@ class DatabaseContext:
         Notes
         -----
         In MySQL, this will drop a database. In PostgreSQL, it will drop a
-        schema. For other variants, this is an unsupported operation.
+        schema. A SQlite database will have all its tables dropped. For other
+        database variants, this is currently an unsupported operation.
         """
-        schema_name = self.metadata.schema
-        if not self.engine.dialect.name == "sqlite" and self.metadata.schema is None:
-            raise ValueError("Schema name is required to drop the schema.")
         try:
-            if self.dialect_name == "mysql":
-                logger.debug(f"Dropping MySQL database if exists: {schema_name}")
-                self.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
-            elif self.dialect_name == "postgresql":
-                logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
-                self.execute(DropSchema(schema_name, if_exists=True, cascade=True))
-            elif self.dialect_name == "sqlite":
+            if self.dialect_name == "sqlite":
                 if isinstance(self.engine, Engine):
                     logger.debug("Dropping tables in SQLite schema")
                     self.metadata.drop_all(bind=self.engine)
             else:
-                raise ValueError(f"Drop operation not supported for: {self.dialect_name}")
+                schema_name = self.metadata.schema
+                if schema_name is None:
+                    raise ValueError("Schema name is required to drop the schema.")
+                if self.dialect_name == "mysql":
+                    logger.debug(f"Dropping MySQL database if exists: {schema_name}")
+                    self.execute(text(f"DROP DATABASE IF EXISTS {schema_name}"))
+                elif self.dialect_name == "postgresql":
+                    logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
+                    self.execute(DropSchema(schema_name, if_exists=True, cascade=True))
         except SQLAlchemyError as e:
             logger.error(f"Error dropping schema: {e}")
             raise
