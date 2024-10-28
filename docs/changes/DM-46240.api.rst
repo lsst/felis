@@ -1,0 +1,2 @@
+By default, generate the ``@id`` field for any schema object if it is missing.
+To turn this off, use ``felis --no-id-generation [command]``.
