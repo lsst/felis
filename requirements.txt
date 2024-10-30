@@ -5,3 +5,5 @@ pyyaml >= 6
 pydantic >= 2, < 3
 lsst-utils
 lsst-resources
+deepdiff
+alembic
