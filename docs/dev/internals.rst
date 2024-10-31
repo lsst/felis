@@ -7,6 +7,10 @@ Python API
 .. automodapi:: felis.datamodel
    :include-all-objects:
 
+.. automodapi:: felis.diff
+   :include-all-objects:
+   :no-inheritance-diagram:
+
 .. automodapi:: felis.db.dialects
    :include-all-objects:
    :no-inheritance-diagram:
