@@ -31,8 +31,10 @@ from typing import IO
 
 __all__ = ["open_test_file", "mk_temp_dir", "rm_temp_dir"]
 
-TEST_DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "tests", "data"))
-"""The directory containing test data files."""
+TEST_DATA_DIR = os.path.normpath(os.path.join("tests", "data"))
+"""The directory containing test data files, relative from the project's root
+directory.
+"""
 
 TEST_TMP_DIR = os.path.normpath(os.path.join(TEST_DATA_DIR, ".."))
 """The directory for temporary files."""
