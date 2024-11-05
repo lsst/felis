@@ -25,10 +25,13 @@ import tempfile
 import unittest
 
 from click.testing import CliRunner
+from sqlalchemy import create_engine
 
 import felis.tap_schema as tap_schema
 from felis.cli import cli
+from felis.datamodel import Schema
 from felis.db.dialects import get_supported_dialects
+from felis.metadata import MetaDataBuilder
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
@@ -187,6 +190,50 @@ class CliTestCase(unittest.TestCase):
             cli, ["load-tap-schema", f"--engine-url={url}", TEST_YAML], catch_exceptions=False
         )
         self.assertEqual(result.exit_code, 0)
+
+    def test_diff(self) -> None:
+        """Test for ``diff`` command."""
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["diff", test_diff1, test_diff2], catch_exceptions=False)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_diff_database(self) -> None:
+        """Test for ``diff`` command with database."""
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+        db_url = f"sqlite:///{self.tmpdir}/tap_schema.sqlite3"
+
+        engine = create_engine(db_url)
+        metadata_db = MetaDataBuilder(
+            Schema.from_uri(test_diff1), apply_schema_to_metadata=False, apply_schema_to_tables=False
+        ).build()
+        metadata_db.create_all(engine)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["diff", f"--engine-url={db_url}", test_diff2], catch_exceptions=False)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_diff_alembic(self) -> None:
+        """Test for ``diff`` command with ``--alembic`` comparator option."""
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["diff", "--comparator", "alembic", test_diff1, test_diff2], catch_exceptions=False
+        )
+        print(result.output)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_diff_error(self) -> None:
+        """Test for ``diff`` command with error."""
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        runner = CliRunner()
+        result = runner.invoke(cli, ["diff", test_diff1], catch_exceptions=False)
+        self.assertNotEqual(result.exit_code, 0)
 
 
 if __name__ == "__main__":
