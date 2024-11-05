@@ -21,15 +21,16 @@ classifiers = [
 ]
 keywords = ["lsst"]
 dependencies = [
-    "astropy >= 4",
-    "sqlalchemy >= 1.4",
-    "click >= 7",
-    "pyyaml >= 6",
-    "pydantic >= 2, < 3",
-    "lsst-utils",
-    "lsst-resources",
-    "deepdiff",
     "alembic",
+    "astropy",
+    "click",
+    "deepdiff",
+    "lsst-resources @ git+https://github.com/lsst/resources@main",
+    "lsst-utils @ git+https://github.com/lsst/utils@main",
+    "numpy",
+    "pydantic >2,<3",
+    "pyyaml",
+    "sqlalchemy"
 ]
 requires-python = ">=3.11.0"
 dynamic = ["version"]
