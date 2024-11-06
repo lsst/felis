@@ -19,8 +19,6 @@ Felis
     :target: https://github.com/lsst/felis/tags
     :alt: Latest Tag
 
-YAML Schema Definition Language for Databases
-
 Overview
 --------
 
