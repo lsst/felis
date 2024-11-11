@@ -5,6 +5,7 @@ MAKEFLAGS += --no-print-directory
 help:
 	@echo "Available targets for Felis:"
 	@echo "  build    - Build the package"
+	@echo "  deps     - Install dependencies"
 	@echo "  docs     - Generate the documentation"
 	@echo "  check    - Run pre-commit checks"
 	@echo "  test     - Run tests"
@@ -41,6 +42,7 @@ mypy:
 
 all:
 	@$(MAKE) build
+	@$(MAKE) deps
 	@$(MAKE) docs
 	@$(MAKE) check
 	@$(MAKE) test
