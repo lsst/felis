@@ -1,3 +1,0 @@
-Added a new ``tap_schema_`` module designed to deprecate and eventually replace the ``tap`` module.
-This module provides utilities for translating a Felis schema into a TAP_SCHEMA representation.
-The command ``felis load-tap-schema`` can be used to activate this functionality.
