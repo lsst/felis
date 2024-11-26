@@ -1,2 +1,0 @@
-Added a check to the data model which ensures that all constraint names are unique within the schema.
-TAP_SCHEMA uses these names as primary keys in its ``keys`` table, so they cannot be duplicated.
