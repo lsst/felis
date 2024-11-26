@@ -69,7 +69,7 @@ felis = "felis.cli:cli"
     package_dir = "python"
     filename = "docs/CHANGES.rst"
     directory = "docs/changes"
-    title_format = "felis {version} ({project_date})"
+    title_format = "{version} ({project_date})"
     issue_format = "`{issue} <https://jira.lsstcorp.org/browse/{issue}>`_"
 
 
