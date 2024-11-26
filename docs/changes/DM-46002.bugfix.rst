@@ -1,2 +1,0 @@
-Fixed a bug where the error locations on constraint objects during validation were reported incorrectly.
-This was accomplished by replacing the ``create_constraints()`` function with a Pydantic `discriminated union <https://docs.pydantic.dev/latest/concepts/unions/#discriminated-unions-with-str-discriminators>`__.
