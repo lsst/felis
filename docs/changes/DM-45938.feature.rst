@@ -1,4 +1,0 @@
-Added automatic ID generation for objects in Felis schemas when the `--id-generation` flag is included on the command line.
-This is supported for the `create` and `validate` commands.
-
-Also added a Schema validator that checks if index names are unique.
