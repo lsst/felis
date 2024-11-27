@@ -147,3 +147,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
         """Tear down the test case."""
         gc.collect()
         self.engine.dispose()
+
+
+if __name__ == "__main__":
+    unittest.main()

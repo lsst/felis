@@ -330,3 +330,7 @@ class TapSchemaDataTest(unittest.TestCase):
                 print("tap: " + str(tap_row))
                 print("tap_schema: " + str(tap_schema_row))
                 self.assertDictEqual(tap_row, tap_schema_row)
+
+
+if __name__ == "__main__":
+    unittest.main()
