@@ -40,10 +40,11 @@ from felis.datamodel import (
     Table,
     UniqueConstraint,
 )
-from felis.tests.utils import get_test_file_path, open_test_file
 
-TESTDIR = os.path.abspath(os.path.dirname(__file__))
-TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
+TEST_DIR = os.path.abspath(os.path.dirname(__file__))
+TEST_YAML = os.path.join(TEST_DIR, "data", "test.yml")
+TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")
+TEST_ID_GENERATION = os.path.join(TEST_DIR, "data", "test_id_generation.yaml")
 
 
 class ColumnTestCase(unittest.TestCase):
@@ -511,7 +512,7 @@ class SchemaTestCase(unittest.TestCase):
 
     def test_id_generation(self) -> None:
         """Test ID generation."""
-        test_path = os.path.join(TESTDIR, "data", "test_id_generation.yaml")
+        test_path = os.path.join(TEST_ID_GENERATION)
         with open(test_path) as test_yaml:
             yaml_data = yaml.safe_load(test_yaml)
             # Generate IDs for objects in the test schema.
@@ -548,17 +549,16 @@ class SchemaTestCase(unittest.TestCase):
     def test_from_file(self) -> None:
         """Test loading a schema from a file."""
         # Test file object.
-        with open_test_file("sales.yaml") as test_file:
+        with open(TEST_SALES) as test_file:
             schema = Schema.from_stream(test_file)
             self.assertIsInstance(schema, Schema)
 
         # Test path string.
-        test_file_str = get_test_file_path("sales.yaml")
-        schema = Schema.from_stream(open(test_file_str))
+        schema = Schema.from_stream(open(TEST_SALES))
         self.assertIsInstance(schema, Schema)
 
         # Path object.
-        test_file_path = pathlib.Path(test_file_str)
+        test_file_path = pathlib.Path(TEST_SALES)
         schema = Schema.from_uri(test_file_path)
         self.assertIsInstance(schema, Schema)
 
