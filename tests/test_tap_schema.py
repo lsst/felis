@@ -20,6 +20,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import shutil
+import tempfile
 import unittest
 from typing import Any
 
@@ -28,7 +30,10 @@ from sqlalchemy import Engine, MetaData, create_engine, select
 from felis import tap
 from felis.datamodel import Schema
 from felis.tap_schema import DataLoader, TableManager
-from felis.tests.utils import mk_temp_dir, open_test_file, rm_temp_dir
+
+TEST_DIR = os.path.dirname(__file__)
+TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")
+TEST_TAP_SCHEMA = os.path.join(TEST_DIR, "data", "test_tap_schema.yaml")
 
 
 class TableManagerTestCase(unittest.TestCase):
@@ -36,7 +41,7 @@ class TableManagerTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up the test case."""
-        with open_test_file("sales.yaml") as test_file:
+        with open(TEST_SALES) as test_file:
             self.schema = Schema.from_stream(test_file)
 
     def test_create_table_manager(self) -> None:
@@ -61,14 +66,14 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up the test case."""
-        with open_test_file("sales.yaml") as test_file:
-            self.schema = Schema.from_stream(test_file)
+        with open(TEST_TAP_SCHEMA) as test_file:
+            self.schema = Schema.from_stream(test_file, context={"id_generation": True})
 
-        self.tmpdir = mk_temp_dir()
+        self.tmpdir = tempfile.mkdtemp(dir=TEST_DIR)
 
     def tearDown(self) -> None:
         """Clean up temporary directory."""
-        rm_temp_dir(self.tmpdir)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_sqlite(self) -> None:
         """Test the `DataLoader` using an in-memory SQLite database."""
@@ -97,8 +102,8 @@ class DataLoaderTestCase(unittest.TestCase):
             insert_count = sql_data.count("INSERT INTO")
             self.assertEqual(
                 insert_count,
-                21,
-                f"Expected 21 'INSERT INTO' statements, found {insert_count}",
+                22,
+                f"Expected 22 'INSERT INTO' statements, found {insert_count}",
             )
 
 
@@ -130,7 +135,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up the test case."""
-        with open_test_file("test_tap_schema.yaml") as test_file:
+        with open(TEST_TAP_SCHEMA) as test_file:
             self.schema = Schema.from_stream(test_file, context={"id_generation": True})
 
         self.engine = create_engine("sqlite:///:memory:")
@@ -325,3 +330,7 @@ class TapSchemaDataTest(unittest.TestCase):
                 print("tap: " + str(tap_row))
                 print("tap_schema: " + str(tap_schema_row))
                 self.assertDictEqual(tap_row, tap_schema_row)
+
+
+if __name__ == "__main__":
+    unittest.main()

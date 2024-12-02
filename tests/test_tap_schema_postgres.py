@@ -31,15 +31,15 @@ from felis.datamodel import Schema
 from felis.db.utils import DatabaseContext
 from felis.metadata import MetaDataBuilder
 from felis.tap_schema import DataLoader, TableManager
-from felis.tests.utils import open_test_file
 
 try:
     from testing.postgresql import Postgresql
 except ImportError:
     Postgresql = None
 
-TESTDIR = os.path.abspath(os.path.dirname(__file__))
-TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")
+TEST_DIR = os.path.abspath(os.path.dirname(__file__))
+TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")
+TEST_TAP_SCHEMA_NONSTD = os.path.join(TEST_DIR, "data", "test_tap_schema_nonstandard.yaml")
 
 
 class TestTapSchemaPostgresql(unittest.TestCase):
@@ -57,7 +57,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
         self.engine = create_engine(url)
 
         # Setup a test schema.
-        self.test_schema = Schema.from_uri(TEST_YAML)
+        self.test_schema = Schema.from_uri(TEST_SALES)
 
     def test_create_metadata(self) -> None:
         """Test loading of data into a PostgreSQL TAP_SCHEMA database created
@@ -121,7 +121,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
         to create the TAP_SCHEMA database.
         """
         try:
-            with open_test_file("test_tap_schema_nonstandard.yaml") as file:
+            with open(TEST_TAP_SCHEMA_NONSTD) as file:
                 sch = Schema.from_stream(file, context={"id_generation": True})
             md = MetaDataBuilder(sch).build()
             ctx = DatabaseContext(md, self.engine)
@@ -147,3 +147,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
         """Tear down the test case."""
         gc.collect()
         self.engine.dispose()
+
+
+if __name__ == "__main__":
+    unittest.main()
