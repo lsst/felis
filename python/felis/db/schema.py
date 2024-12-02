@@ -38,8 +38,8 @@ def create_database(schema: Schema, engine_or_url_str: Engine | str | None = Non
     ----------
     schema
         The schema to create.
-    engine
-        The SQLAlchemy engine to use for database creation.
+    engine_or_url_str
+        The SQLAlchemy engine or URL to use for database creation.
         If None, an in-memory SQLite database will be created.
 
     Returns
