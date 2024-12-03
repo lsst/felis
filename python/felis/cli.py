@@ -495,7 +495,17 @@ def validate(
         raise click.exceptions.Exit(rc)
 
 
-@cli.command("diff", help="Compare schema files or database schemas")
+@cli.command(
+    "diff",
+    help="""
+Compare schema files or database schemas
+
+Examples:
+  felis diff schema1.yaml schema2.yaml
+  felis diff -c alembic schema1.yaml schema2.yaml
+  felis diff --engine-url sqlite:///test.db schema.yaml
+""",
+)
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
 @click.option(
     "-c",
