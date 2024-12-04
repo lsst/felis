@@ -60,6 +60,7 @@ jobs:
         run: |
           pytest -r a -v -n 3 --cov=tests --cov=felis --cov-report=xml --cov-report=term --cov-branch \
             --junitxml=junit.xml -o junit_family=legacy
+          felis --help
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v4
