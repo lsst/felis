@@ -19,4 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from .datamodel import Schema
+from .db.schema import create_database
+from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
+from .metadata import MetaDataBuilder
 from .version import *
