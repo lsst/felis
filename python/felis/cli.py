@@ -36,7 +36,7 @@ from . import __version__
 from .datamodel import Schema
 from .db.schema import create_database
 from .db.utils import DatabaseContext, is_mock_url
-from .diff import DatabaseDiff, FormattedSchemaDiff
+from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
 from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .tap_schema import DataLoader, TableManager
@@ -498,13 +498,16 @@ def validate(
 @cli.command(
     "diff",
     help="""
-Compare schema files or database schemas
+    Compare two schemas or a schema and a database for changes
 
-Examples:
-  felis diff schema1.yaml schema2.yaml
-  felis diff -c alembic schema1.yaml schema2.yaml
-  felis diff --engine-url sqlite:///test.db schema.yaml
-""",
+    Examples:
+
+      felis diff schema1.yaml schema2.yaml
+
+      felis diff -c alembic schema1.yaml schema2.yaml
+
+      felis diff --engine-url sqlite:///test.db schema.yaml
+    """,
 )
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
 @click.option(
@@ -514,33 +517,40 @@ Examples:
     help="Comparator to use for schema comparison",
     default="deepdiff",
 )
+@click.option("-E", "--error-on-change", is_flag=True, help="Exit with error code if schemas are different")
 @click.argument("files", nargs=-1, type=click.File())
 @click.pass_context
 def diff(
     ctx: click.Context,
     engine_url: str | None,
     comparator: str,
+    error_on_change: bool,
     files: Iterable[IO[str]],
 ) -> None:
-
     schemas = [
         Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]}) for file in files
     ]
 
+    diff: SchemaDiff
     if len(schemas) == 2 and engine_url is None:
         if comparator == "alembic":
             db_context = create_database(schemas[0])
             assert isinstance(db_context.engine, Engine)
-            DatabaseDiff(schemas[1], db_context.engine).print()
+            diff = DatabaseDiff(schemas[1], db_context.engine)
         else:
-            FormattedSchemaDiff(schemas[0], schemas[1]).print()
+            diff = FormattedSchemaDiff(schemas[0], schemas[1])
     elif len(schemas) == 1 and engine_url is not None:
         engine = create_engine(engine_url)
-        DatabaseDiff(schemas[0], engine).print()
+        diff = DatabaseDiff(schemas[0], engine)
     else:
         raise click.ClickException(
             "Invalid arguments - provide two schemas or a schema and a database engine URL"
         )
+
+    diff.print()
+
+    if diff.has_changes and error_on_change:
+        raise click.ClickException("Schema was changed")
 
 
 if __name__ == "__main__":

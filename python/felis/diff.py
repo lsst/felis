@@ -66,6 +66,18 @@ class SchemaDiff:
         """
         pprint.pprint(self.diff)
 
+    @property
+    def has_changes(self) -> bool:
+        """
+        Check if there are any differences between the two schemas.
+
+        Returns
+        -------
+        bool
+            True if there are differences, False otherwise.
+        """
+        return len(self.diff) > 0
+
 
 class FormattedSchemaDiff(SchemaDiff):
     """
@@ -187,7 +199,7 @@ class FormattedSchemaDiff(SchemaDiff):
         return value
 
 
-class DatabaseDiff:
+class DatabaseDiff(SchemaDiff):
     """
     Compare a schema with a database and print the differences.
 
@@ -215,5 +227,5 @@ class DatabaseDiff:
         """
         Print the differences between the schema and the database.
         """
-        if len(self.diff) > 0:
+        if self.has_changes:
             pprint.pprint(self.diff)

@@ -229,10 +229,22 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_diff_error(self) -> None:
-        """Test for ``diff`` command with error."""
+        """Test for ``diff`` command with bad arguments."""
         test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
         runner = CliRunner()
         result = runner.invoke(cli, ["diff", test_diff1], catch_exceptions=False)
+        self.assertNotEqual(result.exit_code, 0)
+
+    def test_diff_error_on_change(self) -> None:
+        """Test for ``diff`` command with ``--error-on-change`` flag."""
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["diff", "--error-on-change", test_diff1, test_diff2], catch_exceptions=False
+        )
+        print(result.output)
         self.assertNotEqual(result.exit_code, 0)
 
 
