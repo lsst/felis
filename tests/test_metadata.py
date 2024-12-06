@@ -147,7 +147,7 @@ class MetaDataTestCase(unittest.TestCase):
         builder matches the data in the Felis schema used to create it.
         """
         sch = Schema.model_validate(self.yaml_data)
-        bld = MetaDataBuilder(sch, apply_schema_to_tables=False, apply_schema_to_metadata=False)
+        bld = MetaDataBuilder(sch, apply_schema_to_metadata=False)
         md = bld.build()
 
         self.assertEqual(len(sch.tables), len(md.tables))

@@ -131,9 +131,7 @@ class TableManager:
             self.schema_name = self.schema.name
 
         self._metadata = MetaDataBuilder(
-            self.schema,
-            apply_schema_to_metadata=self.apply_schema_to_metadata,
-            apply_schema_to_tables=self.apply_schema_to_metadata,
+            self.schema, apply_schema_to_metadata=self.apply_schema_to_metadata
         ).build()
 
         logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)

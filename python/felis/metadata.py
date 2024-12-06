@@ -125,8 +125,6 @@ class MetaDataBuilder:
         The schema object from which to build the SQLAlchemy metadata.
     apply_schema_to_metadata
         Whether to apply the schema name to the metadata object.
-    apply_schema_to_tables
-        Whether to apply the schema name to the tables.
     ignore_constraints
         Whether to ignore constraints when building the metadata.
     """
@@ -135,18 +133,14 @@ class MetaDataBuilder:
         self,
         schema: Schema,
         apply_schema_to_metadata: bool = True,
-        apply_schema_to_tables: bool = True,
         ignore_constraints: bool = False,
     ) -> None:
         """Initialize the metadata builder."""
         self.schema = schema
         if not apply_schema_to_metadata:
             logger.debug("Schema name will not be applied to metadata")
-        if not apply_schema_to_tables:
-            logger.debug("Schema name will not be applied to tables")
         self.metadata = MetaData(schema=schema.name if apply_schema_to_metadata else None)
         self._objects: dict[str, Any] = {}
-        self.apply_schema_to_tables = apply_schema_to_tables
         self.ignore_constraints = ignore_constraints
 
     def build(self) -> MetaData:
@@ -235,7 +229,6 @@ class MetaDataBuilder:
             self.metadata,
             *columns,
             comment=description,
-            schema=self.schema.name if self.apply_schema_to_tables else None,
             **optargs,  # type: ignore[arg-type]
         )
 

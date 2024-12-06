@@ -218,9 +218,7 @@ class DatabaseDiff(SchemaDiff):
             mc = MigrationContext.configure(
                 connection, opts={"compare_type": True, "target_metadata": db_metadata}
             )
-            schema_metadata = MetaDataBuilder(
-                schema, apply_schema_to_metadata=False, apply_schema_to_tables=False
-            ).build()
+            schema_metadata = MetaDataBuilder(schema, apply_schema_to_metadata=False).build()
             self.diff = compare_metadata(mc, schema_metadata)
 
     def print(self) -> None:
