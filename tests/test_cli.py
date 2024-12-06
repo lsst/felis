@@ -207,9 +207,7 @@ class CliTestCase(unittest.TestCase):
         db_url = f"sqlite:///{self.tmpdir}/tap_schema.sqlite3"
 
         engine = create_engine(db_url)
-        metadata_db = MetaDataBuilder(
-            Schema.from_uri(test_diff1), apply_schema_to_metadata=False, apply_schema_to_tables=False
-        ).build()
+        metadata_db = MetaDataBuilder(Schema.from_uri(test_diff1), apply_schema_to_metadata=False).build()
         metadata_db.create_all(engine)
 
         runner = CliRunner()

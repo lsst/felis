@@ -53,9 +53,8 @@ def create_database(schema: Schema, engine_or_url_str: Engine | str | None = Non
         )
     else:
         engine = create_engine("sqlite:///:memory:")
-    apply_schema = False if engine.url.drivername == "sqlite" else True
     metadata = MetaDataBuilder(
-        schema, apply_schema_to_metadata=apply_schema, apply_schema_to_tables=apply_schema
+        schema, apply_schema_to_metadata=False if engine.url.drivername == "sqlite" else True
     ).build()
     ctx = DatabaseContext(metadata, engine)
     ctx.initialize()
