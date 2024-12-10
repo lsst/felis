@@ -137,12 +137,12 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     def test_no_id_generation(self) -> None:
-        """Test that loading a schema without IDs fails if ID generation is not
-        enabled.
+        """Test the ``--no-id-generation`` flag which should raise an
+        exception.
         """
         test_yaml = os.path.join(TESTDIR, "data", "test_id_generation.yaml")
         runner = CliRunner()
-        result = runner.invoke(cli, ["validate", test_yaml], catch_exceptions=False)
+        result = runner.invoke(cli, ["--no-id-generation", "validate", test_yaml], catch_exceptions=False)
         self.assertNotEqual(result.exit_code, 0)
 
     def test_validation_flags(self) -> None:
