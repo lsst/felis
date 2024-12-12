@@ -73,4 +73,4 @@ key constraint on the ``ccdVisitId`` field of the ``Source`` table, defined as f
 The ``ccdVisitId`` field in the ``Source`` table is linked to the ``ccdVisitId`` field in the ``CcdVisit``
 table.
 
-Felis schemas support many additional features. Refer to the `model documentation <model>`_ for a complete list.
+Felis schemas support many additional features. Refer to the `model documentation <model.html>`_ for a complete list.
