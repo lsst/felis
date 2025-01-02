@@ -126,6 +126,7 @@ gen### SCons template
 python/felis/version.py
 bin/
 tests/.tests/
+python/*.dist-info/
 
 # This is generated when running pydeps.
 /felis.png
@@ -135,3 +136,4 @@ tests/.tests/
 
 # VS Code workspace dir
 .vscode
+
