@@ -24,6 +24,8 @@ build:
 deps:
 	@uv pip install --upgrade -r requirements.txt
 
+install: deps build
+
 docs:
 	@rm -rf docs/dev/internals docs/_build
 	@tox -e docs
