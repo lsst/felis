@@ -76,6 +76,8 @@ jobs:
   pypi:
     runs-on: ubuntu-latest
     needs: [build_and_test]
+    permissions:
+      id-token: write
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
