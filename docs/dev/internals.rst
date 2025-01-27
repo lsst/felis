@@ -31,10 +31,6 @@ Python API
    :include-all-objects:
    :no-inheritance-diagram:
 
-.. automodapi:: felis.tap
-   :include-all-objects:
-   :no-inheritance-diagram:
-
 .. automodapi:: felis.tap_schema
     :include-all-objects:
     :no-inheritance-diagram:
