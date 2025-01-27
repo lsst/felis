@@ -432,7 +432,7 @@ class DataLoader:
             # Execute the inserts if not in dry run mode.
             self._execute_inserts()
         else:
-            logger.info("Dry run: not loading data into database")
+            logger.info("Dry run - not loading data into database")
 
     def _insert_schemas(self) -> None:
         """Insert the schema data into the schemas table."""
@@ -573,7 +573,7 @@ class DataLoader:
     def _print_sql(self) -> None:
         """Print the generated inserts to stdout."""
         for insert_str in self._compiled_inserts():
-            print(insert_str)
+            print(insert_str + ";")
 
     def _write_sql_to_file(self) -> None:
         """Write the generated insert statements to a file."""
@@ -581,7 +581,7 @@ class DataLoader:
             raise ValueError("No output path specified")
         with open(self.output_path, "w") as outfile:
             for insert_str in self._compiled_inserts():
-                outfile.write(insert_str + "\n")
+                outfile.write(insert_str + ";" + "\n")
 
     def _insert(self, table_name: str, record: list[Any] | dict[str, Any]) -> None:
         """Generate an insert statement for a record.
