@@ -30,7 +30,6 @@ from sqlalchemy import create_engine
 import felis.tap_schema as tap_schema
 from felis.cli import cli
 from felis.datamodel import Schema
-from felis.db.dialects import get_supported_dialects
 from felis.metadata import MetaDataBuilder
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -91,38 +90,6 @@ class CliTestCase(unittest.TestCase):
         )
         self.assertEqual(result.exit_code, 0)
 
-    def test_init_tap(self) -> None:
-        """Test for ``init-tap`` command."""
-        url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
-        runner = CliRunner()
-        result = runner.invoke(cli, ["init-tap", url], catch_exceptions=False)
-        self.assertEqual(result.exit_code, 0)
-
-    def test_load_tap(self) -> None:
-        """Test for ``load-tap`` command."""
-        # Cannot use the same url for both init-tap and load-tap in the same
-        # process.
-        url = f"sqlite:///{self.tmpdir}/tap.sqlite3"
-
-        # Need to run init-tap first.
-        runner = CliRunner()
-        result = runner.invoke(cli, ["init-tap", url])
-        self.assertEqual(result.exit_code, 0)
-
-        result = runner.invoke(cli, ["load-tap", f"--engine-url={url}", TEST_YAML], catch_exceptions=False)
-        self.assertEqual(result.exit_code, 0)
-
-    def test_load_tap_mock(self) -> None:
-        """Test ``load-tap --dry-run`` command on supported dialects."""
-        urls = [f"{dialect_name}://" for dialect_name in get_supported_dialects().keys()]
-
-        for url in urls:
-            runner = CliRunner()
-            result = runner.invoke(
-                cli, ["load-tap", f"--engine-url={url}", "--dry-run", TEST_YAML], catch_exceptions=False
-            )
-            self.assertEqual(result.exit_code, 0)
-
     def test_validate_default(self) -> None:
         """Test validate command."""
         runner = CliRunner()
@@ -172,9 +139,9 @@ class CliTestCase(unittest.TestCase):
         self.assertTrue(result.exit_code != 0)
 
     def test_load_tap_schema(self) -> None:
-        """Test for ``load-tap-schema`` command."""
+        """Test load-tap-schema command."""
         # Create the TAP_SCHEMA database.
-        url = f"sqlite:///{self.tmpdir}/tap_schema.sqlite3"
+        url = f"sqlite:///{self.tmpdir}/load_tap_schema.sqlite3"
         runner = CliRunner()
         tap_schema_path = tap_schema.TableManager.get_tap_schema_std_path()
         result = runner.invoke(
@@ -190,6 +157,21 @@ class CliTestCase(unittest.TestCase):
             cli, ["load-tap-schema", f"--engine-url={url}", TEST_YAML], catch_exceptions=False
         )
         self.assertEqual(result.exit_code, 0)
+
+    def test_init_tap_schema(self) -> None:
+        """Test init-tap-schema command."""
+        url = f"sqlite:///{self.tmpdir}/init_tap_schema.sqlite3"
+        runner = CliRunner()
+        result = runner.invoke(cli, ["init-tap-schema", f"--engine-url={url}"], catch_exceptions=False)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_init_tap_schema_mock(self) -> None:
+        """Test init-tap-schema command with a mock URL, which should throw
+        an error, as this is not supported.
+        """
+        runner = CliRunner()
+        result = runner.invoke(cli, ["init-tap-schema", "sqlite://"], catch_exceptions=False)
+        self.assertNotEqual(result.exit_code, 0)
 
     def test_diff(self) -> None:
         """Test for ``diff`` command."""

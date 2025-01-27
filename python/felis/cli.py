@@ -38,7 +38,6 @@ from .db.schema import create_database
 from .db.utils import DatabaseContext, is_mock_url
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
-from .tap import Tap11Base, TapLoadingVisitor, init_tables
 from .tap_schema import DataLoader, TableManager
 
 __all__ = ["cli"]
@@ -179,174 +178,9 @@ def create(
         raise click.ClickException(str(e))
 
 
-@cli.command("init-tap", help="Initialize TAP_SCHEMA objects in the database")
-@click.option("--tap-schema-name", help="Alternate database schema name for 'TAP_SCHEMA'")
-@click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
-@click.option("--tap-tables-table", help="Alternate table name for 'tables'")
-@click.option("--tap-columns-table", help="Alternate table name for 'columns'")
-@click.option("--tap-keys-table", help="Alternate table name for 'keys'")
-@click.option("--tap-key-columns-table", help="Alternate table name for 'key_columns'")
-@click.argument("engine-url")
-def init_tap(
-    engine_url: str,
-    tap_schema_name: str,
-    tap_schemas_table: str,
-    tap_tables_table: str,
-    tap_columns_table: str,
-    tap_keys_table: str,
-    tap_key_columns_table: str,
-) -> None:
-    """Initialize TAP_SCHEMA objects in the database.
-
-    Parameters
-    ----------
-    engine_url
-        SQLAlchemy Engine URL. The target PostgreSQL schema or MySQL database
-        must already exist and be referenced in the URL.
-    tap_schema_name
-        Alterate name for the database schema ``TAP_SCHEMA``.
-    tap_schemas_table
-        Alterate table name for ``schemas``.
-    tap_tables_table
-        Alterate table name for ``tables``.
-    tap_columns_table
-        Alterate table name for ``columns``.
-    tap_keys_table
-        Alterate table name for ``keys``.
-    tap_key_columns_table
-        Alterate table name for ``key_columns``.
-
-    Notes
-    -----
-    The supported version of TAP_SCHEMA in the SQLAlchemy metadata is 1.1. The
-    tables are created in the database schema specified by the engine URL,
-    which must be a PostgreSQL schema or MySQL database that already exists.
-    """
-    engine = create_engine(engine_url)
-    init_tables(
-        tap_schema_name,
-        tap_schemas_table,
-        tap_tables_table,
-        tap_columns_table,
-        tap_keys_table,
-        tap_key_columns_table,
-    )
-    Tap11Base.metadata.create_all(engine)
-
-
-@cli.command("load-tap", help="Load metadata from a Felis file into a TAP_SCHEMA database")
-@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
-@click.option("--schema-name", help="Alternate Schema Name for Felis file")
-@click.option("--catalog-name", help="Catalog Name for Schema")
-@click.option("--dry-run", is_flag=True, help="Dry Run Only. Prints out the DDL that would be executed")
-@click.option("--tap-schema-name", help="Alternate schema name for 'TAP_SCHEMA'")
-@click.option("--tap-tables-postfix", help="Postfix for TAP_SCHEMA table names")
-@click.option("--tap-schemas-table", help="Alternate table name for 'schemas'")
-@click.option("--tap-tables-table", help="Alternate table name for 'tables'")
-@click.option("--tap-columns-table", help="Alternate table name for 'columns'")
-@click.option("--tap-keys-table", help="Alternate table name for 'keys'")
-@click.option("--tap-key-columns-table", help="Alternate table name for 'key_columns'")
-@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema in this environment")
-@click.argument("file", type=click.File())
-def load_tap(
-    engine_url: str,
-    schema_name: str,
-    catalog_name: str,
-    dry_run: bool,
-    tap_schema_name: str,
-    tap_tables_postfix: str,
-    tap_schemas_table: str,
-    tap_tables_table: str,
-    tap_columns_table: str,
-    tap_keys_table: str,
-    tap_key_columns_table: str,
-    tap_schema_index: int,
-    file: IO[str],
-) -> None:
-    """Load TAP metadata from a Felis file.
-
-    This command loads the associated TAP metadata from a Felis YAML file
-    into the TAP_SCHEMA tables.
-
-    Parameters
-    ----------
-    engine_url
-        SQLAlchemy Engine URL to catalog.
-    schema_name
-        Alternate schema name. This overrides the schema name in the
-        ``catalog`` field of the Felis file.
-    catalog_name
-        Catalog name for the schema. This possibly duplicates the
-        ``tap_schema_name`` argument (DM-44870).
-    dry_run
-        Dry run only to print out commands instead of executing.
-    tap_schema_name
-        Alternate name for the schema of TAP_SCHEMA in the database.
-    tap_tables_postfix
-        Postfix for TAP table names that will be automatically appended.
-    tap_schemas_table
-        Alternate table name for ``schemas``.
-    tap_tables_table
-        Alternate table name for ``tables``.
-    tap_columns_table
-        Alternate table name for ``columns``.
-    tap_keys_table
-        Alternate table name for ``keys``.
-    tap_key_columns_table
-        Alternate table name for ``key_columns``.
-    tap_schema_index
-        TAP_SCHEMA index of the schema in this TAP environment.
-    file
-        Felis file to read.
-
-    Notes
-    -----
-    The data will be loaded into the TAP_SCHEMA from the engine URL. The
-    tables must have already been initialized or an error will occur.
-    """
-    schema = Schema.from_stream(file)
-
-    tap_tables = init_tables(
-        tap_schema_name,
-        tap_tables_postfix,
-        tap_schemas_table,
-        tap_tables_table,
-        tap_columns_table,
-        tap_keys_table,
-        tap_key_columns_table,
-    )
-
-    if not dry_run:
-        engine = create_engine(engine_url)
-
-        if engine_url == "sqlite://" and not dry_run:
-            # In Memory SQLite - Mostly used to test
-            Tap11Base.metadata.create_all(engine)
-
-        tap_visitor = TapLoadingVisitor(
-            engine,
-            catalog_name=catalog_name,
-            schema_name=schema_name,
-            tap_tables=tap_tables,
-            tap_schema_index=tap_schema_index,
-        )
-        tap_visitor.visit_schema(schema)
-    else:
-        conn = DatabaseContext.create_mock_engine(engine_url)
-
-        tap_visitor = TapLoadingVisitor.from_mock_connection(
-            conn,
-            catalog_name=catalog_name,
-            schema_name=schema_name,
-            tap_tables=tap_tables,
-            tap_schema_index=tap_schema_index,
-        )
-        tap_visitor.visit_schema(schema)
-
-
 @cli.command("load-tap-schema", help="Load metadata from a Felis file into a TAP_SCHEMA database")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
-@click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database")
+@click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database (default: TAP_SCHEMA)")
 @click.option(
     "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
 )
@@ -415,6 +249,40 @@ def load_tap_schema(
         print_sql=echo,
         output_path=output_file,
     ).load()
+
+
+@cli.command("init-tap-schema", help="Initialize a standard TAP_SCHEMA database")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
+@click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database")
+@click.option(
+    "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
+)
+@click.pass_context
+def init_tap_schema(
+    ctx: click.Context, engine_url: str, tap_schema_name: str, tap_tables_postfix: str
+) -> None:
+    """Initialize a standard TAP_SCHEMA database.
+
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL.
+    tap_schema_name
+        Name of the TAP_SCHEMA schema in the database.
+    tap_tables_postfix
+        Postfix which is applied to standard TAP_SCHEMA table names.
+    """
+    url = make_url(engine_url)
+    engine: Engine | MockConnection
+    if is_mock_url(url):
+        raise click.ClickException("Mock engine URL is not supported for this command")
+    engine = create_engine(engine_url)
+    mgr = TableManager(
+        apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
+        schema_name=tap_schema_name,
+        table_name_postfix=tap_tables_postfix,
+    )
+    mgr.initialize_database(engine)
 
 
 @cli.command("validate", help="Validate one or more Felis YAML files")

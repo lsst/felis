@@ -361,7 +361,7 @@ class TableManager:
         engine
             The SQLAlchemy engine to use to create the tables.
         """
-        logger.info("Creating TAP_SCHEMA database '%s'", self.metadata.schema)
+        logger.info("Creating TAP_SCHEMA database '%s'", self.schema_name)
         self._create_schema(engine)
         self.metadata.create_all(engine)
 
