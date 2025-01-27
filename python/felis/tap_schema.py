@@ -91,9 +91,15 @@ class TableManager:
         self.table_name_postfix = table_name_postfix
         self.apply_schema_to_metadata = apply_schema_to_metadata
         self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
+        self.table_name_postfix = table_name_postfix
 
         if is_valid_engine(engine):
             assert isinstance(engine, Engine)
+            if table_name_postfix != "":
+                logger.warning(
+                    "Table name postfix '%s' will be ignored when reflecting TAP_SCHEMA database",
+                    table_name_postfix,
+                )
             logger.debug(
                 "Reflecting TAP_SCHEMA database from existing database at %s",
                 engine.url._replace(password="***"),
@@ -131,7 +137,9 @@ class TableManager:
             self.schema_name = self.schema.name
 
         self._metadata = MetaDataBuilder(
-            self.schema, apply_schema_to_metadata=self.apply_schema_to_metadata
+            self.schema,
+            apply_schema_to_metadata=self.apply_schema_to_metadata,
+            table_name_postfix=self.table_name_postfix,
         ).build()
 
         logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)

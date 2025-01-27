@@ -60,6 +60,12 @@ class TableManagerTestCase(unittest.TestCase):
         # already been created.
         mgr = TableManager()
 
+    def test_table_name_postfix(self) -> None:
+        """Test the table name postfix."""
+        mgr = TableManager(table_name_postfix="_test")
+        for table_name in mgr.metadata.tables:
+            self.assertTrue(table_name.endswith("_test"))
+
 
 class DataLoaderTestCase(unittest.TestCase):
     """Test the `DataLoader` class."""
