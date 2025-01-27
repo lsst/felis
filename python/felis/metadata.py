@@ -134,6 +134,7 @@ class MetaDataBuilder:
         schema: Schema,
         apply_schema_to_metadata: bool = True,
         ignore_constraints: bool = False,
+        table_name_postfix: str = "",
     ) -> None:
         """Initialize the metadata builder."""
         self.schema = schema
@@ -142,6 +143,7 @@ class MetaDataBuilder:
         self.metadata = MetaData(schema=schema.name if apply_schema_to_metadata else None)
         self._objects: dict[str, Any] = {}
         self.ignore_constraints = ignore_constraints
+        self.table_name_postfix = table_name_postfix
 
     def build(self) -> MetaData:
         """Build the SQLAlchemy tables and constraints from the schema.
@@ -225,7 +227,7 @@ class MetaDataBuilder:
         description = table_obj.description
         columns = [self.build_column(column) for column in table_obj.columns]
         table = Table(
-            name,
+            name + self.table_name_postfix,
             self.metadata,
             *columns,
             comment=description,

@@ -231,6 +231,15 @@ class MetaDataTestCase(unittest.TestCase):
                 msg=f"Table {table.name} has non-primary key constraints defined",
             )
 
+    def test_table_name_postfix(self) -> None:
+        """Test that table name postfixes are correctly applied."""
+        schema = Schema.model_validate(self.yaml_data)
+        schema.name = "main"
+        builder = MetaDataBuilder(schema, table_name_postfix="_test")
+        md = builder.build()
+        for table in md.tables.values():
+            self.assertTrue(table.name.endswith("_test"))
+
 
 if __name__ == "__main__":
     unittest.main()

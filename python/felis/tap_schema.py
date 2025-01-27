@@ -91,9 +91,15 @@ class TableManager:
         self.table_name_postfix = table_name_postfix
         self.apply_schema_to_metadata = apply_schema_to_metadata
         self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
+        self.table_name_postfix = table_name_postfix
 
         if is_valid_engine(engine):
             assert isinstance(engine, Engine)
+            if table_name_postfix != "":
+                logger.warning(
+                    "Table name postfix '%s' will be ignored when reflecting TAP_SCHEMA database",
+                    table_name_postfix,
+                )
             logger.debug(
                 "Reflecting TAP_SCHEMA database from existing database at %s",
                 engine.url._replace(password="***"),
@@ -131,7 +137,9 @@ class TableManager:
             self.schema_name = self.schema.name
 
         self._metadata = MetaDataBuilder(
-            self.schema, apply_schema_to_metadata=self.apply_schema_to_metadata
+            self.schema,
+            apply_schema_to_metadata=self.apply_schema_to_metadata,
+            table_name_postfix=self.table_name_postfix,
         ).build()
 
         logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)
@@ -424,7 +432,7 @@ class DataLoader:
             # Execute the inserts if not in dry run mode.
             self._execute_inserts()
         else:
-            logger.info("Dry run: not loading data into database")
+            logger.info("Dry run - not loading data into database")
 
     def _insert_schemas(self) -> None:
         """Insert the schema data into the schemas table."""
@@ -565,7 +573,7 @@ class DataLoader:
     def _print_sql(self) -> None:
         """Print the generated inserts to stdout."""
         for insert_str in self._compiled_inserts():
-            print(insert_str)
+            print(insert_str + ";")
 
     def _write_sql_to_file(self) -> None:
         """Write the generated insert statements to a file."""
@@ -573,7 +581,7 @@ class DataLoader:
             raise ValueError("No output path specified")
         with open(self.output_path, "w") as outfile:
             for insert_str in self._compiled_inserts():
-                outfile.write(insert_str + "\n")
+                outfile.write(insert_str + ";" + "\n")
 
     def _insert(self, table_name: str, record: list[Any] | dict[str, Any]) -> None:
         """Generate an insert statement for a record.
