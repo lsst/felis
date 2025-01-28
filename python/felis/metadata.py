@@ -127,6 +127,8 @@ class MetaDataBuilder:
         Whether to apply the schema name to the metadata object.
     ignore_constraints
         Whether to ignore constraints when building the metadata.
+    table_name_postfix
+        A string to append to the table names when building the metadata.
     """
 
     def __init__(
