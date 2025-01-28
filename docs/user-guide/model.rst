@@ -105,6 +105,18 @@ A column may also have the following optional properties:
 .. [2] `TAP Access Protocol (TAP) specification <https://www.ivoa.net/documents/TAP/>`__
 .. [3] `VOTable specification <http://www.ivoa.net/documents/VOTable/>`__
 
+*************
+Column Groups
+*************
+
+A `column group <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.ColumnGroup>`__ represents a set of related columns in a table.
+In addition to the standard column attributes, column groups have the following attributes:
+
+:``ivoa:ucd``: The `IVOA UCD <http://www.ivoa.net/documents/latest/UCD.html>`__ for this column group.
+:``columns``: The list of columns in this column group, which should be IDs of columns in the table. This is a required field.
+
+The functionality of column groups is currently limited but may be expanded in future versions of Felis, in particular to support VOTable ``GROUP`` elements.
+
 .. _Constraint:
 
 **********

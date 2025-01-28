@@ -22,6 +22,14 @@ tables:
         datatype: string
         description: Customer address
         length: 100
+    columnGroups:
+      - name: customer_info
+        "@id": "#customers.customer_info"
+        description: Customer information
+        ivoa:ucd: meta
+        columns:
+          - "#customers.name"
+          - "#customers.address"
     indexes:
       - name: idx_name
         "@id": "#customers_idx_name"

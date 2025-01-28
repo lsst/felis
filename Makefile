@@ -9,6 +9,7 @@ help:
 	@echo "  docs     - Generate the documentation"
 	@echo "  check    - Run pre-commit checks"
 	@echo "  test     - Run tests"
+	@echo "  testq    - Run tests quietly"
 	@echo "  numpydoc - Check numpydoc style"
 	@echo "  mypy     - Run mypy static type checker"
 	@echo "  all      - Run all tasks"
@@ -24,6 +25,8 @@ build:
 deps:
 	@uv pip install --upgrade -r requirements.txt
 
+install: deps build
+
 docs:
 	@rm -rf docs/dev/internals docs/_build
 	@tox -e docs
@@ -33,6 +36,9 @@ check:
 
 test:
 	@pytest -s --log-level DEBUG
+
+testq:
+	@pytest -q
 
 numpydoc:
 	@python -m numpydoc.hooks.validate_docstrings $(shell find python -name "*.py" ! -name "cli.py")

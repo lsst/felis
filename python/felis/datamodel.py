@@ -134,6 +134,32 @@ class DataType(StrEnum):
     timestamp = auto()
 
 
+def validate_ivoa_ucd(ivoa_ucd: str) -> str:
+    """Validate IVOA UCD values.
+
+    Parameters
+    ----------
+    ivoa_ucd
+        IVOA UCD value to check.
+
+    Returns
+    -------
+    `str`
+        The IVOA UCD value if it is valid.
+
+    Raises
+    ------
+    ValueError
+        If the IVOA UCD value is invalid.
+    """
+    if ivoa_ucd is not None:
+        try:
+            ucd.parse_ucd(ivoa_ucd, check_controlled_vocabulary=True, has_colon=";" in ivoa_ucd)
+        except ValueError as e:
+            raise ValueError(f"Invalid IVOA UCD: {e}")
+    return ivoa_ucd
+
+
 class Column(BaseObject):
     """Column model."""
 
@@ -235,12 +261,7 @@ class Column(BaseObject):
         `str`
             The IVOA UCD value if it is valid.
         """
-        if ivoa_ucd is not None:
-            try:
-                ucd.parse_ucd(ivoa_ucd, check_controlled_vocabulary=True, has_colon=";" in ivoa_ucd)
-            except ValueError as e:
-                raise ValueError(f"Invalid IVOA UCD: {e}")
-        return ivoa_ucd
+        return validate_ivoa_ucd(ivoa_ucd)
 
     @model_validator(mode="after")
     def check_units(self) -> Column:
@@ -551,6 +572,70 @@ _ConstraintType = Annotated[
 """Type alias for a constraint type."""
 
 
+ColumnRef: TypeAlias = str
+"""Type alias for a column reference."""
+
+
+class ColumnGroup(BaseObject):
+    """Column group model."""
+
+    columns: list[ColumnRef | Column] = Field(..., min_length=1)
+    """Columns in the group."""
+
+    ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
+    """IVOA UCD of the column."""
+
+    table: Table | None = None
+    """Reference to the parent table."""
+
+    @field_validator("ivoa_ucd")
+    @classmethod
+    def check_ivoa_ucd(cls, ivoa_ucd: str) -> str:
+        """Check that IVOA UCD values are valid.
+
+        Parameters
+        ----------
+        ivoa_ucd
+            IVOA UCD value to check.
+
+        Returns
+        -------
+        `str`
+            The IVOA UCD value if it is valid.
+        """
+        return validate_ivoa_ucd(ivoa_ucd)
+
+    @model_validator(mode="after")
+    def check_unique_columns(self) -> ColumnGroup:
+        """Check that the columns list contains unique items.
+
+        Returns
+        -------
+        `ColumnGroup`
+            The column group being validated.
+        """
+        column_ids = [col if isinstance(col, str) else col.id for col in self.columns]
+        if len(column_ids) != len(set(column_ids)):
+            raise ValueError("Columns in the group must be unique")
+        return self
+
+    def _dereference_columns(self) -> None:
+        """Dereference ColumnRef to Column objects."""
+        if self.table is None:
+            raise ValueError("ColumnGroup must have a reference to its parent table")
+
+        dereferenced_columns: list[ColumnRef | Column] = []
+        for col in self.columns:
+            if isinstance(col, str):
+                # Dereference ColumnRef to Column object
+                col_obj = self.table._find_column_by_id(col)
+                dereferenced_columns.append(col_obj)
+            else:
+                dereferenced_columns.append(col)
+
+        self.columns = dereferenced_columns
+
+
 class Table(BaseObject):
     """Table model."""
 
@@ -562,6 +647,9 @@ class Table(BaseObject):
 
     indexes: list[Index] = Field(default_factory=list)
     """Indexes on the table."""
+
+    column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
+    """Column groups in the table."""
 
     primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """Primary key of the table."""
@@ -652,6 +740,43 @@ class Table(BaseObject):
             if col.tap_principal == 1:
                 return self
         raise ValueError(f"Table '{self.name}' is missing at least one column designated as 'tap:principal'")
+
+    def _find_column_by_id(self, id: str) -> Column:
+        """Find a column by ID.
+
+        Parameters
+        ----------
+        id
+            The ID of the column to find.
+
+        Returns
+        -------
+        `Column`
+            The column with the given ID.
+
+        Raises
+        ------
+        ValueError
+            Raised if the column is not found.
+        """
+        for column in self.columns:
+            if column.id == id:
+                return column
+        raise ValueError(f"Column '{id}' not found in table '{self.name}'")
+
+    @model_validator(mode="after")
+    def dereference_column_groups(self: Table) -> Table:
+        """Dereference columns in column groups.
+
+        Returns
+        -------
+        `Table`
+            The table with dereferenced column groups.
+        """
+        for group in self.column_groups:
+            group.table = self
+            group._dereference_columns()
+        return self
 
 
 class SchemaVersion(BaseModel):

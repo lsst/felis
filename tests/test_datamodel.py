@@ -31,6 +31,7 @@ from pydantic import ValidationError
 from felis.datamodel import (
     CheckConstraint,
     Column,
+    ColumnGroup,
     Constraint,
     DataType,
     ForeignKeyConstraint,
@@ -258,6 +259,76 @@ class TableTestCase(unittest.TestCase):
         # exception.
         with self.assertRaises(ValidationError):
             Table(name="testTable", id="#test_id", columns=[testCol, testCol])
+
+
+class ColumnGroupTestCase(unittest.TestCase):
+    """Test Pydantic validation of the ``ColumnGroup`` class."""
+
+    def test_validation(self) -> None:
+        """Test Pydantic validation of the ``ColumnGroup`` class."""
+        # Default initialization should throw an exception.
+        with self.assertRaises(ValidationError):
+            ColumnGroup()
+
+        # Setting only name should throw an exception.
+        with self.assertRaises(ValidationError):
+            ColumnGroup(name="testGroup")
+
+        # Setting name and id should throw an exception from missing columns.
+        with self.assertRaises(ValidationError):
+            ColumnGroup(name="testGroup", id="#test_id")
+
+        col = Column(name="testColumn", id="#test_col", datatype="string", length=256)
+
+        # Setting name, id, and columns should not throw an exception and
+        # should load data correctly.
+        group = ColumnGroup(name="testGroup", id="#test_group", columns=[col], ivoa_ucd="meta")
+        self.assertEqual(group.name, "testGroup", "name should be 'testGroup'")
+        self.assertEqual(group.id, "#test_group", "id should be '#test_group'")
+        self.assertEqual(group.columns, [col], "columns should be ['testColumn']")
+
+        # Dereferencing columns without setting a table should raise an
+        # exception.
+        with self.assertRaises(ValueError):
+            group._dereference_columns()
+
+        # Creating a group with duplicate column names should raise an
+        # exception.
+        with self.assertRaises(ValidationError):
+            ColumnGroup(name="testGroup", id="#test_group", columns=[col, col])
+
+        # Check that including a column object in a group works correctly.
+        group = ColumnGroup(name="testGroup", id="#test_group", columns=[col], ivoa_ucd="meta")
+        table = Table(
+            name="testTable",
+            id="#test_table",
+            columns=[col],
+            column_groups=[group],
+        )
+        self.assertEqual(table.column_groups, [group], "column_groups should be [group]")
+        self.assertEqual(col, table.column_groups[0].columns[0], "column_groups[0] should be testCol")
+
+        # Check that column derefencing works correctly when group is assigned
+        # to a table.
+        group = ColumnGroup(name="testGroup", id="#test_group", columns=["#test_col"], ivoa_ucd="meta")
+        table = Table(
+            name="testTable",
+            id="#test_table",
+            columns=[col],
+            column_groups=[group],
+        )
+        self.assertEqual(table.column_groups, [group], "column_groups should be [group]")
+        self.assertEqual(col, table.column_groups[0].columns[0], "column_groups[0] should be testCol")
+
+        # Creating a group with a bad column should raise an exception.
+        group = ColumnGroup(name="testGroup", id="#test_group", columns=["#bad_col"], ivoa_ucd="meta")
+        with self.assertRaises(ValueError):
+            table = Table(
+                name="testTable",
+                id="#test_table",
+                columns=[col],
+                column_groups=[group],
+            )
 
 
 class ConstraintTestCase(unittest.TestCase):
