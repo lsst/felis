@@ -18,7 +18,7 @@ A command like the following can be used to generate SQL statements and save the
 
 .. code-block:: bash
 
-    felis load-tap --dry-run --engine-url=mysql:// $file > tap_schema.sql
+    felis load-tap-schema --dry-run --engine-url=mysql:// $file --output-file tap_schema.sql
 
 This SQL file may then be used for initialization of the TAP_SCHEMA database, e.g. within a Docker container.
 (This procedure is not covered here.)
@@ -27,13 +27,13 @@ Felis can also update an existing TAP_SCHEMA database directly if a valid URL is
 
 .. code-block:: bash
 
-    felis load-tap --engine--url=mysql+mysqlconnector://user:password@host/TAP_SCHEMA
+    felis load-tap-schema --engine--url=mysql+mysqlconnector://user:password@host/TAP_SCHEMA
 
 Felis can create an empty TAP_SCHEMA database using the ``init-tap`` command.
 
 .. code-block:: bash
 
-    felis init-tap --engine-url=mysql+mysqlconnector://user:password@host:port
+    felis init-tap-schema --engine-url=mysql+mysqlconnector://user:password@host:port
 
 By default, this will create a database called ``TAP_SCHEMA``.
 If you want to use a different name for the TAP_SCHEMA schema itself in the database, you can specify this
@@ -41,7 +41,7 @@ with the ``--tap-schema-name`` option:
 
 .. code-block:: bash
 
-    felis init-tap --engine-url=mysql+mysqlconnector://user:password@host:port --tap-schema-name=MY_TAP_SCHEMA
+    felis init-tap-schema --engine-url=mysql+mysqlconnector://user:password@host:port --tap-schema-name=MY_TAP_SCHEMA
 
 Standards-conformant TAP services will generally make the TAP_SCHEMA data available at a ``/tables`` endpoint.
 Felis does not provide the full functionality and configuration for standing up a TAP service.
