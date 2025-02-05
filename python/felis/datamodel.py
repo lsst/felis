@@ -37,7 +37,20 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 from .db.dialects import get_supported_dialects
 from .db.sqltypes import get_type_func
 from .db.utils import string_to_typeengine
-from .types import Boolean, Byte, Char, Double, FelisType, Float, Int, Long, Short, String, Text, Unicode
+from .felis_types import (
+    Boolean,
+    Byte,
+    Char,
+    Double,
+    FelisType,
+    Float,
+    Int,
+    Long,
+    Short,
+    String,
+    Text,
+    Unicode,
+)
 
 logger = logging.getLogger(__name__)
 

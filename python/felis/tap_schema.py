@@ -39,7 +39,7 @@ from felis.datamodel import Schema
 from felis.db.utils import is_valid_engine
 from felis.metadata import MetaDataBuilder
 
-from .types import FelisType
+from .felis_types import FelisType
 
 __all__ = ["TableManager", "DataLoader"]
 

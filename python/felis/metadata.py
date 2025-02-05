@@ -48,7 +48,7 @@ from felis.db.variants import make_variant_dict
 
 from . import datamodel
 from .db import sqltypes
-from .types import FelisType
+from .felis_types import FelisType
 
 __all__ = ("MetaDataBuilder", "get_datatype_with_variants")
 
