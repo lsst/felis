@@ -1,0 +1,78 @@
+---
+name: test_ddl
+description: Test SQL types
+tables:
+  - name: test_types
+    "@id": "#test_types"
+    description: Test types
+    columns:
+      - name: binary_col
+        datatype: binary
+        length: 1024
+        description: Binary column
+      - name: boolean_col
+        datatype: boolean
+        description: Boolean column
+      - name: byte_col
+        datatype: byte
+        description: Byte column
+      - name: char_col
+        datatype: char
+        length: 64
+        description: Char column
+      - name: double_col
+        datatype: double
+        description: Double column
+      - name: float_col
+        datatype: float
+        description: Float column
+      - name: int_col
+        datatype: int
+        description: Integer column
+      - name: long_col
+        datatype: long
+        description: Long column
+      - name: short_col
+        datatype: short
+        description: Short column
+      - name: text_col
+        datatype: text
+        description: Text column
+      - name: timestamp_col
+        datatype: timestamp
+        description: Timestamp column
+      - name: unicode_col
+        datatype: unicode
+        length: 256
+        description: Unicode column
+
+  - name: test_table_creation
+    description: Table for checking table test_table_creation
+    primaryKey: "#test_table_creation.id"
+    columns:
+      - name: id
+        datatype: int
+        description: ID column
+
+  - name: test_index_creation
+    description: Table for checking index creation
+    columns:
+      - name: indexed_col
+        datatype: int
+        description: Indexed column
+    indexes:
+      - name: test_index
+        columns:
+          - "#test_index_creation.indexed_col"
+
+  - name: test_constraint_creation
+    description: Table for checking unique constraint creation
+    columns:
+      - name: unique_col
+        datatype: int
+        description: Unique column
+    constraints:
+      - name: test_unique_constraint
+        "@type": "Unique"
+        columns:
+          - "#test_constraint_creation.unique_col"
