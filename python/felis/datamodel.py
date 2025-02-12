@@ -654,6 +654,11 @@ class ColumnGroup(BaseObject):
 
         self.columns = dereferenced_columns
 
+    @field_serializer("columns")
+    def serialize_columns(self, columns: list[ColumnRef | Column]) -> list[str]:
+        """Serialize columns as their IDs."""
+        return [col if isinstance(col, str) else col.id for col in columns]
+
 
 class Table(BaseObject):
     """Table model."""
