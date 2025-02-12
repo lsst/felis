@@ -21,6 +21,7 @@
 
 import os
 import pathlib
+import tempfile
 import unittest
 from collections import defaultdict
 
@@ -45,6 +46,7 @@ from felis.datamodel import (
 TEST_DIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TEST_DIR, "data", "test.yml")
 TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")
+TEST_SERIALIZATION = os.path.join(TEST_DIR, "data", "test_serialization.yaml")
 TEST_ID_GENERATION = os.path.join(TEST_DIR, "data", "test_id_generation.yaml")
 
 
@@ -878,6 +880,31 @@ class RedundantDatatypesTest(unittest.TestCase):
         """
         with self.assertRaises(ValidationError):
             Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "double", "precision": 6})
+
+
+class SchemaSerializationTest(unittest.TestCase):
+    """Test serialization of the schema data model."""
+
+    def test_serialization(self) -> None:
+        """Test serialization of the schema data model."""
+        sch_out = Schema.from_uri(TEST_SERIALIZATION)
+        model_data = sch_out.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
+
+        # Debug print to see what's in model_data
+        print("Model data:", model_data)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml", mode="w+") as temp_file:
+            print(f"Dumping schema to {temp_file.name}")
+            yaml.dump(model_data, temp_file, default_flow_style=False, sort_keys=False)
+            temp_file.seek(0)
+            # Debug print to see what was written
+            print(temp_file.read())
+            temp_file.seek(0)
+            print(f"Reading schema back from {temp_file.name}\n")
+            sch_in = Schema.from_uri(temp_file.name)
+            sch_in_data = sch_in.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
+            pretty_yaml = yaml.dump(sch_in_data, default_flow_style=False, sort_keys=False)
+            print(pretty_yaml)
 
 
 if __name__ == "__main__":
