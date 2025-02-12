@@ -20,5 +20,13 @@ tables:
       - name: test_column_group
         '@id': '#test_table.test_column_group'
         description: Test column group
+        votable:utype: stc:CatalogEntryLocation
+        columns:
+          - '#test_table.test_column'
+    constraints:
+      - name: test_constraint
+        '@type': Unique
+        '@id': '#test_table.test_constraint'
+        description: Test constraint
         columns:
           - '#test_table.test_column'
