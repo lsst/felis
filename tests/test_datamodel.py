@@ -902,9 +902,7 @@ class SchemaSerializationTest(unittest.TestCase):
             temp_file.seek(0)
             print(f"Reading schema back from {temp_file.name}\n")
             sch_in = Schema.from_uri(temp_file.name)
-            sch_in_data = sch_in.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
-            pretty_yaml = yaml.dump(sch_in_data, default_flow_style=False, sort_keys=False)
-            print(pretty_yaml)
+            sch_in.dump_yaml()
 
 
 if __name__ == "__main__":
