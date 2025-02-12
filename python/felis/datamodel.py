@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import Sequence
 from enum import StrEnum, auto
 from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar, Union
@@ -1263,3 +1264,18 @@ class Schema(BaseObject, Generic[T]):
         logger.debug("Loading schema from: '%s'", source)
         yaml_data = yaml.safe_load(source)
         return Schema.model_validate(yaml_data, context=context)
+
+    def dump_yaml(self, stream: IO[str] = sys.stdout) -> None:
+        """Pretty print the schema as YAML.
+
+        Parameters
+        ----------
+        stream
+            The stream to write the YAML data to.
+        """
+        yaml.safe_dump(
+            self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+            stream,
+            default_flow_style=False,
+            sort_keys=False,
+        )
