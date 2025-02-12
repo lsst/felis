@@ -513,6 +513,11 @@ class CheckConstraint(Constraint):
     expression: str
     """Expression for the check constraint."""
 
+    @field_serializer("type")
+    def serialize_type(self, value: str) -> str:
+        """Ensure '@type' is included in serialized output."""
+        return value
+
 
 class UniqueConstraint(Constraint):
     """Table unique constraint model."""
@@ -522,6 +527,11 @@ class UniqueConstraint(Constraint):
 
     columns: list[str]
     """Columns in the unique constraint."""
+
+    @field_serializer("type")
+    def serialize_type(self, value: str) -> str:
+        """Ensure '@type' is included in serialized output."""
+        return value
 
 
 class ForeignKeyConstraint(Constraint):
@@ -544,6 +554,17 @@ class ForeignKeyConstraint(Constraint):
 
     referenced_columns: list[str] = Field(alias="referencedColumns")
     """The columns referenced by the foreign key."""
+
+    @field_serializer("type")
+    def serialize_type(self, value: str) -> str:
+        """Ensure '@type' is included in serialized output."""
+        return value
+
+
+_ConstraintType = Annotated[
+    Union[CheckConstraint, ForeignKeyConstraint, UniqueConstraint], Field(discriminator="type")
+]
+"""Type alias for a constraint type."""
 
 
 class Index(BaseObject):
@@ -584,12 +605,6 @@ class Index(BaseObject):
         elif "columns" not in values and "expressions" not in values:
             raise ValueError("Must define columns or expressions")
         return values
-
-
-_ConstraintType = Annotated[
-    Union[CheckConstraint, ForeignKeyConstraint, UniqueConstraint], Field(discriminator="type")
-]
-"""Type alias for a constraint type."""
 
 
 ColumnRef: TypeAlias = str
