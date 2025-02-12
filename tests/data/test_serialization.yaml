@@ -1,0 +1,24 @@
+name: test_serialization
+'@id': '#test_serialization'
+description: Schema for testing serialization
+tables:
+  - name: test_table
+    "@id": "#test_table"
+    description: Test table
+    columns:
+      - name: test_column
+        '@id': '#test_table.test_column'
+        datatype: string
+        length: 64
+        description: Test column's description
+        votable:arraysize: 64*
+        ivoa:ucd: meta
+        tap:principal: 1
+        tap:column_index: 999
+        ivoa:unit: ''
+    columnGroups:
+      - name: test_column_group
+        '@id': '#test_table.test_column_group'
+        description: Test column group
+        columns:
+          - '#test_table.test_column'
