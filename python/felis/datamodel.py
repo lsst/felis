@@ -32,7 +32,15 @@ import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from lsst.resources import ResourcePath, ResourcePathExpression
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from .db.dialects import get_supported_dialects
 from .db.sqltypes import get_type_func
@@ -58,6 +66,7 @@ CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
+    use_enum_values=True,  # Use enum values during serialization.
 )
 """Pydantic model configuration as described in:
 https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
@@ -457,6 +466,16 @@ class Column(BaseObject):
                 )
                 values["votable:arraysize"] = str(arraysize)
         return values
+
+    @field_serializer("datatype")
+    def serialize_datatype(self, value: DataType) -> str:
+        return str(value)
+
+    @field_validator("datatype", mode="before")
+    @classmethod
+    def deserialize_datatype(cls, value: str) -> DataType:
+        """Convert string back into `DataType` when loading from JSON/YAML."""
+        return DataType(value)
 
 
 class Constraint(BaseObject):
