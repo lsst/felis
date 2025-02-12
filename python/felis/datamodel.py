@@ -585,7 +585,7 @@ class ColumnGroup(BaseObject):
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
     """IVOA UCD of the column."""
 
-    table: Table | None = None
+    table: Table | None = Field(None, exclude=True)
     """Reference to the parent table."""
 
     @field_validator("ivoa_ucd")
