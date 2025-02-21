@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import difflib
 import os
 import pathlib
 import tempfile
@@ -883,7 +884,7 @@ class RedundantDatatypesTest(unittest.TestCase):
 
 
 class SchemaSerializationTest(unittest.TestCase):
-    """Test serialization of the schema data model."""
+    """Test serialization and deserialization of the schema data model."""
 
     def test_serialization(self) -> None:
         """Test serialization of the schema data model."""
@@ -897,12 +898,34 @@ class SchemaSerializationTest(unittest.TestCase):
             print(f"Dumping schema to {temp_file.name}")
             yaml.dump(model_data, temp_file, default_flow_style=False, sort_keys=False)
             temp_file.seek(0)
-            # Debug print to see what was written
-            print(temp_file.read())
+            # Read the original YAML content
+            original_yaml = temp_file.read()
+            print("Original YAML:\n", original_yaml)
             temp_file.seek(0)
             print(f"Reading schema back from {temp_file.name}\n")
             sch_in = Schema.from_uri(temp_file.name)
-            sch_in.dump_yaml()
+            deserialized_yaml = yaml.dump(
+                sch_in.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+                default_flow_style=False,
+                sort_keys=False,
+            )
+            print("Deserialized YAML:\n", deserialized_yaml)
+
+            # Show the differences between the original and deserialized YAML
+            diff = difflib.unified_diff(
+                original_yaml.splitlines(keepends=True),
+                deserialized_yaml.splitlines(keepends=True),
+                fromfile="original.yaml",
+                tofile="deserialized.yaml",
+            )
+            print("Differences:\n", "".join(diff))
+
+            # Assert that the original and deserialized YAML are the same
+            self.assertEqual(
+                yaml.safe_load(original_yaml),
+                yaml.safe_load(deserialized_yaml),
+                "The original and deserialized YAML contents should be the same",
+            )
 
 
 if __name__ == "__main__":
