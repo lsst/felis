@@ -67,7 +67,7 @@ CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
-    use_enum_values=True,  # Use enum values during serialization.
+    use_enum_values=False,  # Do not use enum values during serialization.
 )
 """Pydantic model configuration as described in:
 https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
@@ -470,6 +470,7 @@ class Column(BaseObject):
 
     @field_serializer("datatype")
     def serialize_datatype(self, value: DataType) -> str:
+        """Convert `DataType` to string when serializing to JSON/YAML."""
         return str(value)
 
     @field_validator("datatype", mode="before")
