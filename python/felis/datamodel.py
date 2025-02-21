@@ -55,6 +55,7 @@ __all__ = (
     "Column",
     "CheckConstraint",
     "Constraint",
+    "DataType",
     "ForeignKeyConstraint",
     "Index",
     "Schema",
@@ -127,7 +128,7 @@ class BaseObject(BaseModel):
 
 
 class DataType(StrEnum):
-    """`Enum` representing the data types supported by Felis."""
+    """``Enum`` representing the data types supported by Felis."""
 
     boolean = auto()
     byte = auto()
