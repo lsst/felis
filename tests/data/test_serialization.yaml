@@ -1,11 +1,20 @@
 name: test_serialization
 '@id': '#test_serialization'
 description: Schema for testing serialization
+version:
+  current: v1
+  compatible: ['v1', 'v2']
+  read_compatible: ['v1', 'v2', 'v3']
 tables:
   - name: test_table
     "@id": "#test_table"
     description: Test table
+    primaryKey: "#test_table.id"
     columns:
+      - name: id
+        '@id': '#test_table.id'
+        datatype: int
+        description: id column
       - name: test_column
         '@id': '#test_table.test_column'
         datatype: string
@@ -16,6 +25,15 @@ tables:
         tap:principal: 1
         tap:column_index: 999
         ivoa:unit: ''
+      - name: test_column2
+        '@id': '#test_table.test_column2'
+        datatype: double
+        description: Test column 2
+        ivoa:unit: m
+      - name: test_column3
+        '@id': '#test_table.test_column3'
+        datatype: int
+        description: Test column 3
     columnGroups:
       - name: test_column_group
         '@id': '#test_table.test_column_group'
@@ -24,9 +42,38 @@ tables:
         columns:
           - '#test_table.test_column'
     constraints:
-      - name: test_constraint
+      - name: test_unique_constraint
         '@type': Unique
         '@id': '#test_table.test_constraint'
-        description: Test constraint
+        description: Test unique constraint
         columns:
           - '#test_table.test_column'
+      - name: test_fk_constraint
+        '@type': ForeignKey
+        '@id': '#test_table.test_fk_constraint'
+        description: Test foreign key constraint
+        columns:
+          - '#test_table.test_column'
+        referencedColumns:
+            - '#test_table2.id'
+      - name: test_check_constraint
+        '@type': Check
+        '@id': '#test_table.test_check_constraint'
+        description: Test check constraint
+        expression: test_column2 > 0
+        deferrable: true
+        initially: IMMEDIATE
+    indexes:
+      - name: test_index
+        '@id': '#test_table.test_index'
+        description: Test index
+        columns:
+          - '#test_table.test_column'
+  - name: test_table2
+    "@id": "#test_table2"
+    description: Test table 2
+    primaryKey: "#test_table2.id"
+    columns:
+      - name: id
+        '@id': '#test_table2.test_column2'
+        datatype: int
