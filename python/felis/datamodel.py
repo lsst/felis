@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from collections.abc import Sequence
@@ -1294,5 +1295,20 @@ class Schema(BaseObject, Generic[T]):
             self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
             stream,
             default_flow_style=False,
+            sort_keys=False,
+        )
+
+    def dump_json(self, stream: IO[str] = sys.stdout) -> None:
+        """Pretty print the schema as JSON.
+
+        Parameters
+        ----------
+        stream
+            The stream to write the JSON data to.
+        """
+        json.dump(
+            self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+            stream,
+            indent=4,
             sort_keys=False,
         )
