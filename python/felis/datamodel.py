@@ -196,12 +196,6 @@ class Column(BaseObject):
     autoincrement: bool | None = None
     """Whether the column is autoincremented."""
 
-    mysql_datatype: str | None = Field(None, alias="mysql:datatype")
-    """MySQL datatype override on the column."""
-
-    postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
-    """PostgreSQL datatype override on the column."""
-
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
     """IVOA UCD of the column."""
 
@@ -229,6 +223,12 @@ class Column(BaseObject):
 
     votable_datatype: str | None = Field(None, alias="votable:datatype")
     """VOTable datatype of the column."""
+
+    mysql_datatype: str | None = Field(None, alias="mysql:datatype")
+    """MySQL datatype override on the column."""
+
+    postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
+    """PostgreSQL datatype override on the column."""
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
@@ -681,18 +681,6 @@ class ColumnGroup(BaseObject):
 class Table(BaseObject):
     """Table model."""
 
-    columns: Sequence[Column]
-    """Columns in the table."""
-
-    constraints: list[_ConstraintType] = Field(default_factory=list)
-    """Constraints on the table."""
-
-    indexes: list[Index] = Field(default_factory=list)
-    """Indexes on the table."""
-
-    column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
-    """Column groups in the table."""
-
     primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """Primary key of the table."""
 
@@ -704,6 +692,18 @@ class Table(BaseObject):
 
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
+
+    columns: Sequence[Column]
+    """Columns in the table."""
+
+    column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
+    """Column groups in the table."""
+
+    constraints: list[_ConstraintType] = Field(default_factory=list)
+    """Constraints on the table."""
+
+    indexes: list[Index] = Field(default_factory=list)
+    """Indexes on the table."""
 
     @field_validator("columns", mode="after")
     @classmethod
