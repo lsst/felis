@@ -251,6 +251,13 @@ class CliTestCase(unittest.TestCase):
         finally:
             os.remove(temp_file_name)
 
+    def test_dump_invalid_file_extension(self) -> None:
+        """Test for ``dump`` command with JSON output."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["dump", TEST_YAML, "out.bad"], catch_exceptions=False)
+        print(result.output)
+        self.assertNotEqual(result.exit_code, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
