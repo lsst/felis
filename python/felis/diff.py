@@ -35,7 +35,7 @@ from sqlalchemy import Engine, MetaData
 from .datamodel import Schema
 from .metadata import MetaDataBuilder
 
-__all__ = ["SchemaDiff", "DatabaseDiff"]
+__all__ = ["DatabaseDiff", "SchemaDiff"]
 
 logger = logging.getLogger(__name__)
 

@@ -38,7 +38,7 @@ from sqlalchemy.types import TypeEngine
 
 from .dialects import get_dialect_module
 
-__all__ = ["string_to_typeengine", "SQLWriter", "ConnectionWrapper", "DatabaseContext"]
+__all__ = ["ConnectionWrapper", "DatabaseContext", "SQLWriter", "string_to_typeengine"]
 
 logger = logging.getLogger("felis")
 

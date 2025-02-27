@@ -32,20 +32,20 @@ from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.ext.compiler import compiles
 
 __all__ = [
+    "binary",
     "boolean",
     "byte",
-    "short",
+    "char",
+    "double",
+    "float",
+    "get_type_func",
     "int",
     "long",
-    "float",
-    "double",
-    "char",
+    "short",
     "string",
-    "unicode",
     "text",
-    "binary",
     "timestamp",
-    "get_type_func",
+    "unicode",
 ]
 
 MYSQL = "mysql"

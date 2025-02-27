@@ -26,20 +26,20 @@ from __future__ import annotations
 from typing import Any
 
 __all__ = [
-    "FelisType",
+    "Binary",
     "Boolean",
     "Byte",
-    "Short",
+    "Char",
+    "Double",
+    "FelisType",
+    "Float",
     "Int",
     "Long",
-    "Float",
-    "Double",
-    "Char",
+    "Short",
     "String",
-    "Unicode",
     "Text",
-    "Binary",
     "Timestamp",
+    "Unicode",
 ]
 
 

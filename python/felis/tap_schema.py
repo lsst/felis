@@ -26,7 +26,6 @@ import os
 import re
 from typing import Any
 
-from lsst.resources import ResourcePath
 from sqlalchemy import MetaData, Table, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.mock import MockConnection
@@ -38,10 +37,11 @@ from felis import datamodel
 from felis.datamodel import Schema
 from felis.db.utils import is_valid_engine
 from felis.metadata import MetaDataBuilder
+from lsst.resources import ResourcePath
 
 from .types import FelisType
 
-__all__ = ["TableManager", "DataLoader"]
+__all__ = ["DataLoader", "TableManager"]
 
 logger = logging.getLogger(__name__)
 
