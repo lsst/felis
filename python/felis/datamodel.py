@@ -23,7 +23,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import sys
 from collections.abc import Sequence
 from enum import StrEnum, auto
 from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar, Union
@@ -32,7 +34,15 @@ import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
 from lsst.resources import ResourcePath, ResourcePathExpression
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from .db.dialects import get_supported_dialects
 from .db.sqltypes import get_type_func
@@ -46,6 +56,7 @@ __all__ = (
     "Column",
     "CheckConstraint",
     "Constraint",
+    "DataType",
     "ForeignKeyConstraint",
     "Index",
     "Schema",
@@ -58,6 +69,7 @@ CONFIG = ConfigDict(
     populate_by_name=True,  # Populate attributes by name.
     extra="forbid",  # Do not allow extra fields.
     str_strip_whitespace=True,  # Strip whitespace from string fields.
+    use_enum_values=False,  # Do not use enum values during serialization.
 )
 """Pydantic model configuration as described in:
 https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
@@ -117,7 +129,7 @@ class BaseObject(BaseModel):
 
 
 class DataType(StrEnum):
-    """`Enum` representing the data types supported by Felis."""
+    """``Enum`` representing the data types supported by Felis."""
 
     boolean = auto()
     byte = auto()
@@ -185,12 +197,6 @@ class Column(BaseObject):
     autoincrement: bool | None = None
     """Whether the column is autoincremented."""
 
-    mysql_datatype: str | None = Field(None, alias="mysql:datatype")
-    """MySQL datatype override on the column."""
-
-    postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
-    """PostgreSQL datatype override on the column."""
-
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
     """IVOA UCD of the column."""
 
@@ -218,6 +224,12 @@ class Column(BaseObject):
 
     votable_datatype: str | None = Field(None, alias="votable:datatype")
     """VOTable datatype of the column."""
+
+    mysql_datatype: str | None = Field(None, alias="mysql:datatype")
+    """MySQL datatype override on the column."""
+
+    postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
+    """PostgreSQL datatype override on the column."""
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
@@ -458,6 +470,17 @@ class Column(BaseObject):
                 values["votable:arraysize"] = str(arraysize)
         return values
 
+    @field_serializer("datatype")
+    def serialize_datatype(self, value: DataType) -> str:
+        """Convert `DataType` to string when serializing to JSON/YAML."""
+        return str(value)
+
+    @field_validator("datatype", mode="before")
+    @classmethod
+    def deserialize_datatype(cls, value: str) -> DataType:
+        """Convert string back into `DataType` when loading from JSON/YAML."""
+        return DataType(value)
+
 
 class Constraint(BaseObject):
     """Table constraint model."""
@@ -493,6 +516,11 @@ class CheckConstraint(Constraint):
     expression: str
     """Expression for the check constraint."""
 
+    @field_serializer("type")
+    def serialize_type(self, value: str) -> str:
+        """Ensure '@type' is included in serialized output."""
+        return value
+
 
 class UniqueConstraint(Constraint):
     """Table unique constraint model."""
@@ -502,6 +530,11 @@ class UniqueConstraint(Constraint):
 
     columns: list[str]
     """Columns in the unique constraint."""
+
+    @field_serializer("type")
+    def serialize_type(self, value: str) -> str:
+        """Ensure '@type' is included in serialized output."""
+        return value
 
 
 class ForeignKeyConstraint(Constraint):
@@ -524,6 +557,17 @@ class ForeignKeyConstraint(Constraint):
 
     referenced_columns: list[str] = Field(alias="referencedColumns")
     """The columns referenced by the foreign key."""
+
+    @field_serializer("type")
+    def serialize_type(self, value: str) -> str:
+        """Ensure '@type' is included in serialized output."""
+        return value
+
+
+_ConstraintType = Annotated[
+    Union[CheckConstraint, ForeignKeyConstraint, UniqueConstraint], Field(discriminator="type")
+]
+"""Type alias for a constraint type."""
 
 
 class Index(BaseObject):
@@ -566,12 +610,6 @@ class Index(BaseObject):
         return values
 
 
-_ConstraintType = Annotated[
-    Union[CheckConstraint, ForeignKeyConstraint, UniqueConstraint], Field(discriminator="type")
-]
-"""Type alias for a constraint type."""
-
-
 ColumnRef: TypeAlias = str
 """Type alias for a column reference."""
 
@@ -585,7 +623,7 @@ class ColumnGroup(BaseObject):
     ivoa_ucd: str | None = Field(None, alias="ivoa:ucd")
     """IVOA UCD of the column."""
 
-    table: Table | None = None
+    table: Table | None = Field(None, exclude=True)
     """Reference to the parent table."""
 
     @field_validator("ivoa_ucd")
@@ -635,21 +673,14 @@ class ColumnGroup(BaseObject):
 
         self.columns = dereferenced_columns
 
+    @field_serializer("columns")
+    def serialize_columns(self, columns: list[ColumnRef | Column]) -> list[str]:
+        """Serialize columns as their IDs."""
+        return [col if isinstance(col, str) else col.id for col in columns]
+
 
 class Table(BaseObject):
     """Table model."""
-
-    columns: Sequence[Column]
-    """Columns in the table."""
-
-    constraints: list[_ConstraintType] = Field(default_factory=list)
-    """Constraints on the table."""
-
-    indexes: list[Index] = Field(default_factory=list)
-    """Indexes on the table."""
-
-    column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
-    """Column groups in the table."""
 
     primary_key: str | list[str] | None = Field(None, alias="primaryKey")
     """Primary key of the table."""
@@ -662,6 +693,18 @@ class Table(BaseObject):
 
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
+
+    columns: Sequence[Column]
+    """Columns in the table."""
+
+    column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
+    """Column groups in the table."""
+
+    constraints: list[_ConstraintType] = Field(default_factory=list)
+    """Constraints on the table."""
+
+    indexes: list[Index] = Field(default_factory=list)
+    """Indexes on the table."""
 
     @field_validator("columns", mode="after")
     @classmethod
@@ -1239,3 +1282,33 @@ class Schema(BaseObject, Generic[T]):
         logger.debug("Loading schema from: '%s'", source)
         yaml_data = yaml.safe_load(source)
         return Schema.model_validate(yaml_data, context=context)
+
+    def dump_yaml(self, stream: IO[str] = sys.stdout) -> None:
+        """Pretty print the schema as YAML.
+
+        Parameters
+        ----------
+        stream
+            The stream to write the YAML data to.
+        """
+        yaml.safe_dump(
+            self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+            stream,
+            default_flow_style=False,
+            sort_keys=False,
+        )
+
+    def dump_json(self, stream: IO[str] = sys.stdout) -> None:
+        """Pretty print the schema as JSON.
+
+        Parameters
+        ----------
+        stream
+            The stream to write the JSON data to.
+        """
+        json.dump(
+            self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+            stream,
+            indent=4,
+            sort_keys=False,
+        )

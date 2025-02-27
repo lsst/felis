@@ -19,8 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import difflib
 import os
 import pathlib
+import tempfile
 import unittest
 from collections import defaultdict
 
@@ -45,6 +47,7 @@ from felis.datamodel import (
 TEST_DIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TEST_DIR, "data", "test.yml")
 TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")
+TEST_SERIALIZATION = os.path.join(TEST_DIR, "data", "test_serialization.yaml")
 TEST_ID_GENERATION = os.path.join(TEST_DIR, "data", "test_id_generation.yaml")
 
 
@@ -878,6 +881,43 @@ class RedundantDatatypesTest(unittest.TestCase):
         """
         with self.assertRaises(ValidationError):
             Column(**{"name": "testColumn", "@id": "#test_col_id", "datatype": "double", "precision": 6})
+
+
+class SchemaSerializationTest(unittest.TestCase):
+    """Test serialization and deserialization of the schema data model."""
+
+    def test_serialization(self) -> None:
+        """Test serialization of the schema data model."""
+        # Read the original YAML content from the test_serialization.yaml file
+        with open(TEST_SERIALIZATION) as file:
+            original_yaml_content = file.read()
+
+        # Load the schema from the original YAML content
+        schema_out = Schema.from_uri(TEST_SERIALIZATION)
+        serialized_data = schema_out.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
+
+        # Write the serialized data to a temporary YAML file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml", mode="w+") as temp_file:
+            yaml.dump(serialized_data, temp_file, default_flow_style=False, sort_keys=False)
+            temp_file.seek(0)
+            # Read the deserialized YAML content from the temporary file
+            deserialized_yaml_content = temp_file.read()
+
+        # Show the differences between the original and deserialized YAML
+        diff = difflib.unified_diff(
+            original_yaml_content.splitlines(keepends=True),
+            deserialized_yaml_content.splitlines(keepends=True),
+            fromfile="original.yaml",
+            tofile="deserialized.yaml",
+        )
+        print("Differences:\n", "".join(diff))
+
+        # Assert that the original and deserialized YAML are the same
+        self.assertEqual(
+            yaml.safe_load(original_yaml_content),
+            yaml.safe_load(deserialized_yaml_content),
+            "The original and deserialized YAML contents should be the same",
+        )
 
 
 if __name__ == "__main__":

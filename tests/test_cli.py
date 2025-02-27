@@ -227,6 +227,37 @@ class CliTestCase(unittest.TestCase):
         print(result.output)
         self.assertNotEqual(result.exit_code, 0)
 
+    def test_dump_yaml(self) -> None:
+        """Test for ``dump`` command with YAML output."""
+        runner = CliRunner()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as temp_file:
+            temp_file_name = temp_file.name
+        try:
+            result = runner.invoke(cli, ["dump", TEST_YAML, temp_file_name], catch_exceptions=False)
+            print(result.output)
+            self.assertEqual(result.exit_code, 0)
+        finally:
+            os.remove(temp_file_name)
+
+    def test_dump_json(self) -> None:
+        """Test for ``dump`` command with JSON output."""
+        runner = CliRunner()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as temp_file:
+            temp_file_name = temp_file.name
+        try:
+            result = runner.invoke(cli, ["dump", TEST_YAML, temp_file_name], catch_exceptions=False)
+            print(result.output)
+            self.assertEqual(result.exit_code, 0)
+        finally:
+            os.remove(temp_file_name)
+
+    def test_dump_invalid_file_extension(self) -> None:
+        """Test for ``dump`` command with JSON output."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["dump", TEST_YAML, "out.bad"], catch_exceptions=False)
+        print(result.output)
+        self.assertNotEqual(result.exit_code, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -421,5 +421,37 @@ def diff(
         raise click.ClickException("Schema was changed")
 
 
+@cli.command(
+    "dump",
+    help="""
+    Dump a schema file to YAML or JSON format
+
+    Example:
+
+      felis dump schema.yaml schema.json
+
+      felis dump schema.yaml schema_dump.yaml
+    """,
+)
+@click.argument("files", nargs=2, type=click.Path())
+@click.pass_context
+def dump(
+    ctx: click.Context,
+    files: list[str],
+) -> None:
+    if files[1].endswith(".json"):
+        format = "json"
+    elif files[1].endswith(".yaml"):
+        format = "yaml"
+    else:
+        raise click.ClickException("Output file must have a .json or .yaml extension")
+    schema = Schema.from_uri(files[0], context={"id_generation": ctx.obj["id_generation"]})
+    with open(files[1], "w") as f:
+        if format == "yaml":
+            schema.dump_yaml(f)
+        elif format == "json":
+            schema.dump_json(f)
+
+
 if __name__ == "__main__":
     cli()

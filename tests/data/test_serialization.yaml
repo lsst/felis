@@ -1,0 +1,84 @@
+name: test_serialization
+'@id': '#test_serialization'
+description: Schema for testing serialization
+version:
+  current: v1
+  compatible:
+  - v1
+  - v2
+  read_compatible:
+  - v1
+  - v2
+  - v3
+tables:
+- name: test_table
+  '@id': '#test_table'
+  description: Test table
+  primaryKey: '#test_table.id'
+  columns:
+  - name: id
+    '@id': '#test_table.id'
+    description: id column
+    datatype: int
+  - name: test_column
+    '@id': '#test_table.test_column'
+    description: Test column's description
+    datatype: string
+    length: 64
+    ivoa:ucd: meta
+    ivoa:unit: ''
+    tap:column_index: 999
+    tap:principal: 1
+    votable:arraysize: 64*
+  - name: test_column2
+    '@id': '#test_table.test_column2'
+    description: Test column 2
+    datatype: double
+    ivoa:unit: m
+  - name: test_column3
+    '@id': '#test_table.test_column3'
+    description: Test column 3
+    datatype: int
+  columnGroups:
+  - name: test_column_group
+    '@id': '#test_table.test_column_group'
+    description: Test column group
+    votable:utype: stc:CatalogEntryLocation
+    columns:
+    - '#test_table.test_column'
+  constraints:
+  - name: test_unique_constraint
+    '@id': '#test_table.test_constraint'
+    description: Test unique constraint
+    '@type': Unique
+    columns:
+    - '#test_table.test_column'
+  - name: test_fk_constraint
+    '@id': '#test_table.test_fk_constraint'
+    description: Test foreign key constraint
+    '@type': ForeignKey
+    columns:
+    - '#test_table.test_column'
+    referencedColumns:
+    - '#test_table2.id'
+  - name: test_check_constraint
+    '@id': '#test_table.test_check_constraint'
+    description: Test check constraint
+    deferrable: true
+    initially: IMMEDIATE
+    '@type': Check
+    expression: test_column2 > 0
+  indexes:
+  - name: test_index
+    '@id': '#test_table.test_index'
+    description: Test index
+    columns:
+    - '#test_table.test_column'
+- name: test_table2
+  '@id': '#test_table2'
+  description: Test table 2
+  primaryKey: '#test_table2.id'
+  columns:
+  - name: id
+    '@id': '#test_table2.test_column2'
+    datatype: int
