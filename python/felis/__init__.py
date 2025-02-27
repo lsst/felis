@@ -23,4 +23,11 @@ from .datamodel import Schema
 from .db.schema import create_database
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
-from .version import *
+
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("lsst-felis")
+except PackageNotFoundError:
+    # Package not installed or scons not run.
+    __version__ = "0.0.0"
