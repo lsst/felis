@@ -23,12 +23,11 @@ import os
 import unittest
 
 import yaml
-from sqlalchemy import text
-
 from felis.datamodel import Schema
 from felis.db.utils import DatabaseContext
 from felis.metadata import MetaDataBuilder
 from felis.tests.postgresql import TemporaryPostgresInstance, setup_postgres_test_db  # type: ignore
+from sqlalchemy import text
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")

@@ -23,14 +23,13 @@ import gc
 import os
 import unittest
 
-from sqlalchemy.engine import create_engine
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.schema import CreateSchema
-
 from felis.datamodel import Schema
 from felis.db.utils import DatabaseContext
 from felis.metadata import MetaDataBuilder
 from felis.tap_schema import DataLoader, TableManager
+from sqlalchemy.engine import create_engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.schema import CreateSchema
 
 try:
     from testing.postgresql import Postgresql

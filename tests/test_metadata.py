@@ -23,6 +23,10 @@ import os
 import unittest
 
 import yaml
+from felis import datamodel as dm
+from felis.datamodel import Schema
+from felis.db.utils import DatabaseContext
+from felis.metadata import MetaDataBuilder, get_datatype_with_variants
 from sqlalchemy import (
     CheckConstraint,
     Constraint,
@@ -33,11 +37,6 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
 )
-
-from felis import datamodel as dm
-from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
-from felis.metadata import MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "sales.yaml")

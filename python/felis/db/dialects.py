@@ -32,7 +32,7 @@ from sqlalchemy.engine.mock import create_mock_engine
 
 from .sqltypes import MYSQL, POSTGRES, SQLITE
 
-__all__ = ["get_supported_dialects", "get_dialect_module"]
+__all__ = ["get_dialect_module", "get_supported_dialects"]
 
 _DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE)
 """List of supported dialect names.

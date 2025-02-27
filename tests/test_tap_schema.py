@@ -25,10 +25,9 @@ import tempfile
 import unittest
 from typing import Any
 
-from sqlalchemy import Engine, MetaData, create_engine, select
-
 from felis.datamodel import Schema
 from felis.tap_schema import DataLoader, TableManager
+from sqlalchemy import Engine, MetaData, create_engine, select
 
 TEST_DIR = os.path.dirname(__file__)
 TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")

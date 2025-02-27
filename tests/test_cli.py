@@ -24,13 +24,12 @@ import shutil
 import tempfile
 import unittest
 
-from click.testing import CliRunner
-from sqlalchemy import create_engine
-
 import felis.tap_schema as tap_schema
+from click.testing import CliRunner
 from felis.cli import cli
 from felis.datamodel import Schema
 from felis.metadata import MetaDataBuilder
+from sqlalchemy import create_engine
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TESTDIR, "data", "test.yml")
