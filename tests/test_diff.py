@@ -21,10 +21,11 @@
 
 import unittest
 
+from sqlalchemy import create_engine
+
 from felis import datamodel as dm
 from felis.diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from felis.metadata import MetaDataBuilder
-from sqlalchemy import create_engine
 
 
 class TestSchemaDiff(unittest.TestCase):

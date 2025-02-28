@@ -33,6 +33,7 @@ from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar
 import yaml
 from astropy import units as units  # type: ignore
 from astropy.io.votable import ucd  # type: ignore
+from lsst.resources import ResourcePath, ResourcePathExpression
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -42,8 +43,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
-from lsst.resources import ResourcePath, ResourcePathExpression
 
 from .db.dialects import get_supported_dialects
 from .db.sqltypes import get_type_func

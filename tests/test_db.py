@@ -23,10 +23,11 @@ import os
 import tempfile
 from unittest import TestCase
 
+from sqlalchemy import MetaData, create_engine
+
 from felis import Schema
 from felis.db.schema import create_database
 from felis.db.utils import DatabaseContext
-from sqlalchemy import MetaData, create_engine
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 TESTFILE = os.path.join(TESTDIR, "data", "sales.yaml")

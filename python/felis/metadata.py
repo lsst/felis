@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
+from lsst.utils.iteration import ensure_iterable
 from sqlalchemy import (
     CheckConstraint,
     Column,
@@ -44,7 +45,6 @@ from sqlalchemy.types import TypeEngine
 
 from felis.datamodel import Schema
 from felis.db.variants import make_variant_dict
-from lsst.utils.iteration import ensure_iterable
 
 from . import datamodel
 from .db import sqltypes

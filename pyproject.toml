@@ -162,7 +162,7 @@ extend-select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["lsst"]
+known-first-party = ["felis"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 79

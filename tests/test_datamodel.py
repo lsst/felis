@@ -27,6 +27,9 @@ import unittest
 from collections import defaultdict
 
 import yaml
+from lsst.resources import ResourcePath
+from pydantic import ValidationError
+
 from felis.datamodel import (
     CheckConstraint,
     Column,
@@ -40,9 +43,6 @@ from felis.datamodel import (
     Table,
     UniqueConstraint,
 )
-from pydantic import ValidationError
-
-from lsst.resources import ResourcePath
 
 TEST_DIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TEST_DIR, "data", "test.yml")
