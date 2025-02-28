@@ -120,31 +120,15 @@ target-version = ["py311"]
 profile = "black"
 line_length = 110
 
-[tool.lsst_versions]
-write_to = "python/felis/version.py"
-
 [tool.ruff]
 line-length = 110
 target-version = "py311"
 exclude = [
-    "__init__.py",
-    "lex.py",
-    "yacc.py",
+    "__init__.py"
 ]
 
 [tool.ruff.lint]
 ignore = [
-    "D100",
-    "D102",
-    "D104",
-    "D105",
-    "D107",
-    "D200",
-    "D203",
-    "D205",
-    "D213",
-    "D400",
-    "D413",
     "N802",
     "N803",
     "N806",
@@ -152,7 +136,14 @@ ignore = [
     "N815",
     "N816",
     "N999",
-    "UP007",  # Allow UNION in type annotation
+    "D107",
+    "D105",
+    "D102",
+    "D104",
+    "D100",
+    "D200",
+    "D205",
+    "D400",
 ]
 select = [
     "E",  # pycodestyle
@@ -161,7 +152,28 @@ select = [
     "W",  # pycodestyle
     "D",  # pydocstyle
     "UP",  # pyupgrade
+    "I",  # isort
+    "RUF022",  # sort __all__
 ]
+# Commented out to suppress "unused noqa" in jenkins which has older ruff not
+# generating E721.
+extend-select = [
+    "RUF100", # Warn about unused noqa
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["felis"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 79
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+docstring-code-format = true
+# Formatter does not know about indenting.
+docstring-code-line-length = 69
 
 [tool.pydocstyle]
 convention = "numpy"
@@ -171,13 +183,16 @@ convention = "numpy"
 # Docstring at the very first line is not required
 # D200, D205 and D400 all complain if the first sentence of the docstring does
 # not fit on one line. We do not require docstrings in __init__ files (D104).
-add-ignore = ["D107", "D105", "D102", "D100", "D200", "D205", "D400", "D104"]
-
-[tool.ruff.lint.pycodestyle]
-max-doc-length = 79
-
-[tool.ruff.lint.pydocstyle]
-convention = "numpy"
+add-ignore = [
+    "D107",
+    "D105",
+    "D102",
+    "D100",
+    "D200",
+    "D205",
+    "D400",
+    "D104",
+]
 
 [tool.numpydoc_validation]
 checks = [
@@ -189,11 +204,13 @@ checks = [
     "GL01",  # Summary text can start on same line as """
     "GL08",  # Do not require docstring.
     "ES01",  # No extended summary required.
+    "PR04",  # Do not require types on parameters.
+    "RT02",  # Does not want named return value. DM style says we do.
     "SS05",  # pydocstyle is better at finding infinitive verb.
-    "PR04",  # Sphinx does not require parameter type.
 ]
 exclude = [
     "^test_.*",  # Do not test docstrings in test code.
+    '^cli', # This is the main click command
     '^__init__$',
     '\._[a-zA-Z_]+$',  # Private methods.
 ]

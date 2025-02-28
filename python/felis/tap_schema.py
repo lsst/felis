@@ -41,7 +41,7 @@ from felis.metadata import MetaDataBuilder
 
 from .types import FelisType
 
-__all__ = ["TableManager", "DataLoader"]
+__all__ = ["DataLoader", "TableManager"]
 
 logger = logging.getLogger(__name__)
 

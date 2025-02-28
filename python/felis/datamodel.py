@@ -28,7 +28,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from enum import StrEnum, auto
-from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar, Union
+from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar
 
 import yaml
 from astropy import units as units  # type: ignore
@@ -53,8 +53,8 @@ logger = logging.getLogger(__name__)
 
 __all__ = (
     "BaseObject",
-    "Column",
     "CheckConstraint",
+    "Column",
     "Constraint",
     "DataType",
     "ForeignKeyConstraint",
@@ -472,13 +472,35 @@ class Column(BaseObject):
 
     @field_serializer("datatype")
     def serialize_datatype(self, value: DataType) -> str:
-        """Convert `DataType` to string when serializing to JSON/YAML."""
+        """Convert `DataType` to string when serializing to JSON/YAML.
+
+        Parameters
+        ----------
+        value
+            The `DataType` value to serialize.
+
+        Returns
+        -------
+        `str`
+            The serialized `DataType` value.
+        """
         return str(value)
 
     @field_validator("datatype", mode="before")
     @classmethod
     def deserialize_datatype(cls, value: str) -> DataType:
-        """Convert string back into `DataType` when loading from JSON/YAML."""
+        """Convert string back into `DataType` when loading from JSON/YAML.
+
+        Parameters
+        ----------
+        value
+            The string value to deserialize.
+
+        Returns
+        -------
+        `DataType`
+            The deserialized `DataType` value.
+        """
         return DataType(value)
 
 
@@ -518,7 +540,18 @@ class CheckConstraint(Constraint):
 
     @field_serializer("type")
     def serialize_type(self, value: str) -> str:
-        """Ensure '@type' is included in serialized output."""
+        """Ensure '@type' is included in serialized output.
+
+        Parameters
+        ----------
+        value
+            The value to serialize.
+
+        Returns
+        -------
+        `str`
+            The serialized value.
+        """
         return value
 
 
@@ -533,7 +566,18 @@ class UniqueConstraint(Constraint):
 
     @field_serializer("type")
     def serialize_type(self, value: str) -> str:
-        """Ensure '@type' is included in serialized output."""
+        """Ensure '@type' is included in serialized output.
+
+        Parameters
+        ----------
+        value
+            The value to serialize.
+
+        Returns
+        -------
+        `str`
+            The serialized value.
+        """
         return value
 
 
@@ -560,12 +604,23 @@ class ForeignKeyConstraint(Constraint):
 
     @field_serializer("type")
     def serialize_type(self, value: str) -> str:
-        """Ensure '@type' is included in serialized output."""
+        """Ensure '@type' is included in serialized output.
+
+        Parameters
+        ----------
+        value
+            The value to serialize.
+
+        Returns
+        -------
+        `str`
+            The serialized value.
+        """
         return value
 
 
 _ConstraintType = Annotated[
-    Union[CheckConstraint, ForeignKeyConstraint, UniqueConstraint], Field(discriminator="type")
+    CheckConstraint | ForeignKeyConstraint | UniqueConstraint, Field(discriminator="type")
 ]
 """Type alias for a constraint type."""
 
@@ -675,7 +730,18 @@ class ColumnGroup(BaseObject):
 
     @field_serializer("columns")
     def serialize_columns(self, columns: list[ColumnRef | Column]) -> list[str]:
-        """Serialize columns as their IDs."""
+        """Serialize columns as their IDs.
+
+        Parameters
+        ----------
+        columns
+            The columns to serialize.
+
+        Returns
+        -------
+        `list` [ `str` ]
+            The serialized column IDs.
+        """
         return [col if isinstance(col, str) else col.id for col in columns]
 
 
