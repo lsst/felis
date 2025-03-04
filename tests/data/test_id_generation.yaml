@@ -12,6 +12,11 @@ tables:
     datatype: string
     description: Test column.
     length: 30
+  columnGroups:
+  - name: test_column_group
+    columns:
+    - "#test_table.test_column1"
+    - "#test_table.test_column2"
   indexes:
   - name: test_index
     columns:

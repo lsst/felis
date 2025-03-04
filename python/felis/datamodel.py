@@ -1041,6 +1041,14 @@ class Schema(BaseObject, Generic[T]):
                         if "@id" not in column:
                             column["@id"] = f"#{table['name']}.{column['name']}"
                             logger.debug(f"Generated ID '{column['@id']}' for column '{column['name']}'")
+                if "columnGroups" in table:
+                    for column_group in table["columnGroups"]:
+                        if "@id" not in column_group:
+                            column_group["@id"] = f"#{table['name']}.{column_group['name']}"
+                            logger.debug(
+                                f"Generated ID '{column_group['@id']}' for column group "
+                                f"'{column_group['name']}'"
+                            )
                 if "constraints" in table:
                     for constraint in table["constraints"]:
                         if "@id" not in constraint:
