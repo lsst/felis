@@ -38,6 +38,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     ValidationInfo,
     field_serializer,
     field_validator,
@@ -930,10 +931,10 @@ class SchemaIdVisitor:
         if hasattr(obj, "id"):
             obj_id = getattr(obj, "id")
             if self.schema is not None:
-                if obj_id in self.schema.id_map:
+                if obj_id in self.schema._id_map:
                     self.duplicates.add(obj_id)
                 else:
-                    self.schema.id_map[obj_id] = obj
+                    self.schema._id_map[obj_id] = obj
 
     def visit_schema(self, schema: Schema) -> None:
         """Visit the objects in a schema and build the ID map.
@@ -1003,7 +1004,7 @@ class Schema(BaseObject, Generic[T]):
     tables: Sequence[Table]
     """The tables in the schema."""
 
-    id_map: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    _id_map: dict[str, Any] = PrivateAttr(default_factory=dict)
     """Map of IDs to objects."""
 
     @model_validator(mode="before")
@@ -1186,7 +1187,7 @@ class Schema(BaseObject, Generic[T]):
         This is called automatically by the `model_post_init` method. If the
         ID map is already populated, this method will return immediately.
         """
-        if len(self.id_map):
+        if self._id_map:
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")
             return self
         visitor: SchemaIdVisitor = SchemaIdVisitor()
@@ -1230,7 +1231,7 @@ class Schema(BaseObject, Generic[T]):
         """
         if id not in self:
             raise KeyError(f"Object with ID '{id}' not found in schema")
-        return self.id_map[id]
+        return self._id_map[id]
 
     def __contains__(self, id: str) -> bool:
         """Check if an object with the given ID is in the schema.
@@ -1240,7 +1241,7 @@ class Schema(BaseObject, Generic[T]):
         id
             The ID of the object to check.
         """
-        return id in self.id_map
+        return id in self._id_map
 
     def find_object_by_id(self, id: str, obj_type: type[T]) -> T:
         """Find an object with the given type by its ID.
