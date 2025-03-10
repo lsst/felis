@@ -1,2 +1,2 @@
-Remove the ``apply_schema_to_tables`` flag on the ``MetaDataBuilder`` which creates SQLAlchemy ``MetaData`` from a Felis ``Schema``.
-This is a redundant variable as enabling the ``apply_schema_to_metadata`` flag already correctly associates the metadata to the schema.
+Removed the ``apply_schema_to_tables`` flag on the ``MetaDataBuilder``.
+This variable was redundant as ``apply_schema_to_metadata`` flag already correctly associated the metadata to the schema.
