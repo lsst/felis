@@ -188,6 +188,13 @@ def create(
 @click.option("--dry-run", is_flag=True, help="Execute dry run only. Does not insert any data.")
 @click.option("--echo", is_flag=True, help="Print out the generated insert statements to stdout")
 @click.option("--output-file", type=click.Path(), help="Write SQL commands to a file")
+@click.option(
+    "--unique-keys",
+    "-u",
+    is_flag=True,
+    help="Generate unique key_id values for keys and key_columns tables by prepending the schema name",
+    default=False,
+)
 @click.argument("file", type=click.File())
 @click.pass_context
 def load_tap_schema(
@@ -199,6 +206,7 @@ def load_tap_schema(
     dry_run: bool,
     echo: bool,
     output_file: str | None,
+    unique_keys: bool,
     file: IO[str],
 ) -> None:
     """Load TAP metadata from a Felis file.
@@ -248,6 +256,7 @@ def load_tap_schema(
         dry_run=dry_run,
         print_sql=echo,
         output_path=output_file,
+        unique_keys=unique_keys,
     ).load()
 
 

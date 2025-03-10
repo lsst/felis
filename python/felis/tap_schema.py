@@ -35,7 +35,7 @@ from sqlalchemy.schema import CreateSchema
 from sqlalchemy.sql.dml import Insert
 
 from felis import datamodel
-from felis.datamodel import Schema
+from felis.datamodel import Constraint, Schema
 from felis.db.utils import is_valid_engine
 from felis.metadata import MetaDataBuilder
 
@@ -386,6 +386,9 @@ class DataLoader:
         If True, print the SQL statements that will be executed.
     dry_run
         If True, the data will not be loaded into the database.
+    unique_keys
+        If True, prepend the schema name to the key name to make it unique
+        when loading data into the keys and key_columns tables.
     """
 
     def __init__(
@@ -397,6 +400,7 @@ class DataLoader:
         output_path: str | None = None,
         print_sql: bool = False,
         dry_run: bool = False,
+        unique_keys: bool = False,
     ):
         self.schema = schema
         self.mgr = mgr
@@ -406,6 +410,7 @@ class DataLoader:
         self.output_path = output_path
         self.print_sql = print_sql
         self.dry_run = dry_run
+        self.unique_keys = unique_keys
 
     def load(self) -> None:
         """Load the schema data into the TAP_SCHEMA tables.
@@ -501,6 +506,32 @@ class DataLoader:
                 }
                 self._insert("columns", column_record)
 
+    def _get_key(self, constraint: Constraint) -> str:
+        """Get the key name for a constraint.
+
+        Parameters
+        ----------
+        constraint
+            The constraint to get the key name for.
+
+        Returns
+        -------
+        str
+            The key name for the constraint.
+
+        Notes
+        -----
+        This will prepend the name of the schema to the key name if the
+        `unique_keys` attribute is set to True. Otherwise, it will just return
+        the name of the constraint.
+        """
+        if self.unique_keys:
+            key_id = f"{self.schema.name}_{constraint.name}"
+            logger.debug("Generated unique key_id: %s -> %s", constraint.name, key_id)
+        else:
+            key_id = constraint.name
+        return key_id
+
     def _insert_keys(self) -> None:
         """Insert the foreign keys into the keys and key_columns tables."""
         for table in self.schema.tables:
@@ -511,8 +542,9 @@ class DataLoader:
                         constraint.referenced_columns[0], datamodel.Column
                     )
                     referenced_table = self.schema.get_table_by_column(referenced_column)
+                    key_id = self._get_key(constraint)
                     key_record = {
-                        "key_id": constraint.name,
+                        "key_id": key_id,
                         "from_table": self._get_table_name(table),
                         "target_table": self._get_table_name(referenced_table),
                         "description": constraint.description,
@@ -526,7 +558,7 @@ class DataLoader:
                         constraint.referenced_columns[0], datamodel.Column
                     )
                     key_columns_record = {
-                        "key_id": constraint.name,
+                        "key_id": key_id,
                         "from_column": from_column.name,
                         "target_column": target_column.name,
                     }

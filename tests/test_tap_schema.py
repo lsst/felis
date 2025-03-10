@@ -25,7 +25,7 @@ import tempfile
 import unittest
 from typing import Any
 
-from sqlalchemy import Engine, MetaData, create_engine, select
+from sqlalchemy import MetaData, create_engine, select
 
 from felis.datamodel import Schema
 from felis.tap_schema import DataLoader, TableManager
@@ -111,6 +111,17 @@ class DataLoaderTestCase(unittest.TestCase):
                 f"Expected 22 'INSERT INTO' statements, found {insert_count}",
             )
 
+    def test_unique_keys(self) -> None:
+        """Test generation of unique foreign keys."""
+        self.engine = create_engine("sqlite:///:memory:")
+
+        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr.initialize_database(self.engine)
+        self.mgr = mgr
+
+        loader = DataLoader(self.schema, mgr, self.engine, unique_keys=True)
+        loader.load()
+
 
 def _find_row(rows: list[dict[str, Any]], column_name: str, value: str) -> dict[str, Any]:
     next_row = next(
@@ -120,19 +131,6 @@ def _find_row(rows: list[dict[str, Any]], column_name: str, value: str) -> dict[
     assert next_row is not None
     assert isinstance(next_row, dict)
     return next_row
-
-
-def _fetch_results(_engine: Engine, _metadata: MetaData) -> dict:
-    results: dict[str, Any] = {}
-    with _engine.connect() as connection:
-        for table_name in TableManager.get_table_names_std():
-            tap_table = _metadata.tables[table_name]
-            primary_key_columns = tap_table.primary_key.columns
-            stmt = select(tap_table).order_by(*primary_key_columns)
-            result = connection.execute(stmt)
-            column_data = [row._asdict() for row in result]
-            results[table_name] = column_data
-    return results
 
 
 class TapSchemaDataTest(unittest.TestCase):
