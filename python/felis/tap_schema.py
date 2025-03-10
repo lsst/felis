@@ -27,7 +27,7 @@ import re
 from typing import Any
 
 from lsst.resources import ResourcePath
-from sqlalchemy import MetaData, Table, text
+from sqlalchemy import MetaData, Table, select, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.exc import SQLAlchemyError
@@ -163,7 +163,7 @@ class TableManager:
         tables to be accessed by their standard TAP_SCHEMA names.
         """
         if table_name not in self._table_map:
-            raise KeyError(f"Table '{table_name}' not found in table map")
+            raise KeyError(f"Table '{table_name}' not found in TAP_SCHEMA")
         return self.metadata.tables[self._table_map[table_name]]
 
     @property
@@ -364,6 +364,34 @@ class TableManager:
         logger.info("Creating TAP_SCHEMA database '%s'", self.schema_name)
         self._create_schema(engine)
         self.metadata.create_all(engine)
+
+    def select(self, engine: Engine, table_name: str, filter_condition: str = "") -> list[dict[str, Any]]:
+        """Select all rows from a TAP_SCHEMA table with an optional filter
+        condition.
+
+        Parameters
+        ----------
+        engine
+            The SQLAlchemy engine to use to connect to the database.
+        table_name
+            The name of the table to select from.
+        filter_condition
+            The filter condition as a string. If empty, no filter will be
+            applied.
+
+        Returns
+        -------
+        list
+            A list of dictionaries containing the rows from the table.
+        """
+        table = self[table_name]
+        query = select(table)
+        if filter_condition:
+            query = query.where(text(filter_condition))
+        with engine.connect() as connection:
+            result = connection.execute(query)
+            rows = [dict(row._mapping) for row in result]
+        return rows
 
 
 class DataLoader:

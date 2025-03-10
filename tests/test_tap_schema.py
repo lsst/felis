@@ -113,14 +113,34 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_unique_keys(self) -> None:
         """Test generation of unique foreign keys."""
-        self.engine = create_engine("sqlite:///:memory:")
+        engine = create_engine("sqlite:///:memory:")
 
         mgr = TableManager(apply_schema_to_metadata=False)
-        mgr.initialize_database(self.engine)
-        self.mgr = mgr
+        mgr.initialize_database(engine)
 
-        loader = DataLoader(self.schema, mgr, self.engine, unique_keys=True)
+        loader = DataLoader(self.schema, mgr, engine, unique_keys=True)
         loader.load()
+
+        keys_data = mgr.select(engine, "keys")
+        self.assertGreaterEqual(len(keys_data), 1)
+        for row in keys_data:
+            self.assertTrue(row["key_id"].startswith(f"{self.schema.name}_"))
+
+        key_columns_data = mgr.select(engine, "key_columns")
+        self.assertGreaterEqual(len(key_columns_data), 1)
+        for row in key_columns_data:
+            self.assertTrue(row["key_id"].startswith(f"{self.schema.name}_"))
+
+    def test_select_with_filter(self) -> None:
+        """Test selecting rows with a filter."""
+        engine = create_engine("sqlite:///:memory:")
+        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr.initialize_database(engine)
+        loader = DataLoader(self.schema, mgr, engine, unique_keys=True)
+        loader.load()
+
+        rows = mgr.select(engine, "columns", "table_name = 'test_schema.table1'")
+        self.assertEqual(len(rows), 16)
 
 
 def _find_row(rows: list[dict[str, Any]], column_name: str, value: str) -> dict[str, Any]:
