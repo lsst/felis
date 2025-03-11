@@ -1,0 +1,2 @@
+Added optional generation of unique key_id values when loading data into the TAP_SCHEMA keys and key_columns tables.
+This feature can be activated using the ``-u`` or ``--unique-keys`` flag of the ``load-tap-schema`` command.

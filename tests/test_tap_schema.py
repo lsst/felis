@@ -25,7 +25,7 @@ import tempfile
 import unittest
 from typing import Any
 
-from sqlalchemy import Engine, MetaData, create_engine, select
+from sqlalchemy import MetaData, create_engine, select
 
 from felis.datamodel import Schema
 from felis.tap_schema import DataLoader, TableManager
@@ -111,6 +111,37 @@ class DataLoaderTestCase(unittest.TestCase):
                 f"Expected 22 'INSERT INTO' statements, found {insert_count}",
             )
 
+    def test_unique_keys(self) -> None:
+        """Test generation of unique foreign keys."""
+        engine = create_engine("sqlite:///:memory:")
+
+        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr.initialize_database(engine)
+
+        loader = DataLoader(self.schema, mgr, engine, unique_keys=True)
+        loader.load()
+
+        keys_data = mgr.select(engine, "keys")
+        self.assertGreaterEqual(len(keys_data), 1)
+        for row in keys_data:
+            self.assertTrue(row["key_id"].startswith(f"{self.schema.name}_"))
+
+        key_columns_data = mgr.select(engine, "key_columns")
+        self.assertGreaterEqual(len(key_columns_data), 1)
+        for row in key_columns_data:
+            self.assertTrue(row["key_id"].startswith(f"{self.schema.name}_"))
+
+    def test_select_with_filter(self) -> None:
+        """Test selecting rows with a filter."""
+        engine = create_engine("sqlite:///:memory:")
+        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr.initialize_database(engine)
+        loader = DataLoader(self.schema, mgr, engine, unique_keys=True)
+        loader.load()
+
+        rows = mgr.select(engine, "columns", "table_name = 'test_schema.table1'")
+        self.assertEqual(len(rows), 16)
+
 
 def _find_row(rows: list[dict[str, Any]], column_name: str, value: str) -> dict[str, Any]:
     next_row = next(
@@ -120,19 +151,6 @@ def _find_row(rows: list[dict[str, Any]], column_name: str, value: str) -> dict[
     assert next_row is not None
     assert isinstance(next_row, dict)
     return next_row
-
-
-def _fetch_results(_engine: Engine, _metadata: MetaData) -> dict:
-    results: dict[str, Any] = {}
-    with _engine.connect() as connection:
-        for table_name in TableManager.get_table_names_std():
-            tap_table = _metadata.tables[table_name]
-            primary_key_columns = tap_table.primary_key.columns
-            stmt = select(tap_table).order_by(*primary_key_columns)
-            result = connection.execute(stmt)
-            column_data = [row._asdict() for row in result]
-            results[table_name] = column_data
-    return results
 
 
 class TapSchemaDataTest(unittest.TestCase):

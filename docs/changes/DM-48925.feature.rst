@@ -1,4 +1,4 @@
 Added support for serializing schemas back to YAML.
 Fixed multiple issues with classes in the data model which were preventing this from working, previously.
 Added a test case that "round trips" a test YAML file and verifies that it is the same as the original data.
-Added a `dump` command to the CLI which can be used to dump a schema to a YAML or JSON file.
+Added a ``dump`` command to the CLI which can be used to dump a schema to a YAML or JSON file.

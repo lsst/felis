@@ -180,14 +180,26 @@ def create(
 
 @cli.command("load-tap-schema", help="Load metadata from a Felis file into a TAP_SCHEMA database")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
-@click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database (default: TAP_SCHEMA)")
 @click.option(
-    "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
+    "--tap-schema-name", "-n", help="Name of the TAP_SCHEMA schema in the database (default: TAP_SCHEMA)"
 )
-@click.option("--tap-schema-index", type=int, help="TAP_SCHEMA index of the schema in this environment")
-@click.option("--dry-run", is_flag=True, help="Execute dry run only. Does not insert any data.")
-@click.option("--echo", is_flag=True, help="Print out the generated insert statements to stdout")
-@click.option("--output-file", type=click.Path(), help="Write SQL commands to a file")
+@click.option(
+    "--tap-tables-postfix",
+    "-p",
+    help="Postfix which is applied to standard TAP_SCHEMA table names",
+    default="",
+)
+@click.option("--tap-schema-index", "-i", type=int, help="TAP_SCHEMA index of the schema in this environment")
+@click.option("--dry-run", "-D", is_flag=True, help="Execute dry run only. Does not insert any data.")
+@click.option("--echo", "-e", is_flag=True, help="Print out the generated insert statements to stdout")
+@click.option("--output-file", "-o", type=click.Path(), help="Write SQL commands to a file")
+@click.option(
+    "--unique-keys",
+    "-u",
+    is_flag=True,
+    help="Generate unique key_id values for keys and key_columns tables by prepending the schema name",
+    default=False,
+)
 @click.argument("file", type=click.File())
 @click.pass_context
 def load_tap_schema(
@@ -199,6 +211,7 @@ def load_tap_schema(
     dry_run: bool,
     echo: bool,
     output_file: str | None,
+    unique_keys: bool,
     file: IO[str],
 ) -> None:
     """Load TAP metadata from a Felis file.
@@ -248,6 +261,7 @@ def load_tap_schema(
         dry_run=dry_run,
         print_sql=echo,
         output_path=output_file,
+        unique_keys=unique_keys,
     ).load()
 
 
