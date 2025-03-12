@@ -1,0 +1,2 @@
+The ``diff`` command now supports an optional list of tables to filter on using the ``--table`` flag, which can be supplied multiple times.
+This is not supported for the ``alembic`` comparator or comparing against a database, as it was not clear how to filter the tables out when using these strategies.
