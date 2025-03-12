@@ -20,9 +20,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import unittest
+from typing import Any
 
 from sqlalchemy import create_engine
 
+from felis import Schema
 from felis import datamodel as dm
 from felis.diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from felis.metadata import MetaDataBuilder
@@ -31,7 +33,7 @@ from felis.metadata import MetaDataBuilder
 class TestSchemaDiff(unittest.TestCase):
     """Test the SchemaDiff class."""
 
-    def _diff(self, schema1, schema2):
+    def _diff(self, schema1: Schema, schema2: Schema) -> dict[str, Any]:
         return SchemaDiff(schema1, schema2).diff
 
     def test_schema_diff(self) -> None:
@@ -242,6 +244,38 @@ class TestSchemaDiff(unittest.TestCase):
         keys = ["tables", 0, "indexes", 0, "columns", 0]
         with self.assertRaises(ValueError):
             FormattedSchemaDiff._get_id(id_dict, keys)
+
+    def test_table_filter(self) -> None:
+        schema1 = dm.Schema(
+            name="schema1",
+            id="#schema1",
+            description="Schema 1",
+            tables=[
+                dm.Table(name="table1", id="#table1", description="Table 1", columns=[]),
+                dm.Table(name="table2", id="#table2", description="Table 2", columns=[]),
+                dm.Table(name="table3", id="#table3", description="Table 3", columns=[]),
+            ],
+        )
+
+        schema2 = dm.Schema(
+            name="schema1",
+            id="#schema1",
+            description="Schema 1",
+            tables=[
+                dm.Table(name="table1", id="#table1", description="Table 1", columns=[]),
+                dm.Table(name="table2", id="#table2", description="Table 2", columns=[]),
+            ],
+        )
+
+        diff = SchemaDiff(schema1, schema2, table_filter=["table1"]).diff
+        self.assertEqual(len(diff), 0)
+
+        diff = SchemaDiff(schema1, schema2, table_filter=["table2"]).diff
+        self.assertEqual(len(diff), 0)
+
+        diff = SchemaDiff(schema1, schema2, table_filter=["table3"]).diff
+        self.assertEqual(len(diff), 1)
+        self.assertTrue("iterable_item_removed" in diff)
 
 
 class TestDatabaseDiff(unittest.TestCase):
