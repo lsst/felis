@@ -56,8 +56,8 @@ class SchemaDiff:
     """
 
     def __init__(self, schema1: Schema, schema2: Schema):
-        self.dict1 = schema1.model_dump(exclude_none=True)
-        self.dict2 = schema2.model_dump(exclude_none=True)
+        self.dict1 = schema1.model_dump(exclude_none=True, exclude_defaults=True)
+        self.dict2 = schema2.model_dump(exclude_none=True, exclude_defaults=True)
         self.diff = DeepDiff(self.dict1, self.dict2, ignore_order=True)
 
     def print(self) -> None:
