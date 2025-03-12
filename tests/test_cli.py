@@ -150,11 +150,46 @@ class CliTestCase(unittest.TestCase):
 
         run_cli(["diff", f"--engine-url={self.sqlite_url}", test_diff2])
 
+    def test_diff_database_with_table_filter(self) -> None:
+        """Test for ``diff`` command with database and table filter. This
+        should fail as table filters are not supported for this comparator.
+        """
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+        db_url = f"sqlite:///{self.tmpdir}/tap_schema.sqlite3"
+
+        engine = create_engine(db_url)
+        metadata_db = MetaDataBuilder(Schema.from_uri(test_diff1), apply_schema_to_metadata=False).build()
+        metadata_db.create_all(engine)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["diff", f"--engine-url={db_url}", "--table", "table1", test_diff2], catch_exceptions=False
+        )
+        self.assertNotEqual(result.exit_code, 0)
+
     def test_diff_alembic(self) -> None:
         """Test for ``diff`` command with ``--alembic`` comparator option."""
         test_diff1 = os.path.join(TEST_DIR, "data", "test_diff1.yaml")
         test_diff2 = os.path.join(TEST_DIR, "data", "test_diff2.yaml")
         run_cli(["diff", "--comparator", "alembic", test_diff1, test_diff2], print_output=True)
+
+    def test_diff_alembic_with_table_filter(self) -> None:
+        """Test for ``diff`` command with ``--alembic`` option and a table
+        filter. This should fail as table filters are not supported for this
+        comparator.
+        """
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["diff", "--comparator", "alembic", "--table", "table1", test_diff1, test_diff2],
+            catch_exceptions=False,
+        )
+        print(result.output)
+        self.assertNotEqual(result.exit_code, 0)
 
     def test_diff_error(self) -> None:
         """Test for ``diff`` command with bad arguments."""
@@ -166,6 +201,18 @@ class CliTestCase(unittest.TestCase):
         test_diff1 = os.path.join(TEST_DIR, "data", "test_diff1.yaml")
         test_diff2 = os.path.join(TEST_DIR, "data", "test_diff2.yaml")
         run_cli(["diff", "--error-on-change", test_diff1, test_diff2], expect_error=True, print_output=True)
+
+    def test_diff_with_table_filter(self) -> None:
+        """Test for ``diff`` command and a table filter."""
+        test_diff1 = os.path.join(TESTDIR, "data", "test_diff1.yaml")
+        test_diff2 = os.path.join(TESTDIR, "data", "test_diff2.yaml")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["diff", "--table", "table1", test_diff1, test_diff2], catch_exceptions=False
+        )
+        print(result.output)
+        self.assertEqual(result.exit_code, 0)
 
     def test_dump_yaml(self) -> None:
         """Test for ``dump`` command with YAML output."""

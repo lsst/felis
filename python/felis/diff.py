@@ -21,6 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import copy
 import logging
 import pprint
 import re
@@ -53,12 +54,38 @@ class SchemaDiff:
         The first schema to compare.
     schema2
         The second schema to compare.
+    table_filter
+        A list of table names to filter on.
     """
 
-    def __init__(self, schema1: Schema, schema2: Schema):
-        self.dict1 = schema1.model_dump(exclude_none=True, exclude_defaults=True)
-        self.dict2 = schema2.model_dump(exclude_none=True, exclude_defaults=True)
-        self.diff = DeepDiff(self.dict1, self.dict2, ignore_order=True)
+    def __init__(self, schema1: Schema, schema2: Schema, table_filter: list[str] = []):
+        self.schema1 = copy.deepcopy(schema1)
+        self.schema2 = copy.deepcopy(schema2)
+        if table_filter:
+            logger.debug(f"Filtering on tables: {table_filter}")
+        self.table_filter = table_filter
+        self._create_diff()
+
+    def _create_diff(self) -> dict[str, Any]:
+        if self.table_filter:
+            self.schema1.tables = [table for table in self.schema1.tables if table.name in self.table_filter]
+            self.schema2.tables = [table for table in self.schema2.tables if table.name in self.table_filter]
+        self.dict1 = self.schema1.model_dump(exclude_none=True, exclude_defaults=True)
+        self.dict2 = self.schema2.model_dump(exclude_none=True, exclude_defaults=True)
+        self._diff = DeepDiff(self.dict1, self.dict2, ignore_order=True)
+        return self._diff
+
+    @property
+    def diff(self) -> dict[str, Any]:
+        """
+        Return the differences between the two schemas.
+
+        Returns
+        -------
+        dict
+            The differences between the two schemas.
+        """
+        return self._diff
 
     def print(self) -> None:
         """
@@ -90,10 +117,12 @@ class FormattedSchemaDiff(SchemaDiff):
         The first schema to compare.
     schema2
         The second schema to compare.
+    table_filter
+        A list of table names to filter on.
     """
 
-    def __init__(self, schema1: Schema, schema2: Schema):
-        super().__init__(schema1, schema2)
+    def __init__(self, schema1: Schema, schema2: Schema, table_filter: list[str] = []):
+        super().__init__(schema1, schema2, table_filter)
 
     def print(self) -> None:
         """
@@ -224,7 +253,7 @@ class DatabaseDiff(SchemaDiff):
                 connection, opts={"compare_type": True, "target_metadata": db_metadata}
             )
             schema_metadata = MetaDataBuilder(schema, apply_schema_to_metadata=False).build()
-            self.diff = compare_metadata(mc, schema_metadata)
+            self._diff = compare_metadata(mc, schema_metadata)
 
     def print(self) -> None:
         """
