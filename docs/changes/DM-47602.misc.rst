@@ -1,0 +1,2 @@
+Added a `tests.run_cli` utility module for running CLI commands in tests.
+Refactored the tests in ``tests_cli`` to use the new utility function.
