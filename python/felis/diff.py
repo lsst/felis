@@ -118,8 +118,8 @@ class FormattedSchemaDiff(SchemaDiff):
     def _handle_values_changed(self, changes: dict[str, Any]) -> None:
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            value1 = self._get_value_from_keys(self.dict1, keys)
-            value2 = self._get_value_from_keys(self.dict2, keys)
+            value1 = changes[key]["old_value"]
+            value2 = changes[key]["new_value"]
             self._print_header(self.dict1, keys)
             print(f"- {value1}")
             print(f"+ {value2}")
@@ -127,28 +127,30 @@ class FormattedSchemaDiff(SchemaDiff):
     def _handle_iterable_item_added(self, changes: dict[str, Any]) -> None:
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            value = self._get_value_from_keys(self.dict2, keys)
+            value = changes[key]
             self._print_header(self.dict2, keys)
             print(f"+ {value}")
 
     def _handle_iterable_item_removed(self, changes: dict[str, Any]) -> None:
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            value = self._get_value_from_keys(self.dict1, keys)
+            value = changes[key]
             self._print_header(self.dict1, keys)
             print(f"- {value}")
 
     def _handle_dictionary_item_added(self, changes: dict[str, Any]) -> None:
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            value = self._get_value_from_keys(self.dict2, keys)
+            value = keys[-1]
+            keys.pop()
             self._print_header(self.dict2, keys)
             print(f"+ {value}")
 
     def _handle_dictionary_item_removed(self, changes: dict[str, Any]) -> None:
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            value = self._get_value_from_keys(self.dict1, keys)
+            value = keys[-1]
+            keys.pop()
             self._print_header(self.dict1, keys)
             print(f"- {value}")
 
@@ -190,13 +192,6 @@ class FormattedSchemaDiff(SchemaDiff):
                 keys.append(int(match[1]))
 
         return keys
-
-    @staticmethod
-    def _get_value_from_keys(data: dict, keys: list[str | int]) -> Any:
-        value = data
-        for key in keys:
-            value = value[key]
-        return value
 
 
 class DatabaseDiff(SchemaDiff):
