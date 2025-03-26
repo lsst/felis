@@ -110,7 +110,7 @@ felis = "felis.cli:cli"
     [[tool.towncrier.type]]
         directory = "removal"
         name = "An API Removal or Deprecation"
-        showcontent = false
+        showcontent = true
 
 [tool.black]
 line-length = 110
