@@ -1,3 +1,0 @@
-Column grouping functionality was added to the data model.
-These are sets of related columns that, in addition to the standard object attributes, may have an `ivoa:ucd`.
-Additional information on column groups was added to the User Guide.
