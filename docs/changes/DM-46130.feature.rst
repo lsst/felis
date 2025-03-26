@@ -1,2 +1,0 @@
-Add tools for comparing schemas in the `diff` module.
-These can be run from the command line using `felis diff`.

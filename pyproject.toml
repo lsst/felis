@@ -26,8 +26,8 @@ dependencies = [
     "astropy",
     "click",
     "deepdiff",
-    "lsst-resources",
-    "lsst-utils",
+    "lsst-resources < 29.100",
+    "lsst-utils < 29.100",
     "numpy",
     "pydantic >=2,<3",
     "pyyaml",
@@ -110,7 +110,7 @@ felis = "felis.cli:cli"
     [[tool.towncrier.type]]
         directory = "removal"
         name = "An API Removal or Deprecation"
-        showcontent = false
+        showcontent = true
 
 [tool.black]
 line-length = 110

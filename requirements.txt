@@ -2,8 +2,8 @@ alembic
 astropy
 click
 deepdiff
-lsst-resources @ git+https://github.com/lsst/resources@main
-lsst-utils @ git+https://github.com/lsst/utils@main
+lsst-resources @ git+https://github.com/lsst/resources@v29.0.x
+lsst-utils @ git+https://github.com/lsst/utils@v29.0.x
 numpy
 pydantic >=2,<3
 pyyaml
