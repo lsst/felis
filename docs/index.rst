@@ -28,10 +28,10 @@ Python API
 
    dev/internals
 
-Changelog
-=========
+Release Notes
+=============
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   CHANGES
+   Release Notes <CHANGES.rst>
