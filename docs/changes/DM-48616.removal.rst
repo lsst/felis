@@ -1,2 +1,0 @@
-Removed the ``tap`` module, which was replaced by ``tap_schema``.
-The ``init-tap`` command was removed and replaced with ``init-tap-schema``.
