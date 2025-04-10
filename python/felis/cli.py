@@ -400,6 +400,7 @@ def validate(
     default="deepdiff",
 )
 @click.option("-E", "--error-on-change", is_flag=True, help="Exit with error code if schemas are different")
+@click.option("--table", "tables", multiple=True, help="Table names to filter on.")
 @click.argument("files", nargs=-1, type=click.File())
 @click.pass_context
 def diff(
@@ -407,6 +408,7 @@ def diff(
     engine_url: str | None,
     comparator: str,
     error_on_change: bool,
+    tables: list[str],
     files: Iterable[IO[str]],
 ) -> None:
     schemas = [
@@ -416,12 +418,16 @@ def diff(
     diff: SchemaDiff
     if len(schemas) == 2 and engine_url is None:
         if comparator == "alembic":
+            if tables:
+                raise click.ClickException("Table filtering is not supported for Alembic comparator")
             db_context = create_database(schemas[0])
             assert isinstance(db_context.engine, Engine)
             diff = DatabaseDiff(schemas[1], db_context.engine)
         else:
             diff = FormattedSchemaDiff(schemas[0], schemas[1])
     elif len(schemas) == 1 and engine_url is not None:
+        if tables:
+            raise click.ClickException("Table filtering is not supported for database comparison")
         engine = create_engine(engine_url)
         diff = DatabaseDiff(schemas[0], engine)
     else:
