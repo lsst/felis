@@ -82,16 +82,18 @@ class CliTestCase(unittest.TestCase):
         run_cli(["validate", TEST_YAML])
 
     def test_validate_with_id_generation(self) -> None:
-        """Test the ``--id-generation`` flag."""
+        """Test that loading a schema with IDs works if ID generation is
+        enabled. This is the default behavior.
+        """
         test_yaml = os.path.join(TEST_DIR, "data", "test_id_generation.yaml")
         run_cli(["--id-generation", "validate", test_yaml])
 
-    def test_validate_with_id_validation_error(self) -> None:
+    def test_validate_with_id_generation_error(self) -> None:
         """Test that loading a schema without IDs fails if ID generation is not
         enabled.
         """
         test_yaml = os.path.join(TEST_DIR, "data", "test_id_generation.yaml")
-        run_cli(["validate", test_yaml], expect_error=True)
+        run_cli(["--no-id-generation", "validate", test_yaml], expect_error=True)
 
     def test_validate_with_extra_checks(self) -> None:
         """Test schema validation flags."""
