@@ -1,7 +1,7 @@
 ---
 name: test_diff
 description: Test diff
-id: "#test_diff"
+"@id": "#test_diff"
 version: "1.2.3"
 tables:
   - name: test_table1
