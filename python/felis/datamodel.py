@@ -504,6 +504,26 @@ class Column(BaseObject):
         """
         return DataType(value)
 
+    @model_validator(mode="after")
+    def check_votable_xtype(self) -> Column:
+        """Set the default value for the ``votable_xtype`` field, which
+        corresponds to an Extended Datatype or ``xtype`` in the IVOA VOTable
+        standard.
+
+        Returns
+        -------
+        `Column`
+            The column being validated.
+
+        Notes
+        -----
+        This is currently only set automatically for the Felis ``timestamp``
+        datatype.
+        """
+        if self.datatype == DataType.timestamp and self.votable_xtype is None:
+            self.votable_xtype = "timestamp"
+        return self
+
 
 class Constraint(BaseObject):
     """Table constraint model."""
