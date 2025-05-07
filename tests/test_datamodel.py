@@ -231,6 +231,12 @@ class ColumnTestCase(unittest.TestCase):
         bool_coldata["value"] = True
         Column(**bool_coldata)
 
+    def test_timestamp(self) -> None:
+        """Test validation of timestamp columns."""
+        # Check that the votable_xtype is set correctly for timestamp columns.
+        col = Column(name="testColumn", id="#test_col_id", datatype="timestamp")
+        self.assertEqual(col.votable_xtype, "timestamp")
+
 
 class TableTestCase(unittest.TestCase):
     """Test Pydantic validation of the ``Table`` class."""
