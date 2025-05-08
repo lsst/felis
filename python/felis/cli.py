@@ -63,7 +63,10 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     help="Felis log file path",
 )
 @click.option(
-    "--id-generation", is_flag=True, help="Generate IDs for all objects that do not have them", default=False
+    "--id-generation/--no-id-generation",
+    is_flag=True,
+    help="Generate IDs for all objects that do not have them",
+    default=True,
 )
 @click.pass_context
 def cli(ctx: click.Context, log_level: str, log_file: str | None, id_generation: bool) -> None:
@@ -72,6 +75,8 @@ def cli(ctx: click.Context, log_level: str, log_file: str | None, id_generation:
     ctx.obj["id_generation"] = id_generation
     if ctx.obj["id_generation"]:
         logger.info("ID generation is enabled")
+    else:
+        logger.info("ID generation is disabled")
     if log_file:
         logging.basicConfig(filename=log_file, level=log_level)
     else:
