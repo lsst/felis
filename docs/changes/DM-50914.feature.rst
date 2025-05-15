@@ -1,0 +1,2 @@
+Added a feature flag ``--force-unbounded-arraysize`` to the ``load-tap-schema`` command for working around
+`Astropy issue #18099 <https://github.com/astropy/astropy/issues/18099>`_.
