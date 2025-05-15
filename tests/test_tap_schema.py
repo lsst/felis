@@ -25,7 +25,7 @@ import tempfile
 import unittest
 from typing import Any
 
-from sqlalchemy import MetaData, create_engine, select
+from sqlalchemy import create_engine, select
 
 from felis.datamodel import Schema
 from felis.tap_schema import DataLoader, TableManager
@@ -175,9 +175,6 @@ class TapSchemaSqliteSetup:
         loader = DataLoader(self._schema, mgr, self._engine, tap_schema_index=2)
         loader.load()
 
-        self._md = MetaData()
-        self._md.reflect(self._engine)
-
     @property
     def schema(self) -> Schema:
         """Return the schema."""
@@ -193,35 +190,17 @@ class TapSchemaSqliteSetup:
         """Return the table manager."""
         return self._mgr
 
-    @property
-    def md(self) -> MetaData:
-        """Return the metadata."""
-        return self._md
-
 
 class TapSchemaDataTest(unittest.TestCase):
     """Test the validity of generated TAP SCHEMA data."""
 
     def setUp(self) -> None:
         """Set up the test case."""
-        with open(TEST_TAP_SCHEMA) as test_file:
-            self.schema = Schema.from_stream(test_file, context={"id_generation": True})
-
-        self.engine = create_engine("sqlite:///:memory:")
-
-        mgr = TableManager(apply_schema_to_metadata=False)
-        mgr.initialize_database(self.engine)
-        self.mgr = mgr
-
-        loader = DataLoader(self.schema, mgr, self.engine, tap_schema_index=2)
-        loader.load()
-
-        self.md = MetaData()
-        self.md.reflect(self.engine)
+        self.tap_schema_setup = TapSchemaSqliteSetup(context={"id_generation": True})
 
     def test_schemas(self) -> None:
-        schemas_table = self.mgr["schemas"]
-        with self.engine.connect() as connection:
+        schemas_table = self.tap_schema_setup.mgr["schemas"]
+        with self.tap_schema_setup.engine.connect() as connection:
             result = connection.execute(select(schemas_table))
             schema_data = [row._asdict() for row in result]
 
@@ -234,8 +213,8 @@ class TapSchemaDataTest(unittest.TestCase):
         self.assertEqual(schema["schema_index"], 2)
 
     def test_tables(self) -> None:
-        tables_table = self.mgr["tables"]
-        with self.engine.connect() as connection:
+        tables_table = self.tap_schema_setup.mgr["tables"]
+        with self.tap_schema_setup.engine.connect() as connection:
             result = connection.execute(select(tables_table))
             table_data = [row._asdict() for row in result]
 
@@ -244,19 +223,21 @@ class TapSchemaDataTest(unittest.TestCase):
         table = table_data[0]
         assert isinstance(table, dict)
         self.assertEqual(table["schema_name"], "test_schema")
-        self.assertEqual(table["table_name"], f"{self.schema.name}.table1")
+        self.assertEqual(table["table_name"], f"{self.tap_schema_setup.schema.name}.table1")
         self.assertEqual(table["table_type"], "table")
         self.assertEqual(table["utype"], "Table")
         self.assertEqual(table["description"], "Test table 1")
         self.assertEqual(table["table_index"], 2)
 
     def test_columns(self) -> None:
-        columns_table = self.mgr["columns"]
-        with self.engine.connect() as connection:
+        columns_table = self.tap_schema_setup.mgr["columns"]
+        with self.tap_schema_setup.engine.connect() as connection:
             result = connection.execute(select(columns_table))
             column_data = [row._asdict() for row in result]
 
-        table1_rows = [row for row in column_data if row["table_name"] == f"{self.schema.name}.table1"]
+        table1_rows = [
+            row for row in column_data if row["table_name"] == f"{self.tap_schema_setup.schema.name}.table1"
+        ]
         self.assertNotEqual(len(table1_rows), 0)
 
         boolean_col = _find_row(table1_rows, "column_name", "boolean_field")
@@ -321,8 +302,8 @@ class TapSchemaDataTest(unittest.TestCase):
         self.assertEqual(txt_col["arraysize"], "*")
 
     def test_keys(self) -> None:
-        keys_table = self.mgr["keys"]
-        with self.engine.connect() as connection:
+        keys_table = self.tap_schema_setup.mgr["keys"]
+        with self.tap_schema_setup.engine.connect() as connection:
             result = connection.execute(select(keys_table))
             key_data = [row._asdict() for row in result]
 
@@ -332,14 +313,14 @@ class TapSchemaDataTest(unittest.TestCase):
         assert isinstance(key, dict)
 
         self.assertEqual(key["key_id"], "fk_table1_to_table2")
-        self.assertEqual(key["from_table"], f"{self.schema.name}.table1")
-        self.assertEqual(key["target_table"], f"{self.schema.name}.table2")
+        self.assertEqual(key["from_table"], f"{self.tap_schema_setup.schema.name}.table1")
+        self.assertEqual(key["target_table"], f"{self.tap_schema_setup.schema.name}.table2")
         self.assertEqual(key["description"], "Foreign key from table1 to table2")
         self.assertEqual(key["utype"], "ForeignKey")
 
     def test_key_columns(self) -> None:
-        key_columns_table = self.mgr["key_columns"]
-        with self.engine.connect() as connection:
+        key_columns_table = self.tap_schema_setup.mgr["key_columns"]
+        with self.tap_schema_setup.engine.connect() as connection:
             result = connection.execute(select(key_columns_table))
             key_column_data = [row._asdict() for row in result]
 
@@ -355,7 +336,7 @@ class TapSchemaDataTest(unittest.TestCase):
     def test_bad_table_name(self) -> None:
         """Test getting a bad TAP_SCHEMA table name."""
         with self.assertRaises(KeyError):
-            self.mgr["bad_table"]
+            self.tap_schema_setup.mgr["bad_table"]
 
 
 class ForceUnboundArraySizeTest(unittest.TestCase):
