@@ -153,6 +153,52 @@ def _find_row(rows: list[dict[str, Any]], column_name: str, value: str) -> dict[
     return next_row
 
 
+class TapSchemaSqliteSetup:
+    """Set up the TAP_SCHEMA SQLite database for testing.
+
+    Parameters
+    ----------
+    context : `dict`
+        Context for the schema. Default is an empty dictionary.
+    """
+
+    def __init__(self, context: dict = {}) -> None:
+        with open(TEST_TAP_SCHEMA) as test_file:
+            self._schema = Schema.from_stream(test_file, context=context)
+
+        self._engine = create_engine("sqlite:///:memory:")
+
+        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr.initialize_database(self._engine)
+        self._mgr = mgr
+
+        loader = DataLoader(self._schema, mgr, self._engine, tap_schema_index=2)
+        loader.load()
+
+        self._md = MetaData()
+        self._md.reflect(self._engine)
+
+    @property
+    def schema(self) -> Schema:
+        """Return the schema."""
+        return self._schema
+
+    @property
+    def engine(self) -> Any:
+        """Return the engine."""
+        return self._engine
+
+    @property
+    def mgr(self) -> TableManager:
+        """Return the table manager."""
+        return self._mgr
+
+    @property
+    def md(self) -> MetaData:
+        """Return the metadata."""
+        return self._md
+
+
 class TapSchemaDataTest(unittest.TestCase):
     """Test the validity of generated TAP SCHEMA data."""
 
@@ -310,6 +356,33 @@ class TapSchemaDataTest(unittest.TestCase):
         """Test getting a bad TAP_SCHEMA table name."""
         with self.assertRaises(KeyError):
             self.mgr["bad_table"]
+
+
+class ForceUnboundArraySizeTest(unittest.TestCase):
+    """Test that arraysize for appropriate types is set to '*' when the
+    ``force_unbounded_arraysize`` context flag is set to ``True``.
+    """
+
+    def setUp(self) -> None:
+        """Set up the test case."""
+        self.tap_schema_setup = TapSchemaSqliteSetup(
+            context={"id_generation": True, "force_unbound_arraysize": True}
+        )
+
+    def test_force_unbound_arraysize(self) -> None:
+        """Test that unbound arraysize is set to None."""
+        columns_table = self.tap_schema_setup.mgr["columns"]
+        with self.tap_schema_setup.engine.connect() as connection:
+            result = connection.execute(select(columns_table))
+            column_data = [row._asdict() for row in result]
+
+        table1_rows = [
+            row for row in column_data if row["table_name"] == f"{self.tap_schema_setup.schema.name}.table1"
+        ]
+        for row in table1_rows:
+            datatype = row["datatype"]
+            if datatype in ["char", "unicodeChar"] and row["column_name"] != "char_field":
+                self.assertEqual(row["arraysize"], "*")
 
 
 if __name__ == "__main__":

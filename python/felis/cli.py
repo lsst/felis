@@ -199,6 +199,11 @@ def create(
 @click.option("--echo", "-e", is_flag=True, help="Print out the generated insert statements to stdout")
 @click.option("--output-file", "-o", type=click.Path(), help="Write SQL commands to a file")
 @click.option(
+    "--force-unbound-arraysize",
+    is_flag=True,
+    help="Force unbound array size for all variable length string columns, e.g., ``votable:arraysize: *``",
+)
+@click.option(
     "--unique-keys",
     "-u",
     is_flag=True,
@@ -216,6 +221,7 @@ def load_tap_schema(
     dry_run: bool,
     echo: bool,
     output_file: str | None,
+    force_unbound_arraysize: bool,
     unique_keys: bool,
     file: IO[str],
 ) -> None:
@@ -256,7 +262,13 @@ def load_tap_schema(
         table_name_postfix=tap_tables_postfix,
     )
 
-    schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
+    schema = Schema.from_stream(
+        file,
+        context={
+            "id_generation": ctx.obj["id_generation"],
+            "force_unbound_arraysize": force_unbound_arraysize,
+        },
+    )
 
     DataLoader(
         schema,
