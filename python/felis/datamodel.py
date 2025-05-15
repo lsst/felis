@@ -421,7 +421,7 @@ class Column(BaseObject):
 
     @model_validator(mode="before")
     @classmethod
-    def check_votable_arraysize(cls, values: dict[str, Any]) -> dict[str, Any]:
+    def check_votable_arraysize(cls, values: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
         """Set the default value for the ``votable_arraysize`` field, which
         corresponds to ``arraysize`` in the IVOA VOTable standard.
 
@@ -429,6 +429,8 @@ class Column(BaseObject):
         ----------
         values
             Values of the column.
+        info
+            Validation context used to determine if the check is enabled.
 
         Returns
         -------
@@ -443,6 +445,7 @@ class Column(BaseObject):
         if values.get("name", None) is None or values.get("datatype", None) is None:
             # Skip bad column data that will not validate
             return values
+        context = info.context if info.context else {}
         arraysize = values.get("votable:arraysize", None)
         if arraysize is None:
             length = values.get("length", None)
@@ -452,7 +455,14 @@ class Column(BaseObject):
                 if datatype == "char":
                     arraysize = str(length)
                 elif datatype in ("string", "unicode", "binary"):
-                    arraysize = f"{length}*"
+                    if context.get("force_unbounded_arraysize", False):
+                        arraysize = "*"
+                        logger.debug(
+                            f"Forced VOTable's 'arraysize' to '*' on column '{values['name']}' with datatype "
+                            + f"'{values['datatype']}' and length '{length}'"
+                        )
+                    else:
+                        arraysize = f"{length}*"
             elif datatype in ("timestamp", "text"):
                 arraysize = "*"
             if arraysize is not None:
