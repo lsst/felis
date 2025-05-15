@@ -361,8 +361,7 @@ class ForceUnboundArraySizeTest(unittest.TestCase):
             row for row in column_data if row["table_name"] == f"{self.tap_schema_setup.schema.name}.table1"
         ]
         for row in table1_rows:
-            datatype = row["datatype"]
-            if datatype in ["char", "unicodeChar"] and row["column_name"] != "char_field":
+            if row["column_name"] in ["string_field", "text_field", "unicode_field", "binary_field"]:
                 self.assertEqual(row["arraysize"], "*")
 
 
