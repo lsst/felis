@@ -199,6 +199,12 @@ def create(
 @click.option("--echo", "-e", is_flag=True, help="Print out the generated insert statements to stdout")
 @click.option("--output-file", "-o", type=click.Path(), help="Write SQL commands to a file")
 @click.option(
+    "--force-unbounded-arraysize",
+    is_flag=True,
+    help="Use unbounded arraysize by default for all variable length string columns"
+    ", e.g., ``votable:arraysize: *`` (workaround for astropy bug #18099)",
+)  # DM-50899: Variable-length bounded strings are not handled correctly in astropy
+@click.option(
     "--unique-keys",
     "-u",
     is_flag=True,
@@ -216,6 +222,7 @@ def load_tap_schema(
     dry_run: bool,
     echo: bool,
     output_file: str | None,
+    force_unbounded_arraysize: bool,
     unique_keys: bool,
     file: IO[str],
 ) -> None:
@@ -256,7 +263,13 @@ def load_tap_schema(
         table_name_postfix=tap_tables_postfix,
     )
 
-    schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
+    schema = Schema.from_stream(
+        file,
+        context={
+            "id_generation": ctx.obj["id_generation"],
+            "force_unbounded_arraysize": force_unbounded_arraysize,
+        },
+    )
 
     DataLoader(
         schema,
