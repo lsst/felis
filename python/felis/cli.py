@@ -284,7 +284,7 @@ def load_tap_schema(
 
 
 @cli.command("init-tap-schema", help="Initialize a standard TAP_SCHEMA database")
-@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", required=True)
 @click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database")
 @click.option(
     "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
