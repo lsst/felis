@@ -1,0 +1,8 @@
+key_id,from_column,target_column
+k1,schema_name,schema_name
+k2,table_name,table_name
+k3,from_table,table_name
+k4,target_table,table_name
+k5,key_id,key_id
+k6,from_column,column_name
+k7,target_column,column_name

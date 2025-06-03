@@ -1,0 +1,8 @@
+key_id,from_table,target_table,utype,description
+k1,tap_schema.tables,tap_schema.schemas,\N,\N
+k2,tap_schema.columns,tap_schema.tables,\N,\N
+k3,tap_schema.keys,tap_schema.tables,\N,\N
+k4,tap_schema.keys,tap_schema.tables,\N,\N
+k5,tap_schema.key_columns,tap_schema.keys,\N,\N
+k6,tap_schema.key_columns,tap_schema.columns,\N,\N
+k7,tap_schema.key_columns,tap_schema.columns,\N,\N

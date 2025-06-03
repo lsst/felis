@@ -1,0 +1,2 @@
+schema_name,utype,description,schema_index
+tap_schema,\N,A TAP-standard-mandated schema to describe tablesets in a TAP 1.1 service,100000

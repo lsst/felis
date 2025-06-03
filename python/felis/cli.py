@@ -38,7 +38,7 @@ from .db.schema import create_database
 from .db.utils import DatabaseContext, is_mock_url
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
-from .tap_schema import DataLoader, TableManager
+from .tap_schema import DataLoader, TableManager, MetadataInserter
 
 __all__ = ["cli"]
 
@@ -289,9 +289,15 @@ def load_tap_schema(
 @click.option(
     "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
 )
+@click.option(
+    "--insert-metadata/--no-insert-metadata",
+    is_flag=True,
+    help="Insert metadata describing TAP_SCHEMA itself",
+    default=True,
+)
 @click.pass_context
 def init_tap_schema(
-    ctx: click.Context, engine_url: str, tap_schema_name: str, tap_tables_postfix: str
+    ctx: click.Context, engine_url: str, tap_schema_name: str, tap_tables_postfix: str, insert_metadata: bool
 ) -> None:
     """Initialize a standard TAP_SCHEMA database.
 
@@ -303,6 +309,10 @@ def init_tap_schema(
         Name of the TAP_SCHEMA schema in the database.
     tap_tables_postfix
         Postfix which is applied to standard TAP_SCHEMA table names.
+    insert_metadata
+        Insert metadata describing TAP_SCHEMA itself.
+        If set to False, only the TAP_SCHEMA tables will be created, but no
+        metadata will be inserted.
     """
     url = make_url(engine_url)
     engine: Engine | MockConnection
@@ -315,6 +325,9 @@ def init_tap_schema(
         table_name_postfix=tap_tables_postfix,
     )
     mgr.initialize_database(engine)
+    if insert_metadata:
+        inserter = MetadataInserter(mgr, engine)
+        inserter.insert_metadata()
 
 
 @cli.command("validate", help="Validate one or more Felis YAML files")
