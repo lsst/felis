@@ -646,13 +646,14 @@ class SchemaTestCase(unittest.TestCase):
         """Test loading a schema from a resource."""
         # Test loading a schema from a resource string.
         schema = Schema.from_uri(
-            "resource://felis/schemas/tap_schema_std.yaml", context={"id_generation": True}
+            "resource://felis/config/tap_schema/tap_schema_std.yaml", context={"id_generation": True}
         )
         self.assertIsInstance(schema, Schema)
 
         # Test loading a schema from a ResourcePath.
         schema = Schema.from_uri(
-            ResourcePath("resource://felis/schemas/tap_schema_std.yaml"), context={"id_generation": True}
+            ResourcePath("resource://felis/config/tap_schema/tap_schema_std.yaml"),
+            context={"id_generation": True},
         )
         self.assertIsInstance(schema, Schema)
 
@@ -662,7 +663,7 @@ class SchemaTestCase(unittest.TestCase):
 
         # Without ID generation enabled, this schema should fail validation.
         with self.assertRaises(ValidationError):
-            Schema.from_uri("resource://felis/schemas/tap_schema_std.yaml")
+            Schema.from_uri("resource://felis/config/tap_schema/tap_schema_std.yaml")
 
 
 class SchemaVersionTest(unittest.TestCase):

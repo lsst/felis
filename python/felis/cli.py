@@ -38,7 +38,7 @@ from .db.schema import create_database
 from .db.utils import DatabaseContext, is_mock_url
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
-from .tap_schema import DataLoader, TableManager, MetadataInserter
+from .tap_schema import DataLoader, MetadataInserter, TableManager
 
 __all__ = ["cli"]
 
