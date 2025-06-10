@@ -1,0 +1,3 @@
+Add support in the data model for optionally setting the ``ON UPDATE`` or ``ON DELETE`` actions of a foreign key constraint, 
+corresponding to the ``on_update`` and ``on_delete`` properties in the YAML file.
+Valid values for these properties are covered in the `SQLAlchemy documentation <https://docs.sqlalchemy.org/en/20/glossary.html#term-foreign-key-constraint>`__.
