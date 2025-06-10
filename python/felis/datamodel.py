@@ -633,6 +633,12 @@ class ForeignKeyConstraint(Constraint):
     referenced_columns: list[str] = Field(alias="referencedColumns")
     """The columns referenced by the foreign key."""
 
+    on_delete: Literal["CASCADE", "SET NULL", "RESTRICT", "NO ACTION"] | None = None
+    """Action to take when the referenced row is deleted."""
+
+    on_update: Literal["CASCADE", "DELETE", "RESTRICT", "NO ACTION"] | None = None
+    """Action to take when the referenced row is updated."""
+
     @field_serializer("type")
     def serialize_type(self, value: str) -> str:
         """Ensure '@type' is included in serialized output.

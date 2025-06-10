@@ -338,12 +338,17 @@ class MetaDataBuilder:
             "deferrable": constraint_obj.deferrable or None,
             "initially": constraint_obj.initially or None,
         }
+
         constraint: Constraint
 
         if isinstance(constraint_obj, datamodel.ForeignKeyConstraint):
             fk_obj: datamodel.ForeignKeyConstraint = constraint_obj
             columns = [self._objects[column_id] for column_id in fk_obj.columns]
             refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
+            if constraint_obj.on_delete is not None:
+                args["ondelete"] = constraint_obj.on_delete
+            if constraint_obj.on_update is not None:
+                args["onupdate"] = constraint_obj.on_update
             constraint = ForeignKeyConstraint(columns, refcolumns, **args)
         elif isinstance(constraint_obj, datamodel.CheckConstraint):
             check_obj: datamodel.CheckConstraint = constraint_obj

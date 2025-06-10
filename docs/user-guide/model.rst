@@ -155,8 +155,13 @@ Foreign key constraints may have the following additional attributes:
 
 :``columns``: One or more column names in the current table that are part of the foreign key. This should be one or more ``@id`` values pointing to columns in the current table.
 :``referencedColumns``: The columns referenced by the foreign key. This should be one or more ``@id`` values pointing to columns in another table.
+:``on_update``: The action to take when the referenced column is updated. This should be one of ``CASCADE``, ``DELETE``, ``RESTRICT``, or ``NO ACTION``.
+:``on_delete``: The action to take when the referenced column is deleted. This should be one of ``CASCADE``, ``SET NULL``, ``RESTRICT``, or ``NO ACTION``.
 
-A `check constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-check-constraint>`_ is a rule that
+The ``on_update`` and ``on_delete`` fields are optional and will be ommitted from the generated SQL if not set.
+The terminology used for thes field values is based on the `SQLAlchemy documentation <https://docs.sqlalchemy.org/en/20/glossary.html#term-foreign-key-constraint>`__
+
+A `check constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-check-constraint>`__ is a rule that
 restricts the values in a column.
 The constraint is defined by a SQL expression.
 Check constraints may have the following additional attributes:
