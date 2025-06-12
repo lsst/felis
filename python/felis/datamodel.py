@@ -1028,6 +1028,18 @@ class SchemaIdVisitor:
 T = TypeVar("T", bound=BaseObject)
 
 
+def _strip_ids(data: Any) -> Any:
+    if isinstance(data, dict):
+        data.pop("@id", None)
+        for k, v in data.items():
+            data[k] = _strip_ids(v)
+        return data
+    elif isinstance(data, list):
+        return [_strip_ids(item) for item in data]
+    else:
+        return data
+
+
 class Schema(BaseObject, Generic[T]):
     """Database schema model.
 
@@ -1394,31 +1406,56 @@ class Schema(BaseObject, Generic[T]):
         yaml_data = yaml.safe_load(source)
         return Schema.model_validate(yaml_data, context=context)
 
-    def dump_yaml(self, stream: IO[str] = sys.stdout) -> None:
+    def _model_dump(self, strip_ids: bool = False) -> dict[str, Any]:
+        """Dump the schema as a dictionary with some default arguments
+        applied.
+
+        Parameters
+        ----------
+        strip_ids
+            Whether to strip the IDs from the dumped data. Defaults to `False`.
+
+        Returns
+        -------
+        `dict` [ `str`, `Any` ]
+            The dumped schema data as a dictionary.
+        """
+        data = self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
+        if strip_ids:
+            data = _strip_ids(data)
+        return data
+
+    def dump_yaml(self, stream: IO[str] = sys.stdout, strip_ids: bool = False) -> None:
         """Pretty print the schema as YAML.
 
         Parameters
         ----------
         stream
             The stream to write the YAML data to.
+        strip_ids
+            Whether to strip the IDs from the dumped data. Defaults to `False`.
         """
+        data = self._model_dump(strip_ids=strip_ids)
         yaml.safe_dump(
-            self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+            data,
             stream,
             default_flow_style=False,
             sort_keys=False,
         )
 
-    def dump_json(self, stream: IO[str] = sys.stdout) -> None:
+    def dump_json(self, stream: IO[str] = sys.stdout, strip_ids: bool = False) -> None:
         """Pretty print the schema as JSON.
 
         Parameters
         ----------
         stream
             The stream to write the JSON data to.
+        strip_ids
+            Whether to strip the IDs from the dumped data. Defaults to `False`.
         """
+        data = self._model_dump(strip_ids=strip_ids)
         json.dump(
-            self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True),
+            data,
             stream,
             indent=4,
             sort_keys=False,

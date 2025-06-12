@@ -478,12 +478,21 @@ def diff(
       felis dump schema.yaml schema_dump.yaml
     """,
 )
+@click.option(
+    "--strip-ids/--no-strip-ids",
+    is_flag=True,
+    help="Strip IDs from the output schema",
+    default=False,
+)
 @click.argument("files", nargs=2, type=click.Path())
 @click.pass_context
 def dump(
     ctx: click.Context,
+    strip_ids: bool,
     files: list[str],
 ) -> None:
+    if strip_ids:
+        logger.info("Stripping IDs from the output schema")
     if files[1].endswith(".json"):
         format = "json"
     elif files[1].endswith(".yaml"):
@@ -493,9 +502,9 @@ def dump(
     schema = Schema.from_uri(files[0], context={"id_generation": ctx.obj["id_generation"]})
     with open(files[1], "w") as f:
         if format == "yaml":
-            schema.dump_yaml(f)
+            schema.dump_yaml(f, strip_ids=strip_ids)
         elif format == "json":
-            schema.dump_json(f)
+            schema.dump_json(f, strip_ids=strip_ids)
 
 
 if __name__ == "__main__":
