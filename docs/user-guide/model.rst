@@ -162,7 +162,7 @@ Foreign key constraints may have the following additional attributes:
 :``on_delete``: The action to take when the referenced column is deleted. See the `data model documentation for on_delete <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_delete>`__ for valid values [5]_.
 
 .. [5] The ``on_update`` and ``on_delete`` fields are optional and will be omitted from the generated SQL if not set.
-       The terminology used for the field values and their values is based on the `SQLAlchemy documentation for on update and on delete <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__.
+       The `SQLAlchemy documentation <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__ explains how these actions are implemented in DDL.
        Not all databases support all of these actions, so it is recommended to check the documentation for the specific database being used.
 
 Check Constraint
