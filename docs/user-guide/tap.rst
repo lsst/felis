@@ -36,12 +36,18 @@ Felis can create an empty TAP_SCHEMA database using the ``init-tap`` command.
     felis init-tap-schema --engine-url=mysql+mysqlconnector://user:password@host:port
 
 By default, this will create a database called ``TAP_SCHEMA``.
-If you want to use a different name for the TAP_SCHEMA schema itself in the database, you can specify this
-with the ``--tap-schema-name`` option:
+The ``--tap-schema-name`` option can be used to specify a different name for the TAP_SCHEMA database.
 
 .. code-block:: bash
 
     felis init-tap-schema --engine-url=mysql+mysqlconnector://user:password@host:port --tap-schema-name=MY_TAP_SCHEMA
+
+By default, the TAP_SCHEMA database which is created will include records describing its own schema.
+The ``--no-insert-metadata`` flag can be used to omit them.
+
+.. code-block:: bash
+
+    felis init-tap-schema --engine-url=mysql+mysqlconnector://user:password@host:port --no-insert-metadata
 
 Standards-conformant TAP services will generally make the TAP_SCHEMA data available at a ``/tables`` endpoint.
 Felis does not provide the full functionality and configuration for standing up a TAP service.
