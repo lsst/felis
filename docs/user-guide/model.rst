@@ -148,6 +148,9 @@ All types of constraints accept the following properties:
 Constraint Types
 ================
 
+Foreign Key Constraint
+----------------------
+
 A `foreign key constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-foreign-key-constraint>`__ is
 a rule that enforces referential integrity between two tables.
 The constraint is defined by a column in the current table that references a column in another table.
@@ -162,12 +165,18 @@ Foreign key constraints may have the following additional attributes:
        The terminology used for the field values and their values is based on the `SQLAlchemy documentation for on update and on delete <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__.
        Not all databases support all of these actions, so it is recommended to check the documentation for the specific database being used.
 
+Check Constraint
+----------------
+
 A `check constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-check-constraint>`__ is a rule that
 restricts the values in a column.
 The constraint is defined by a SQL expression.
 Check constraints may have the following additional attributes:
 
 :``expression``: The SQL expression that defines the constraint.
+
+Unique Constraint
+-----------------
 
 A `unique constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-unique-constraint>`__ is a rule
 that enforces uniqueness of values in a column or set of columns.
