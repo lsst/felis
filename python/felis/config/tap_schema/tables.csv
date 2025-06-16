@@ -1,0 +1,6 @@
+schema_name,table_name,table_type,utype,description,table_index
+tap_schema,tap_schema.columns,table,\N,description of columns in this tableset,102000
+tap_schema,tap_schema.key_columns,table,\N,description of foreign key columns in this tableset,104000
+tap_schema,tap_schema.keys,table,\N,description of foreign keys in this tableset,103000
+tap_schema,tap_schema.schemas,table,\N,description of schemas in this tableset,100000
+tap_schema,tap_schema.tables,table,\N,description of tables in this tableset,101000

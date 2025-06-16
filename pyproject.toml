@@ -60,7 +60,7 @@ zip-safe = true
 license-files = ["COPYRIGHT", "LICENSE"]
 
 [tool.setuptools.package-data]
-"felis" = ["py.typed", "schemas/*.yaml"]
+"felis" = ["py.typed", "config/tap_schema/*.yaml", "config/tap_schema/*.csv"]
 
 [tool.setuptools.dynamic]
 version = { attr = "lsst_versions.get_lsst_version" }

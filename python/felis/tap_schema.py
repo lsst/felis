@@ -21,6 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import csv
+import io
 import logging
 import os
 import re
@@ -208,7 +210,7 @@ class TableManager:
         str
             The path to the standard TAP_SCHEMA schema resource.
         """
-        return os.path.join(os.path.dirname(__file__), "schemas", "tap_schema_std.yaml")
+        return os.path.join(os.path.dirname(__file__), "config", "tap_schema", "tap_schema_std.yaml")
 
     @classmethod
     def get_tap_schema_std_resource(cls) -> ResourcePath:
@@ -219,7 +221,7 @@ class TableManager:
         `~lsst.resources.ResourcePath`
             The standard TAP_SCHEMA schema resource.
         """
-        return ResourcePath("resource://felis/schemas/tap_schema_std.yaml")
+        return ResourcePath("resource://felis/config/tap_schema/tap_schema_std.yaml")
 
     @classmethod
     def get_table_names_std(cls) -> list[str]:
@@ -708,3 +710,48 @@ class DataLoader:
             if index.columns and len(index.columns) == 1 and index.columns[0] == column.id:
                 return 1
         return 0
+
+
+class MetadataInserter:
+    """Insert TAP_SCHEMA self-description rows into the database.
+
+    Parameters
+    ----------
+    mgr
+        The table manager that contains the TAP_SCHEMA tables.
+    engine
+        The engine for connecting to the TAP_SCHEMA database.
+    """
+
+    def __init__(self, mgr: TableManager, engine: Engine):
+        """Initialize the metadata inserter.
+
+        Parameters
+        ----------
+        mgr
+            The table manager representing the TAP_SCHEMA tables.
+        engine
+            The SQLAlchemy engine for connecting to the database.
+        """
+        self._mgr = mgr
+        self._engine = engine
+
+    def insert_metadata(self) -> None:
+        """Insert the TAP_SCHEMA metadata into the database."""
+        for table_name in self._mgr.get_table_names_std():
+            table = self._mgr[table_name]
+            csv_bytes = ResourcePath(f"resource://felis/config/tap_schema/{table_name}.csv").read()
+            text_stream = io.TextIOWrapper(io.BytesIO(csv_bytes), encoding="utf-8")
+            reader = csv.reader(text_stream)
+            headers = next(reader)
+            rows = [
+                {key: None if value == "\\N" else value for key, value in zip(headers, row)} for row in reader
+            ]
+            logger.debug(
+                "Inserting %d rows into table '%s' with headers: %s",
+                len(rows),
+                table_name,
+                headers,
+            )
+            with self._engine.begin() as conn:
+                conn.execute(table.insert(), rows)
