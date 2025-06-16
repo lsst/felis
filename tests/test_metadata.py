@@ -118,6 +118,8 @@ class MetaDataTestCase(unittest.TestCase):
                         md_db_fk: ForeignKeyConstraint = md_db_constraint
                         self.assertEqual(md_fk.referred_table.name, md_db_fk.referred_table.name)
                         self.assertEqual(md_fk.column_keys, md_db_fk.column_keys)
+                        self.assertEqual(md_fk.ondelete, md_db_fk.ondelete)
+                        self.assertEqual(md_fk.onupdate, md_db_fk.onupdate)
                     elif isinstance(md_constraint, UniqueConstraint) and isinstance(
                         md_db_constraint, UniqueConstraint
                     ):
@@ -239,6 +241,21 @@ class MetaDataTestCase(unittest.TestCase):
         md = builder.build()
         for table in md.tables.values():
             self.assertTrue(table.name.endswith("_test"))
+
+    def test_fk_actions(self) -> None:
+        """Test that foreign key constraints with on delete and on update
+        actions are created correctly.
+        """
+        schema = Schema.model_validate(self.yaml_data)
+        schema.name = "main"
+        builder = MetaDataBuilder(schema)
+        md = builder.build()
+
+        for table in md.tables.values():
+            for constraint in table.constraints:
+                if isinstance(constraint, ForeignKeyConstraint):
+                    self.assertIn(constraint.ondelete, ["SET NULL"])
+                    self.assertIn(constraint.onupdate, ["CASCADE"])
 
 
 if __name__ == "__main__":

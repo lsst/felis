@@ -75,6 +75,8 @@ tables:
           - "#orders.customer_id"
         referencedColumns:
           - "#customers.customer_id"
+        on_delete: SET NULL
+        on_update: CASCADE
     primaryKey: "#orders.order_id"
   - name: items
     "@id": "#items"

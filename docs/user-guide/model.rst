@@ -148,6 +148,9 @@ All types of constraints accept the following properties:
 Constraint Types
 ================
 
+Foreign Key Constraint
+----------------------
+
 A `foreign key constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-foreign-key-constraint>`__ is
 a rule that enforces referential integrity between two tables.
 The constraint is defined by a column in the current table that references a column in another table.
@@ -155,13 +158,25 @@ Foreign key constraints may have the following additional attributes:
 
 :``columns``: One or more column names in the current table that are part of the foreign key. This should be one or more ``@id`` values pointing to columns in the current table.
 :``referencedColumns``: The columns referenced by the foreign key. This should be one or more ``@id`` values pointing to columns in another table.
+:``on_update``: The action to take when the referenced column is updated. See the  `data model documentation for on_update <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_update>`__ for valid values [5]_.
+:``on_delete``: The action to take when the referenced column is deleted. See the `data model documentation for on_delete <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_delete>`__ for valid values [5]_.
 
-A `check constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-check-constraint>`_ is a rule that
+.. [5] The ``on_update`` and ``on_delete`` fields are optional and will be omitted from the generated SQL if not set.
+       The terminology used for the field values and their values is based on the `SQLAlchemy documentation for on update and on delete <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__.
+       Not all databases support all of these actions, so it is recommended to check the documentation for the specific database being used.
+
+Check Constraint
+----------------
+
+A `check constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-check-constraint>`__ is a rule that
 restricts the values in a column.
 The constraint is defined by a SQL expression.
 Check constraints may have the following additional attributes:
 
 :``expression``: The SQL expression that defines the constraint.
+
+Unique Constraint
+-----------------
 
 A `unique constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-unique-constraint>`__ is a rule
 that enforces uniqueness of values in a column or set of columns.
@@ -183,10 +198,11 @@ Indexes are defined by one or more columns in the table and have the following a
 :``name``: The name of the index. This is the name that will be used to create the index in the database.
 :``description``: A textual description of this index.
 :``@id``: A unique identifier for this index.
-:``columns``: The list of columns in the table that are part of the index. This should be one or more ``@id`` values pointing to columns in the table [5]_.
-:``expressions``: The list of SQL expressions that are part of the index. This is only applicable to indexes that are created using expressions [5]_.
+:``columns``: The list of columns in the table that are part of the index. This should be one or more ``@id`` values pointing to columns in the table [6]_.
+:``expressions``: The list of SQL expressions that are part of the index. This is only applicable to indexes that are created using expressions [6]_.
 
-.. [5] The ``columns`` and ``expressions`` fields are mutually exclusive. Only one of these fields should be set on an index object.
+.. [6] The ``columns`` and ``expressions`` fields are mutually exclusive.
+       Only one of these fields should be set on an index object.
 
 .. warning::
     Databases may be updated with additional indexes that are not defined in the schema. These indexes will not be reflected in the Felis schema.
