@@ -27,6 +27,9 @@ deps:
 
 install: deps build
 
+uninstall:
+	@uv pip uninstall lsst-felis
+
 docs:
 	@rm -rf docs/dev/internals docs/_build
 	@tox -e docs
@@ -47,6 +50,7 @@ mypy:
 	@mypy python/
 
 all:
+	@$(MAKE) uninstall
 	@$(MAKE) build
 	@$(MAKE) deps
 	@$(MAKE) docs

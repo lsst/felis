@@ -1,0 +1,2 @@
+Add option to strip IDs from output YAML when dumping a schema to YAML.
+The command ``felis dump --strip-ids`` can be used to activate this behavior.
