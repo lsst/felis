@@ -23,7 +23,9 @@ import os
 import shutil
 import tempfile
 import unittest
+from typing import Any
 
+import yaml
 from sqlalchemy import create_engine
 
 import felis.tap_schema as tap_schema
@@ -170,10 +172,50 @@ class CliTestCase(unittest.TestCase):
         with tempfile.NamedTemporaryFile(delete=True, suffix=".yaml") as temp_file:
             run_cli(["dump", TEST_YAML, temp_file.name], print_output=True)
 
+    @classmethod
+    def _check_strip_ids(cls, obj: Any) -> None:
+        """
+        Recursively check that a dict/list structure has no attributes with key
+        '@id'. Raises a ValueError if any '@id' key is found. This is used to
+        check the output of the `--strip-ids` option in the `dump` command.
+        """
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "@id":
+                    raise ValueError("Found forbidden key '@id'")
+                cls._check_strip_ids(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                cls._check_strip_ids(item)
+
+    def test_dump_yaml_with_strip_ids(self) -> None:
+        """Test for ``dump`` command with YAML output and stripped IDs."""
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".yaml") as temp_file:
+            run_cli(["dump", "--strip-ids", TEST_YAML, temp_file.name], print_output=True)
+            dumped_data = temp_file.read().decode("utf-8")
+            try:
+                # Load the dumped YAML data to check for '@id' keys.
+                data = yaml.safe_load(dumped_data)
+                self._check_strip_ids(data)
+            except ValueError:
+                self.fail("Dumped YAML contains forbidden key '@id'")
+
     def test_dump_json(self) -> None:
         """Test for ``dump`` command with JSON output."""
         with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
             run_cli(["dump", TEST_YAML, temp_file.name], print_output=True)
+
+    def test_dump_json_with_strip_ids(self) -> None:
+        """Test for ``dump`` command with JSON output."""
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
+            run_cli(["dump", "--strip-ids", TEST_YAML, temp_file.name], print_output=True)
+            dumped_data = temp_file.read().decode("utf-8")
+            try:
+                # Load the dumped YAML data to check for '@id' keys.
+                data = yaml.safe_load(dumped_data)
+                self._check_strip_ids(data)
+            except ValueError:
+                self.fail("Dumped YAML contains forbidden key '@id'")
 
     def test_dump_with_invalid_file_extension_error(self) -> None:
         """Test for ``dump`` command with JSON output."""
