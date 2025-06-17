@@ -1029,6 +1029,14 @@ T = TypeVar("T", bound=BaseObject)
 
 
 def _strip_ids(data: Any) -> Any:
+    """Recursively strip '@id' fields from a dictionary or list.
+
+    Parameters
+    ----------
+    data
+        The data to strip IDs from, which can be a dictionary, list, or any
+        other type. Other types will be returned unchanged.
+    """
     if isinstance(data, dict):
         data.pop("@id", None)
         for k, v in data.items():
