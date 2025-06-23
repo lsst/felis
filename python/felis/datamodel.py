@@ -39,11 +39,13 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
+    ValidationError,
     ValidationInfo,
     field_serializer,
     field_validator,
     model_validator,
 )
+from pydantic_core import InitErrorDetails
 
 from .db.dialects import get_supported_dialects
 from .db.sqltypes import get_type_func
@@ -758,7 +760,10 @@ class ColumnGroup(BaseObject):
         for col in self.columns:
             if isinstance(col, str):
                 # Dereference ColumnRef to Column object
-                col_obj = self.table._find_column_by_id(col)
+                try:
+                    col_obj = self.table._find_column_by_id(col)
+                except KeyError as e:
+                    raise ValueError(f"Column '{col}' not found in table '{self.table.name}'") from e
                 dereferenced_columns.append(col_obj)
             else:
                 dereferenced_columns.append(col)
@@ -908,7 +913,7 @@ class Table(BaseObject):
         for column in self.columns:
             if column.id == id:
                 return column
-        raise ValueError(f"Column '{id}' not found in table '{self.name}'")
+        raise KeyError(f"Column '{id}' not found in table '{self.name}'")
 
     @model_validator(mode="after")
     def dereference_column_groups(self: Table) -> Table:
@@ -1046,6 +1051,36 @@ def _strip_ids(data: Any) -> Any:
         return [_strip_ids(item) for item in data]
     else:
         return data
+
+
+def _append_error(
+    errors: list[InitErrorDetails],
+    loc: tuple,
+    input_value: Any,
+    error_message: str,
+    error_type: str = "value_error",
+) -> None:
+    """Append an error to the errors list.
+
+    Parameters
+    ----------
+    errors : list[InitErrorDetails]
+        The list of errors to append to.
+    loc : tuple
+        The location of the error in the schema.
+    input_value : Any
+        The input value that caused the error.
+    error_message : str
+        The error message to include in the context.
+    """
+    errors.append(
+        {
+            "type": error_type,
+            "loc": loc,
+            "input": input_value,
+            "ctx": {"error": error_message},
+        }
+    )
 
 
 class Schema(BaseObject, Generic[T]):
@@ -1230,18 +1265,19 @@ class Schema(BaseObject, Generic[T]):
 
         return self
 
-    def _create_id_map(self: Schema) -> Schema:
+    @model_validator(mode="after")
+    def create_id_map(self: Schema) -> Schema:
         """Create a map of IDs to objects.
+
+        Returns
+        -------
+        `Schema`
+            The schema with the ID map created.
 
         Raises
         ------
         ValueError
             Raised if duplicate identifiers are found in the schema.
-
-        Notes
-        -----
-        This is called automatically by the `model_post_init` method. If the
-        ID map is already populated, this method will return immediately.
         """
         if self._id_map:
             logger.debug("Ignoring call to create_id_map() - ID map was already populated")
@@ -1252,25 +1288,152 @@ class Schema(BaseObject, Generic[T]):
             raise ValueError(
                 "Duplicate IDs found in schema:\n    " + "\n    ".join(visitor.duplicates) + "\n"
             )
+        logger.debug("Created ID map with %d entries", len(self._id_map))
         return self
 
-    def model_post_init(self, ctx: Any) -> None:
-        """Post-initialization hook for the model.
+    def _validate_column_id(
+        self: Schema,
+        column_id: str,
+        loc: tuple,
+        errors: list[InitErrorDetails],
+    ) -> None:
+        """Validate a column ID from a constraint and append errors if invalid.
 
         Parameters
         ----------
-        ctx
-            The context object which was passed to the model.
-
-        Notes
-        -----
-        This method is called automatically by Pydantic after the model is
-        initialized. It is used to create the ID map for the schema.
-
-        The ``ctx`` argument has the type `Any` because this is the function
-        signature in Pydantic itself.
+        schema : Schema
+            The schema being validated.
+        column_id : str
+            The column ID to validate.
+        loc : tuple
+            The location of the error in the schema.
+        errors : list[InitErrorDetails]
+            The list of errors to append to.
         """
-        self._create_id_map()
+        if column_id not in self:
+            _append_error(
+                errors,
+                loc,
+                column_id,
+                f"Column ID '{column_id}' not found in schema",
+            )
+        elif not isinstance(self[column_id], Column):
+            _append_error(
+                errors,
+                loc,
+                column_id,
+                f"ID '{column_id}' does not refer to a Column object",
+            )
+
+    def _validate_foreign_key_column(
+        self: Schema,
+        column_id: str,
+        table: Table,
+        loc: tuple,
+        errors: list[InitErrorDetails],
+    ) -> None:
+        """Validate a foreign key column ID from a constraint and append errors
+        if invalid.
+
+        Parameters
+        ----------
+        schema : Schema
+            The schema being validated.
+        column_id : str
+            The foreign key column ID to validate.
+        loc : tuple
+            The location of the error in the schema.
+        errors : list[InitErrorDetails]
+            The list of errors to append to.
+        """
+        try:
+            table._find_column_by_id(column_id)
+        except KeyError:
+            _append_error(
+                errors,
+                loc,
+                column_id,
+                f"Column '{column_id}' not found in table '{table.name}'",
+            )
+
+    @model_validator(mode="after")
+    def check_constraints(self: Schema) -> Schema:
+        """Check constraint objects for validity. This needs to be deferred
+        until after the schema is fully loaded and the ID map is created.
+
+        Raises
+        ------
+        pydantic.ValidationError
+            Raised if any constraints are invalid.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+        """
+        errors: list[InitErrorDetails] = []
+
+        for table_index, table in enumerate(self.tables):
+            for constraint_index, constraint in enumerate(table.constraints):
+                column_ids: list[str] = []
+                referenced_column_ids: list[str] = []
+
+                if isinstance(constraint, ForeignKeyConstraint):
+                    column_ids += constraint.columns
+                    referenced_column_ids += constraint.referenced_columns
+                elif isinstance(constraint, UniqueConstraint):
+                    column_ids += constraint.columns
+                # No extra checks are required on CheckConstraint objects.
+
+                # Validate the foreign key columns
+                for column_id in column_ids:
+                    self._validate_column_id(
+                        column_id,
+                        (
+                            "tables",
+                            table_index,
+                            "constraints",
+                            constraint_index,
+                            "columns",
+                            column_id,
+                        ),
+                        errors,
+                    )
+                    # Check that the foreign key column is within the source
+                    # table.
+                    self._validate_foreign_key_column(
+                        column_id,
+                        table,
+                        (
+                            "tables",
+                            table_index,
+                            "constraints",
+                            constraint_index,
+                            "columns",
+                            column_id,
+                        ),
+                        errors,
+                    )
+
+                # Validate the primary key (reference) columns
+                for referenced_column_id in referenced_column_ids:
+                    self._validate_column_id(
+                        referenced_column_id,
+                        (
+                            "tables",
+                            table_index,
+                            "constraints",
+                            constraint_index,
+                            "referenced_columns",
+                            referenced_column_id,
+                        ),
+                        errors,
+                    )
+
+        if errors:
+            raise ValidationError.from_exception_data("Schema validation failed", errors)
+
+        return self
 
     def __getitem__(self, id: str) -> BaseObject:
         """Get an object by its ID.
