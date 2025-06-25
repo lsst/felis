@@ -1,0 +1,2 @@
+Added schema-level checks of constraints to validate their column references.
+These will be reported as proper Pydantic validation errors if the column data is bad.

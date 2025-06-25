@@ -25,4 +25,4 @@ tables:
   - name: test_constraint
     "@type": Unique
     columns:
-    - test_column2
+    - "#test_table.test_column2"

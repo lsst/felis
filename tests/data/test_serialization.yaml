@@ -60,7 +60,7 @@ tables:
     columns:
     - '#test_table.test_column'
     referencedColumns:
-    - '#test_table2.id'
+    - '#test_table2.test_column2'
   - name: test_check_constraint
     '@id': '#test_table.test_check_constraint'
     description: Test check constraint
@@ -77,7 +77,7 @@ tables:
 - name: test_table2
   '@id': '#test_table2'
   description: Test table 2
-  primaryKey: '#test_table2.id'
+  primaryKey: '#test_table2.test_column2'
   columns:
   - name: id
     '@id': '#test_table2.test_column2'
