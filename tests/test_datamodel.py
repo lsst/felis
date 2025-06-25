@@ -451,6 +451,105 @@ class ConstraintTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             UniqueConstraint(name="uniq_test", id="#uniq_test", columns=["test_column"], type="BAD_TYPE")
 
+    def test_constraint_column_checks(self) -> None:
+        """Test the extra validation in the ``Schema`` that checks the
+        constraint column references.
+        """
+
+        def _create_test_schema(constraint: Constraint) -> None:
+            """Create a test schema with the given constraint."""
+            test_col = Column(name="testColumn", id="#test_col_id", datatype="int")
+            test_col2 = Column(name="testColumn2", id="#test_col_id2", datatype="int")
+            test_tbl = Table(
+                name="testTable", id="#test_tbl_id", columns=[test_col, test_col2], constraints=[constraint]
+            )
+            test_col = Column(name="testColumn", id="#test_col2_id", datatype="int")
+            test_col2 = Column(name="testColumn2", id="#test_col2_id2", datatype="int")
+            test_tbl2 = Table(name="testTable2", id="#test_tbl2_id", columns=[test_col, test_col2])
+            Schema(name="testSchema", id="#test_schema_id", tables=[test_tbl, test_tbl2])
+
+        # Creating a unique constraint on a bad column should raise an
+        # exception.
+        with self.assertRaises(ValidationError):
+            _create_test_schema(
+                UniqueConstraint(name="testConstraint", id="#test_constraint_id", columns=["bad_column"])
+            )
+
+        # Creating a foreign key constraint with a bad column should raise an
+        # exception.
+        with self.assertRaises(ValidationError):
+            _create_test_schema(
+                ForeignKeyConstraint(
+                    name="testForeignKey",
+                    id="#test_fk_id",
+                    columns=["bad_column"],
+                    referenced_columns=["#test_col2_id"],
+                )
+            )
+
+        # Creating a foreign key constraint with a bad referenced column should
+        # raise an exception.
+        with self.assertRaises(ValidationError):
+            _create_test_schema(
+                ForeignKeyConstraint(
+                    name="testForeignKey",
+                    id="#test_fk_id",
+                    columns=["#test_col_id"],
+                    referenced_columns=["bad_column"],
+                )
+            )
+
+        # Creating a foreign key constraint where the source column is not in
+        # the same table as the constraint should raise an exception.
+        with self.assertRaises(ValidationError):
+            _create_test_schema(
+                ForeignKeyConstraint(
+                    name="testForeignKey",
+                    id="#test_fk_id",
+                    columns=["#test_col2_id"],  # This column is in test_tbl2, not test_tbl
+                    referenced_columns=["#test_col_id"],
+                )
+            )
+
+        # Creating a foreign key constraint where the referenced column is not
+        # a column object should raise an exception.
+        with self.assertRaises(ValidationError):
+            _create_test_schema(
+                ForeignKeyConstraint(
+                    name="testForeignKey",
+                    id="#test_fk_id",
+                    columns=["#test_col_id"],
+                    referenced_columns=["#test_schema_id"],
+                )
+            )
+
+        # Creating a valid unique constraint should not raise an exception.
+        _create_test_schema(
+            UniqueConstraint(name="testConstraint", id="#test_constraint_id", columns=["#test_col_id"])
+        )
+
+        # Creating a valid foreign key constraint should not raise an
+        # exception.
+        _create_test_schema(
+            ForeignKeyConstraint(
+                name="testForeignKey",
+                id="#test_fk_id",
+                columns=["#test_col_id"],
+                referenced_columns=["#test_col2_id"],
+            )
+        )
+
+        # Creating a foreign key constraint with a composite key should not
+        # raise an exception.
+        _create_test_schema(
+            ForeignKeyConstraint(
+                name="testCompositeForeignKey",
+                id="#test_composite_fk_id",
+                columns=["#test_col_id", "#test_col_id2"],
+                referenced_columns=["#test_col2_id", "#test_col2_id2"],
+            )
+        )
+
 
 class IndexTestCase(unittest.TestCase):
     """Test Pydantic validation of the ``Index`` class."""
@@ -575,8 +674,8 @@ class SchemaTestCase(unittest.TestCase):
 
     def test_check_unique_index_names(self) -> None:
         """Test that index names are unique."""
-        test_col = Column(name="test_column1", id="#test_table#test_column1", datatype="int")
-        test_col2 = Column(name="test_column2", id="##test_table#test_column2", datatype="string", length=256)
+        test_col = Column(name="test_column1", id="#test_table.test_column1", datatype="int")
+        test_col2 = Column(name="test_column2", id="#test_table.test_column2", datatype="string", length=256)
         test_tbl = Table(name="test_table", id="#test_table", columns=[test_col, test_col2])
         test_idx = Index(name="idx_test", id="#idx_test", columns=[test_col.id])
         test_idx2 = Index(name="idx_test", id="#idx_test2", columns=[test_col2.id])
