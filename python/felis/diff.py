@@ -141,10 +141,8 @@ class FormattedSchemaDiff(SchemaDiff):
                 handler(self.diff[change_type])
 
     def _print_header(self, id_dict: dict[str, Any], keys: list[int | str]) -> None:
-        # id = self._get_id(id_dict, keys)
-        # Don't display ID here for now; it is always just the schema ID.
-        print(f"{self._get_key_display(keys)}")
-        # print(f"{id} @ {self._get_key_display(keys)}")
+        id = self._get_id(id_dict, keys)
+        print(f"'{id}'@{self._get_key_display(keys)}")
 
     def _handle_values_changed(self, changes: dict[str, Any]) -> None:
         for key in changes:
@@ -187,24 +185,27 @@ class FormattedSchemaDiff(SchemaDiff):
 
     @staticmethod
     def _get_id(values: dict, keys: list[str | int]) -> str:
-        # Unused for now, pending updates to diff tool in DM-49446.
         value: list | dict = values
         last_id = None
 
         for key in keys:
             logger.debug(f"Processing key <{key}> with type {type(key)}")
             logger.debug(f"Type of value: {type(value)}")
+
+            # Store the ID if current value is a dict with an 'id' field
             if isinstance(value, dict) and "id" in value:
                 last_id = value["id"]
+
+            # Navigate to the next level
+            if isinstance(value, dict) and key in value:
+                value = value[key]
             elif isinstance(value, list) and isinstance(key, int):
                 if 0 <= key < len(value):
                     value = value[key]
                 else:
                     raise ValueError(f"Index '{key}' is out of range for list of length {len(value)}")
-                value = value[key]
-
-        if isinstance(value, dict) and "id" in value:
-            last_id = value["id"]
+            else:
+                raise ValueError(f"Key '{key}' not found in value of type {type(value)}")
 
         if last_id is not None:
             return last_id
