@@ -432,6 +432,13 @@ def validate(
 )
 @click.option("-E", "--error-on-change", is_flag=True, help="Exit with error code if schemas are different")
 @click.option("--table", "tables", multiple=True, help="Table names to filter on.")
+@click.option(
+    "--output-file",
+    "-o",
+    type=click.File(mode="w"),
+    help="Write diff output to a file insteading of printing",
+    default=None,
+)
 @click.argument("files", nargs=-1, type=click.File())
 @click.pass_context
 def diff(
@@ -440,6 +447,7 @@ def diff(
     comparator: str,
     error_on_change: bool,
     tables: list[str],
+    output_file: IO[str] | None,
     files: Iterable[IO[str]],
 ) -> None:
     schemas = [
@@ -466,7 +474,7 @@ def diff(
             "Invalid arguments - provide two schemas or a schema and a database engine URL"
         )
 
-    diff.print()
+    diff.print(output_file)
 
     if diff.has_changes and error_on_change:
         raise click.ClickException("Schema was changed")

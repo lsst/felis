@@ -25,7 +25,7 @@ import copy
 import json
 import logging
 import re
-from typing import Any
+from typing import IO, Any
 
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
@@ -108,11 +108,16 @@ class SchemaDiff:
         """
         return []  # Base implementation returns empty list
 
-    def print(self) -> None:
+    def print(self, output_stream: IO[str] | None = None) -> None:
         """
         Print the differences between the two schemas in raw format.
+
+        Parameters
+        ----------
+        output_stream
+            The output stream for printing the differences.
         """
-        print(self.diff)
+        print(self.diff, file=output_stream)
 
     @property
     def has_changes(self) -> bool:
@@ -179,23 +184,28 @@ class FormattedSchemaDiff(SchemaDiff):
             "values_changed": self._collect_values_changed,
             "iterable_item_added": self._collect_iterable_item_added,
             "iterable_item_removed": self._collect_iterable_item_removed,
-            "dictionary_item_added": self._collect_dictionary_item_added,
+            "dictionary_item_added": lambda paths: self._collect_dictionary_item_added(paths),
             "dictionary_item_removed": self._collect_dictionary_item_removed,
         }
 
         for change_type, handler in handlers.items():
             if change_type in self.diff:
-                changes.extend(handler(self.diff[change_type], change_type))
+                changes.extend(handler(self.diff[change_type]))
 
         return changes
 
-    def print(self) -> None:
+    def print(self, output_stream: IO[str] | None = None) -> None:
         """
         Print the differences between the two schemas as JSON.
-        """
-        print(json.dumps(self.to_change_list(), indent=2))
 
-    def _get_id(self, keys: list[str | int]) -> str:
+        Parameters
+        ----------
+        output_stream
+            The output stream for printing the differences.
+        """
+        print(json.dumps(self.to_change_list(), indent=2), file=output_stream)
+
+    def _get_id(self, source_dict: dict, keys: list[str | int]) -> str:
         """
         Extract the most relevant ID from the path using `_find_id` and return
         it. If no ID is found, return "unknown".
@@ -211,21 +221,19 @@ class FormattedSchemaDiff(SchemaDiff):
             The extracted ID.
         """
         try:
-            return self._find_id(self.dict_old, keys)
+            return self._find_id(source_dict, keys)
         except ValueError:
             return "unknown"
 
-    def _collect_values_changed(self, changes: dict[str, Any], change_type: str) -> list[dict[str, Any]]:
+    def _collect_values_changed(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
         """Collect value change differences."""
         results = []
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            id_value = self._get_id(keys)
-
             results.append(
                 {
-                    "change_type": change_type,
-                    "id": id_value,
+                    "change_type": "values_changed",
+                    "id": self._get_id(self.dict_old, keys),
                     "path": self._get_key_display(keys),
                     "old_value": changes[key]["old_value"],
                     "new_value": changes[key]["new_value"],
@@ -233,81 +241,78 @@ class FormattedSchemaDiff(SchemaDiff):
             )
         return results
 
-    def _collect_iterable_item_added(self, changes: dict[str, Any], change_type: str) -> list[dict[str, Any]]:
+    def _collect_iterable_item_added(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
         """Collect iterable item addition differences."""
         results = []
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            id_value = self._get_id(keys)
-
             results.append(
                 {
-                    "change_type": change_type,
-                    "id": id_value,
+                    "change_type": "iterable_item_added",
+                    "id": self._get_id(self.dict_new, keys),
                     "path": self._get_key_display(keys),
                     "value": changes[key],
                 }
             )
         return results
 
-    def _collect_iterable_item_removed(
-        self, changes: dict[str, Any], change_type: str
-    ) -> list[dict[str, Any]]:
+    def _collect_iterable_item_removed(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
         """Collect iterable item removal differences."""
         results = []
         for key in changes:
             keys = self._parse_deepdiff_path(key)
-            id_value = self._get_id(keys)
-
             results.append(
                 {
-                    "change_type": change_type,
-                    "id": id_value,
+                    "change_type": "iterable_item_removed",
+                    "id": self._get_id(self.dict_old, keys),
                     "path": self._get_key_display(keys),
                     "value": changes[key],
                 }
             )
         return results
 
-    def _collect_dictionary_item_added(
-        self, changes: dict[str, Any], change_type: str
-    ) -> list[dict[str, Any]]:
-        """Collect dictionary item addition differences."""
-        results = []
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
+    @classmethod
+    def _get_value_from_key(cls, data: Any, keys: list[str | int]) -> Any:
+        for key in keys:
+            data = data[key]  # step through nested dicts/lists
+        return data
 
+    def _collect_dictionary_item_added(self, paths: list[str]) -> list[dict[str, Any]]:
+        """Collect dictionary item addition differences from DeepDiff path
+        list.
+        """
+        results = []
+        for path in paths:
+            keys = self._parse_deepdiff_path(path)
             added_key = keys[-1]
             parent_keys = keys[:-1]
-            id_value = self._get_id(keys)
-
+            try:
+                value = self._get_value_from_key(self.dict_new, keys)
+            except (KeyError, IndexError, TypeError):
+                logger.warning(f"Could not resolve value for path: {path}")
+                value = None
             results.append(
                 {
-                    "change_type": change_type,
-                    "id": id_value,
+                    "change_type": "dictionary_item_added",
+                    "id": self._get_id(self.dict_new, keys),
                     "path": self._get_key_display(parent_keys),
                     "added_key": added_key,
-                    "value": changes[key],
+                    "value": value,
                 }
             )
         return results
 
-    def _collect_dictionary_item_removed(
-        self, changes: dict[str, Any], change_type: str
-    ) -> list[dict[str, Any]]:
+    def _collect_dictionary_item_removed(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
         """Collect dictionary item removal differences."""
         results = []
         for key in changes:
             keys = self._parse_deepdiff_path(key)
             removed_key = keys[-1]
             parent_keys = keys[:-1]
-
-            id_value = self._get_id(keys)
-
             results.append(
                 {
-                    "change_type": change_type,
-                    "id": id_value,
+                    "change_type": "dictionary_item_removed",
+                    "id": self._get_id(self.dict_old, keys),
                     "path": self._get_key_display(parent_keys),
                     "removed_key": removed_key,
                     "value": changes[key],
@@ -349,8 +354,10 @@ class FormattedSchemaDiff(SchemaDiff):
 
     @staticmethod
     def _get_key_display(keys: list[str | int]) -> str:
-        """Convert keys list to a dot-notation path."""
-        return ".".join(str(k) for k in keys)
+        """Convert keys list to a dot-notation path. If no keys are provided,
+        we assume the root path.
+        """
+        return ".".join(str(k) for k in keys) if keys else "root"
 
     @staticmethod
     def _parse_deepdiff_path(path: str) -> list[str | int]:
@@ -413,11 +420,13 @@ class DatabaseDiff(SchemaDiff):
             )
         return changes
 
-    def print(self) -> None:
+    def print(self, output_stream: IO[str] | None = None) -> None:
         """
         Print the differences between the schema and the database as JSON.
+
+        Parameters
+        ----------
+        output_stream
+            The output stream for printing the differences.
         """
-        if self.has_changes:
-            print(json.dumps(self.to_change_list(), indent=2))
-        else:
-            print("[]")
+        print(json.dumps(self.to_change_list(), indent=2), file=output_stream)
