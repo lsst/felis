@@ -27,6 +27,7 @@ import logging
 import re
 from typing import IO, Any
 
+import sqlalchemy
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from deepdiff.diff import DeepDiff
@@ -388,17 +389,73 @@ class DatabaseDiff(SchemaDiff):
         The schema to compare.
     engine
         The database engine to compare with.
+
+    Notes
+    -----
+    The `DatabaseDiff` class uses SQLAlchemy to reflect the database schema
+    and compare it with the provided `~felis.datamodel.Schema` object. It
+    generates a list of differences between the two schemas, which can be
+    printed or converted to a structured format.
+
+    The error-handling during the reflection and comparison process is
+    robust, catching various exceptions that may arise from database
+    connectivity issues, invalid configurations, or unexpected errors.
+    This is done because otherwise some obscure errors may be raised
+    during the reflection process and configuration of alembic, which are not
+    very informative to the user.
     """
 
     def __init__(self, schema: Schema, engine: Engine):
+        self.schema = schema
+        self.engine = engine
+        self._generate_diff()
+
+    def _generate_diff(self) -> None:
+        """Generate the differences between the provided schema and
+        database.
+        """
         db_metadata = MetaData()
-        with engine.connect() as connection:
-            db_metadata.reflect(bind=connection)
-            mc = MigrationContext.configure(
-                connection, opts={"compare_type": True, "target_metadata": db_metadata}
-            )
-            schema_metadata = MetaDataBuilder(schema, apply_schema_to_metadata=False).build()
-            self._diff = compare_metadata(mc, schema_metadata)
+        with self.engine.connect() as connection:
+            # Reflect the database schema
+            try:
+                db_metadata.reflect(bind=connection)
+            except (sqlalchemy.exc.DatabaseError, sqlalchemy.exc.OperationalError) as e:
+                raise RuntimeError(f"Database reflection failed: {e}") from e
+            except AttributeError as e:  # Happens when no database is provided in the URL
+                raise ValueError(
+                    f"Invalid engine URL: <{self.engine.url}> (Missing database or schema?)"
+                ) from e
+            except sqlalchemy.exc.ArgumentError as e:
+                raise ValueError(f"Invalid database URL or configuration: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error during database reflection: {e}") from e
+
+            # Configure the alembic migration context using the reflected
+            # metadata
+            try:
+                mc = MigrationContext.configure(
+                    connection, opts={"compare_type": True, "target_metadata": db_metadata}
+                )
+            except (sqlalchemy.exc.DatabaseError, TypeError, ValueError) as e:
+                raise RuntimeError(f"Migration context configuration failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error in migration context configuration: {e}") from e
+
+            # Build the schema metadata for comparison
+            try:
+                schema_metadata = MetaDataBuilder(self.schema, apply_schema_to_metadata=False).build()
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Schema metadata construction failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error in schema metadata construction: {e}") from e
+
+            # Compare the database metadata with the schema metadata
+            try:
+                self._diff = compare_metadata(mc, schema_metadata)
+            except (sqlalchemy.exc.DatabaseError, AttributeError, TypeError) as e:
+                raise RuntimeError(f"Metadata comparison failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error during metadata comparison: {e}") from e
 
     def to_change_list(self) -> list[dict[str, Any]]:
         """
