@@ -23,6 +23,7 @@
 
 import logging
 
+import click
 from click.testing import CliRunner
 
 from felis.cli import cli
@@ -38,7 +39,7 @@ def run_cli(
     print_cmd: bool = False,
     print_output: bool = False,
     id_generation: bool = False,
-) -> None:
+) -> click.testing.Result:
     """Run a CLI command and check the exit code.
 
     Parameters
@@ -57,6 +58,11 @@ def run_cli(
         Whether to print the output, by default False.
     id_generation : bool
         Whether to enable id generation, by default False.
+
+    Returns
+    -------
+    click.testing.Result
+        The result of the command execution.
     """
     if not cmd:
         raise ValueError("No command provided.")
@@ -77,3 +83,4 @@ def run_cli(
         assert result.exit_code != 0
     else:
         assert result.exit_code == 0
+    return result
