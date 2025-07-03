@@ -422,6 +422,31 @@ class ConstraintTestCase(unittest.TestCase):
             constraint.referenced_columns, ["test_column"], "referenced_columns should be ['test_column']"
         )
 
+        # Creating a foreign key constraint with no columns should raise an
+        # exception.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(
+                name="fk_test", id="#fk_test", columns=[], referenced_columns=["test_column"]
+            )
+
+        # Creating a foreign key constraint with no referenced columns should
+        # raise an exception.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(
+                name="fk_test", id="#fk_test", columns=["test_column"], referenced_columns=[]
+            )
+
+        # Creating a foreign key constraint where the number of foreign key
+        # columns does not match the number of referenced columns should raise
+        # an exception.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(
+                name="fk_test",
+                id="#fk_test",
+                columns=["test_column", "test_column2"],
+                referenced_columns=["test_column"],
+            )
+
     def test_check_constraint(self) -> None:
         """Test validation of check constraints."""
         # Setting name and id should throw an exception from missing

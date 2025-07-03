@@ -618,7 +618,9 @@ class ForeignKeyConstraint(Constraint):
     """Table foreign key constraint model.
 
     This constraint is used to define a foreign key relationship between two
-    tables in the schema.
+    tables in the schema. There must be at least one column in the
+    `columns` list, and at least one column in the `referenced_columns` list
+    or a validation error will be raised.
 
     Notes
     -----
@@ -629,10 +631,10 @@ class ForeignKeyConstraint(Constraint):
     type: Literal["ForeignKey"] = Field("ForeignKey", alias="@type")
     """Type of the constraint."""
 
-    columns: list[str]
+    columns: list[str] = Field(min_length=1)
     """The columns comprising the foreign key."""
 
-    referenced_columns: list[str] = Field(alias="referencedColumns")
+    referenced_columns: list[str] = Field(alias="referencedColumns", min_length=1)
     """The columns referenced by the foreign key."""
 
     on_delete: Literal["CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT", "NO ACTION"] | None = None
@@ -656,6 +658,28 @@ class ForeignKeyConstraint(Constraint):
             The serialized value.
         """
         return value
+
+    @model_validator(mode="after")
+    def check_column_lengths(self) -> ForeignKeyConstraint:
+        """Check that the `columns` and `referenced_columns` lists have the
+        same length.
+
+        Returns
+        -------
+        `ForeignKeyConstraint`
+            The foreign key constraint being validated.
+
+        Raises
+        ------
+        ValueError
+            Raised if the `columns` and `referenced_columns` lists do not have
+            the same length.
+        """
+        if len(self.columns) != len(self.referenced_columns):
+            raise ValueError(
+                "Columns and referencedColumns must have the same length for a ForeignKey constraint"
+            )
+        return self
 
 
 _ConstraintType = Annotated[

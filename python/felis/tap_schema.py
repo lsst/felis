@@ -470,7 +470,7 @@ class DataLoader:
             logger.info("Dry run - not loading data into database")
 
     def _insert_schemas(self) -> None:
-        """Insert the schema data into the schemas table."""
+        """Insert the schema data into the ``schemas`` table."""
         schema_record = {
             "schema_name": self.schema.name,
             "utype": self.schema.votable_utype,
@@ -495,7 +495,7 @@ class DataLoader:
         return f"{self.schema.name}.{table.name}"
 
     def _insert_tables(self) -> None:
-        """Insert the table data into the tables table."""
+        """Insert the table data into the ``tables`` table."""
         for table in self.schema.tables:
             table_record = {
                 "schema_name": self.schema.name,
@@ -508,7 +508,7 @@ class DataLoader:
             self._insert("tables", table_record)
 
     def _insert_columns(self) -> None:
-        """Insert the column data into the columns table."""
+        """Insert the column data into the ``columns`` table."""
         for table in self.schema.tables:
             for column in table.columns:
                 felis_type = FelisType.felis_type(column.datatype.value)
@@ -563,11 +563,15 @@ class DataLoader:
         return key_id
 
     def _insert_keys(self) -> None:
-        """Insert the foreign keys into the keys and key_columns tables."""
+        """Insert the foreign keys into the ``keys`` and ``key_columns``
+        tables.
+        """
         for table in self.schema.tables:
             for constraint in table.constraints:
                 if isinstance(constraint, datamodel.ForeignKeyConstraint):
+                    ###########################################################
                     # Handle keys table
+                    ###########################################################
                     referenced_column = self.schema.find_object_by_id(
                         constraint.referenced_columns[0], datamodel.Column
                     )
@@ -582,17 +586,23 @@ class DataLoader:
                     }
                     self._insert("keys", key_record)
 
+                    ###########################################################
                     # Handle key_columns table
-                    from_column = self.schema.find_object_by_id(constraint.columns[0], datamodel.Column)
-                    target_column = self.schema.find_object_by_id(
-                        constraint.referenced_columns[0], datamodel.Column
-                    )
-                    key_columns_record = {
-                        "key_id": key_id,
-                        "from_column": from_column.name,
-                        "target_column": target_column.name,
-                    }
-                    self._insert("key_columns", key_columns_record)
+                    ###########################################################
+                    # Loop over the corresponding columns and referenced
+                    # columns and insert a record for each pair. This is
+                    # necessary for proper handling of composite keys.
+                    for from_column_id, target_column_id in zip(
+                        constraint.columns, constraint.referenced_columns
+                    ):
+                        from_column = self.schema.find_object_by_id(from_column_id, datamodel.Column)
+                        target_column = self.schema.find_object_by_id(target_column_id, datamodel.Column)
+                        key_columns_record = {
+                            "key_id": key_id,
+                            "from_column": from_column.name,
+                            "target_column": target_column.name,
+                        }
+                        self._insert("key_columns", key_columns_record)
 
     def _generate_all_inserts(self) -> None:
         """Generate the inserts for all the data."""
