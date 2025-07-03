@@ -33,7 +33,7 @@ from .datamodel import (
     UniqueConstraint,
 )
 from .db.schema import create_database
-from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
+from .diff import DatabaseDiff, FormattedSchemaDiff
 from .metadata import MetaDataBuilder
 
 from importlib.metadata import PackageNotFoundError, version
