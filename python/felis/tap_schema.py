@@ -589,14 +589,6 @@ class DataLoader:
                     ###########################################################
                     # Handle key_columns table
                     ###########################################################
-                    # Differing number of columns and referenced columns is
-                    # currently not supported.
-                    if len(constraint.columns) != len(constraint.referenced_columns):
-                        raise ValueError(
-                            f"Foreign key '{constraint.name}' in table '{table.name}' has "
-                            f"{len(constraint.columns)} columns but {len(constraint.referenced_columns)} "
-                            "referenced columns"
-                        )
                     # Loop over the corresponding columns and referenced
                     # columns and insert a record for each pair. This is
                     # necessary for proper handling of composite keys.
