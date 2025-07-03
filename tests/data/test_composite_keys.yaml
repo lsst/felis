@@ -1,0 +1,32 @@
+name: "test_composite_keys"
+description: "Test composite keys"
+tables:
+  - name: "table1"
+    primaryKey:
+      - "#table1.id1"
+      - "#table1.id2"
+    columns:
+      - name: "id1"
+        datatype: "int"
+      - name: "id2"
+        datatype: "int"
+    constraints:
+      - name: "fk_composite"
+        "@type": "ForeignKey"
+        description: "Composite foreign key from table1 to table2"
+        votable:utype: "ForeignKey"
+        columns:
+          - "#table1.id1"
+          - "#table1.id2"
+        referencedColumns:
+          - "#table2.id1"
+          - "#table2.id2"
+  - name: "table2"
+    primaryKey:
+      - "#table2.id1"
+      - "#table2.id2"
+    columns:
+      - name: "id1"
+        datatype: "int"
+      - name: "id2"
+        datatype: "int"

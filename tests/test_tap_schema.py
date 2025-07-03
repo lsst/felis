@@ -33,6 +33,7 @@ from felis.tap_schema import DataLoader, TableManager
 TEST_DIR = os.path.dirname(__file__)
 TEST_SALES = os.path.join(TEST_DIR, "data", "sales.yaml")
 TEST_TAP_SCHEMA = os.path.join(TEST_DIR, "data", "test_tap_schema.yaml")
+TEST_COMPOSITE_KEYS = os.path.join(TEST_DIR, "data", "test_composite_keys.yaml")
 
 
 class TableManagerTestCase(unittest.TestCase):
@@ -158,12 +159,15 @@ class TapSchemaSqliteSetup:
 
     Parameters
     ----------
-    context : `dict`
+    test_file_path:
+        Path to the TAP_SCHEMA test file.
+
+    context
         Context for the schema. Default is an empty dictionary.
     """
 
-    def __init__(self, context: dict = {}) -> None:
-        with open(TEST_TAP_SCHEMA) as test_file:
+    def __init__(self, test_file_path: str, context: dict = {}) -> None:
+        with open(test_file_path) as test_file:
             self._schema = Schema.from_stream(test_file, context=context)
 
         self._engine = create_engine("sqlite:///:memory:")
@@ -196,7 +200,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up the test case."""
-        self.tap_schema_setup = TapSchemaSqliteSetup(context={"id_generation": True})
+        self.tap_schema_setup = TapSchemaSqliteSetup(TEST_TAP_SCHEMA, context={"id_generation": True})
 
     def test_schemas(self) -> None:
         schemas_table = self.tap_schema_setup.mgr["schemas"]
@@ -347,7 +351,7 @@ class ForceUnboundArraySizeTest(unittest.TestCase):
     def setUp(self) -> None:
         """Set up the test case."""
         self.tap_schema_setup = TapSchemaSqliteSetup(
-            context={"id_generation": True, "force_unbounded_arraysize": True}
+            TEST_TAP_SCHEMA, context={"id_generation": True, "force_unbounded_arraysize": True}
         )
 
     def test_force_unbounded_arraysize(self) -> None:
@@ -363,6 +367,61 @@ class ForceUnboundArraySizeTest(unittest.TestCase):
         for row in table1_rows:
             if row["column_name"] in ["string_field", "text_field", "unicode_field", "binary_field"]:
                 self.assertEqual(row["arraysize"], "*")
+
+
+class CompositeKeysTestCase(unittest.TestCase):
+    """Test the handling of composite foreign keys."""
+
+    def setUp(self) -> None:
+        """Set up the test case."""
+        self.tap_schema_setup = TapSchemaSqliteSetup(TEST_COMPOSITE_KEYS, context={"id_generation": True})
+
+        # Fetch the keys and key_columns data from the TAP_SCHEMA tables.
+        keys_table = self.tap_schema_setup.mgr["keys"]
+        key_columns_table = self.tap_schema_setup.mgr["key_columns"]
+        with self.tap_schema_setup.engine.connect() as connection:
+            key_columns_result = connection.execute(select(key_columns_table))
+            self.key_columns_data = [row._asdict() for row in key_columns_result]
+
+            keys_result = connection.execute(select(keys_table))
+            self.keys_data = [row._asdict() for row in keys_result]
+
+    def test_keys(self) -> None:
+        """Test that composite keys are handled correctly by inspecting the
+        data in the generated TAP_SCHEMA ``keys`` table.
+        """
+        print(f"\nComposite keys data: {self.keys_data}")
+
+        self.assertEqual(len(self.keys_data), 1)
+
+        self.assertEqual(
+            self.keys_data[0],
+            {
+                "key_id": "fk_composite",
+                "from_table": "test_composite_keys.table1",
+                "target_table": "test_composite_keys.table2",
+                "utype": "ForeignKey",
+                "description": "Composite foreign key from table1 to table2",
+            },
+        )
+
+    def test_key_columns(self) -> None:
+        """Test that composite keys are handled correctly by inspecting the
+        data in the generated TAP_SCHEMA ``key_columns`` table.
+        """
+        print(f"\nComposite key columns data: {self.key_columns_data}")
+
+        self.assertEqual(len(self.key_columns_data), 2)
+
+        key_columns_row1 = self.key_columns_data[0]
+        self.assertEqual(
+            key_columns_row1, {"key_id": "fk_composite", "from_column": "id1", "target_column": "id1"}
+        )
+
+        key_columns_row2 = self.key_columns_data[1]
+        self.assertEqual(
+            key_columns_row2, {"key_id": "fk_composite", "from_column": "id2", "target_column": "id2"}
+        )
 
 
 if __name__ == "__main__":
