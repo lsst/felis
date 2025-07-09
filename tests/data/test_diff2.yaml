@@ -26,6 +26,16 @@ tables:
     description: Index on column 2
     columns:
     - "#test_table1.column2"
+  columnGroups:
+  - name: group1
+    description: Group 1
+    columns:
+    - "#test_table1.column1"
+    - "#test_table1.column2"
+  - name: group2
+    description: Group 2
+    columns:
+    - "#test_table1.column1"
   constraints:
   - name: uniq_column2
     "@id": "#test_table1_uniq_column2"
