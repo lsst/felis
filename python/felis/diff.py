@@ -21,16 +21,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import copy
 import json
 import logging
-import re
 from typing import IO, Any
 
 import sqlalchemy
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from deepdiff.diff import DeepDiff
+from deepdiff.model import DiffLevel
 from sqlalchemy import Engine, MetaData
 
 from .datamodel import Schema
@@ -42,6 +41,46 @@ logger = logging.getLogger(__name__)
 
 # Change alembic log level to avoid unnecessary output
 logging.getLogger("alembic").setLevel(logging.WARNING)
+
+
+def _normalize_lists_by_name(obj: Any) -> Any:
+    """
+    Recursively normalize structures:
+    - Lists of dicts under specified keys become dicts keyed by 'name'.
+    - Lists of strings under specified keys become sorted lists.
+    - Everything else is recursively normalized in place.
+
+    Parameters
+    ----------
+    obj
+        The object to normalize, which can be a list, dict, or any other type.
+    """
+    dict_like_keys = {"tables", "columns", "constraints", "indexes", "column_groups"}
+    set_like_keys = {"columns", "referencedColumns"}
+
+    if isinstance(obj, list):
+        return [_normalize_lists_by_name(item) for item in obj]
+
+    elif isinstance(obj, dict):
+        normalized: dict[str, Any] = {}
+
+        for k, v in obj.items():
+            if isinstance(v, list):
+                if k in dict_like_keys and all(isinstance(i, dict) and "name" in i for i in v):
+                    logger.debug(f"Normalizing list of dicts under key '{k}' to dict keyed by 'name'")
+                    normalized[k] = {i["name"]: _normalize_lists_by_name(i) for i in v}
+                elif k in set_like_keys and all(isinstance(i, str) for i in v):
+                    logger.debug(f"Normalizing list of strings under key '{k}' to sorted list: {v}")
+                    normalized[k] = sorted(v)
+                else:
+                    normalized[k] = [_normalize_lists_by_name(i) for i in v]
+            else:
+                normalized[k] = _normalize_lists_by_name(v)
+
+        return normalized
+
+    else:
+        return obj
 
 
 class SchemaDiff:
@@ -56,6 +95,8 @@ class SchemaDiff:
         The new schema to compare, typically the modified schema.
     table_filter
         A list of table names to filter on.
+    strip_ids
+        Whether to strip '@id' fields from the schemas before comparison.
 
     Notes
     -----
@@ -65,12 +106,19 @@ class SchemaDiff:
     directly.
     """
 
-    def __init__(self, schema_old: Schema, schema_new: Schema, table_filter: list[str] = []):
-        self.schema_old = copy.deepcopy(schema_old)
-        self.schema_new = copy.deepcopy(schema_new)
+    def __init__(
+        self,
+        schema_old: Schema,
+        schema_new: Schema,
+        table_filter: list[str] | None = None,
+        strip_ids: bool = True,
+    ):
+        self.schema_old = schema_old
+        self.schema_new = schema_new
         if table_filter:
             logger.debug(f"Filtering on tables: {table_filter}")
-        self.table_filter = table_filter
+        self.table_filter = table_filter or []
+        self.strip_ids = strip_ids
         self._create_diff()
 
     def _create_diff(self) -> dict[str, Any]:
@@ -81,9 +129,16 @@ class SchemaDiff:
             self.schema_new.tables = [
                 table for table in self.schema_new.tables if table.name in self.table_filter
             ]
-        self.dict_old = self.schema_old.model_dump(exclude_none=True, exclude_defaults=True)
-        self.dict_new = self.schema_new.model_dump(exclude_none=True, exclude_defaults=True)
-        self._diff = DeepDiff(self.dict_old, self.dict_new, ignore_order=True)
+        self.dict_old = _normalize_lists_by_name(self.schema_old._model_dump(strip_ids=self.strip_ids))
+        self.dict_new = _normalize_lists_by_name(self.schema_new._model_dump(strip_ids=self.strip_ids))
+        logger.debug(f"Normalized old dict:\n{json.dumps(self.dict_old, indent=2)}")
+        logger.debug(f"Normalized new dict:\n{json.dumps(self.dict_new, indent=2)}")
+        self._diff = DeepDiff(
+            self.dict_old,
+            self.dict_new,
+            ignore_order=True,
+            view="tree",
+        )
         return self._diff
 
     @property
@@ -107,7 +162,7 @@ class SchemaDiff:
         list[dict[str, Any]]
             List of change dictionaries.
         """
-        return []  # Base implementation returns empty list
+        raise NotImplementedError("Subclasses must implement to_change_list()")
 
     def print(self, output_stream: IO[str] | None = None) -> None:
         """
@@ -131,6 +186,95 @@ class SchemaDiff:
             True if there are differences, False otherwise.
         """
         return len(self.diff) > 0
+
+
+class DiffHandler:
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        """Collect differences from the provided diff items.
+
+        Parameters
+        ----------
+        diff_items
+            The list of differences to collect.
+        """
+        raise NotImplementedError
+
+
+class ValuesChangedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "old_value": diff.t1,
+                    "new_value": diff.t2,
+                }
+            )
+        return results
+
+
+class IterableItemAddedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "value": diff.t2,
+                }
+            )
+        return results
+
+
+class IterableItemRemovedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "value": diff.t1,
+                }
+            )
+        return results
+
+
+class DictionaryItemAddedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            keys = diff.path(output_format="list")
+            added_key = keys[-1] if keys else None
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "added_key": added_key,
+                    "value": diff.t2,
+                }
+            )
+        return results
+
+
+class DictionaryItemRemovedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            keys = diff.path(output_format="list")
+            removed_key = keys[-1] if keys else None
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "removed_key": removed_key,
+                    "value": diff.t1,
+                }
+            )
+        return results
 
 
 class FormattedSchemaDiff(SchemaDiff):
@@ -170,6 +314,15 @@ class FormattedSchemaDiff(SchemaDiff):
     def __init__(self, schema_old: Schema, schema_new: Schema, table_filter: list[str] = []):
         super().__init__(schema_old, schema_new, table_filter)
 
+        # Define a mapping between types of changes and their handlers
+        self.handlers = {
+            "values_changed": ValuesChangedHandler(),
+            "iterable_item_added": IterableItemAddedHandler(),
+            "iterable_item_removed": IterableItemRemovedHandler(),
+            "dictionary_item_added": DictionaryItemAddedHandler(),
+            "dictionary_item_removed": DictionaryItemRemovedHandler(),
+        }
+
     def to_change_list(self) -> list[dict[str, Any]]:
         """
         Convert differences to a structured format.
@@ -181,17 +334,9 @@ class FormattedSchemaDiff(SchemaDiff):
         """
         changes = []
 
-        handlers = {
-            "values_changed": self._collect_values_changed,
-            "iterable_item_added": self._collect_iterable_item_added,
-            "iterable_item_removed": self._collect_iterable_item_removed,
-            "dictionary_item_added": lambda paths: self._collect_dictionary_item_added(paths),
-            "dictionary_item_removed": self._collect_dictionary_item_removed,
-        }
-
-        for change_type, handler in handlers.items():
+        for change_type, handler in self.handlers.items():
             if change_type in self.diff:
-                changes.extend(handler(self.diff[change_type]))
+                changes.extend(handler.collect(self.diff[change_type]))
 
         return changes
 
@@ -205,186 +350,6 @@ class FormattedSchemaDiff(SchemaDiff):
             The output stream for printing the differences.
         """
         print(json.dumps(self.to_change_list(), indent=2), file=output_stream)
-
-    def _get_id(self, source_dict: dict, keys: list[str | int]) -> str:
-        """
-        Extract the most relevant ID from the path using `_find_id` and return
-        it. If no ID is found, return "unknown".
-
-        Parameters
-        ----------
-        keys : list[str | int]
-            The path to extract the ID from.
-
-        Returns
-        -------
-        str
-            The extracted ID.
-        """
-        try:
-            return self._find_id(source_dict, keys)
-        except ValueError:
-            return "unknown"
-
-    def _collect_values_changed(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
-        """Collect value change differences."""
-        results = []
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            results.append(
-                {
-                    "change_type": "values_changed",
-                    "id": self._get_id(self.dict_old, keys),
-                    "path": self._get_display_path(keys),
-                    "old_value": changes[key]["old_value"],
-                    "new_value": changes[key]["new_value"],
-                }
-            )
-        return results
-
-    def _collect_iterable_item_added(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
-        """Collect iterable item addition differences."""
-        results = []
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            results.append(
-                {
-                    "change_type": "iterable_item_added",
-                    "id": self._get_id(self.dict_new, keys),
-                    "path": self._get_display_path(keys),
-                    "value": changes[key],
-                }
-            )
-        return results
-
-    def _collect_iterable_item_removed(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
-        """Collect iterable item removal differences."""
-        results = []
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            results.append(
-                {
-                    "change_type": "iterable_item_removed",
-                    "id": self._get_id(self.dict_old, keys),
-                    "path": self._get_display_path(keys),
-                    "value": changes[key],
-                }
-            )
-        return results
-
-    @classmethod
-    def _get_value_from_key(cls, data: Any, keys: list[str | int]) -> Any:
-        for key in keys:
-            data = data[key]  # step through nested dicts/lists
-        return data
-
-    def _collect_dictionary_item_added(self, paths: list[str]) -> list[dict[str, Any]]:
-        """Collect dictionary item addition differences from DeepDiff path
-        list.
-        """
-        results = []
-        for path in paths:
-            keys = self._parse_deepdiff_path(path)
-            added_key = keys[-1]
-            parent_keys = keys[:-1]
-            try:
-                value = self._get_value_from_key(self.dict_new, keys)
-            except (KeyError, IndexError, TypeError):
-                logger.warning(f"Could not resolve value for path: {path}")
-                value = None
-            results.append(
-                {
-                    "change_type": "dictionary_item_added",
-                    "id": self._get_id(self.dict_new, keys),
-                    "path": self._get_display_path(parent_keys),
-                    "added_key": added_key,
-                    "value": value,
-                }
-            )
-        return results
-
-    def _collect_dictionary_item_removed(self, changes: dict[str, Any]) -> list[dict[str, Any]]:
-        """Collect dictionary item removal differences."""
-        results = []
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            removed_key = keys[-1]
-            parent_keys = keys[:-1]
-            results.append(
-                {
-                    "change_type": "dictionary_item_removed",
-                    "id": self._get_id(self.dict_old, keys),
-                    "path": self._get_display_path(parent_keys),
-                    "removed_key": removed_key,
-                    "value": changes[key],
-                }
-            )
-        return results
-
-    @staticmethod
-    def _find_id(values: dict, keys: list[str | int]) -> str:
-        """Extract the most relevant ID from the path, usually the last 'id'
-        found.
-        """
-        value: list | dict = values
-        last_id = None
-
-        for key in keys:
-            logger.debug(f"Processing key <{key}> with type {type(key)}")
-            logger.debug(f"Type of value: {type(value)}")
-
-            # Store the ID if current value is a dict with an 'id' field
-            if isinstance(value, dict) and "id" in value:
-                last_id = value["id"]
-
-            # Navigate to the next level
-            if isinstance(value, dict) and key in value:
-                value = value[key]
-            elif isinstance(value, list) and isinstance(key, int):
-                if 0 <= key < len(value):
-                    value = value[key]
-                else:
-                    raise ValueError(f"Index '{key}' is out of range for list of length {len(value)}")
-            else:
-                raise ValueError(f"Key '{key}' not found in value of type {type(value)}")
-
-        if last_id is not None:
-            return last_id
-        else:
-            raise ValueError("No 'id' found in the specified path")
-
-    @staticmethod
-    def _get_display_path(keys: list[str | int]) -> str:
-        """Convert keys list to a dot-notation path.
-
-        - If the key is at the root level (e.g., ['description']), return
-        'root.description'.
-        - If keys are empty, return 'root'.
-        - Otherwise, join keys with dot notation.
-        """
-        if not keys:
-            return "root"
-        if len(keys) == 1:
-            return f"root.{keys[0]}"
-        return ".".join(str(k) for k in keys)
-
-    @staticmethod
-    def _parse_deepdiff_path(path: str) -> list[str | int]:
-        """Parse a DeepDiff path into a list of keys."""
-        if path.startswith("root"):
-            path = path[4:]
-
-        pattern = re.compile(r"\['([^']+)'\]|\[(\d+)\]")
-        matches = pattern.findall(path)
-
-        keys = []
-        for match in matches:
-            if match[0]:  # String key
-                keys.append(match[0])
-            elif match[1]:  # Integer index
-                keys.append(int(match[1]))
-
-        return keys
 
 
 class DatabaseDiff(SchemaDiff):
