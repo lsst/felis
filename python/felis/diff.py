@@ -235,7 +235,7 @@ class FormattedSchemaDiff(SchemaDiff):
                 {
                     "change_type": "values_changed",
                     "id": self._get_id(self.dict_old, keys),
-                    "path": self._get_key_display(keys),
+                    "path": self._get_display_path(keys),
                     "old_value": changes[key]["old_value"],
                     "new_value": changes[key]["new_value"],
                 }
@@ -251,7 +251,7 @@ class FormattedSchemaDiff(SchemaDiff):
                 {
                     "change_type": "iterable_item_added",
                     "id": self._get_id(self.dict_new, keys),
-                    "path": self._get_key_display(keys),
+                    "path": self._get_display_path(keys),
                     "value": changes[key],
                 }
             )
@@ -266,7 +266,7 @@ class FormattedSchemaDiff(SchemaDiff):
                 {
                     "change_type": "iterable_item_removed",
                     "id": self._get_id(self.dict_old, keys),
-                    "path": self._get_key_display(keys),
+                    "path": self._get_display_path(keys),
                     "value": changes[key],
                 }
             )
@@ -296,7 +296,7 @@ class FormattedSchemaDiff(SchemaDiff):
                 {
                     "change_type": "dictionary_item_added",
                     "id": self._get_id(self.dict_new, keys),
-                    "path": self._get_key_display(parent_keys),
+                    "path": self._get_display_path(parent_keys),
                     "added_key": added_key,
                     "value": value,
                 }
@@ -314,7 +314,7 @@ class FormattedSchemaDiff(SchemaDiff):
                 {
                     "change_type": "dictionary_item_removed",
                     "id": self._get_id(self.dict_old, keys),
-                    "path": self._get_key_display(parent_keys),
+                    "path": self._get_display_path(parent_keys),
                     "removed_key": removed_key,
                     "value": changes[key],
                 }
@@ -354,11 +354,19 @@ class FormattedSchemaDiff(SchemaDiff):
             raise ValueError("No 'id' found in the specified path")
 
     @staticmethod
-    def _get_key_display(keys: list[str | int]) -> str:
-        """Convert keys list to a dot-notation path. If no keys are provided,
-        we assume the root path.
+    def _get_display_path(keys: list[str | int]) -> str:
+        """Convert keys list to a dot-notation path.
+
+        - If the key is at the root level (e.g., ['description']), return
+        'root.description'.
+        - If keys are empty, return 'root'.
+        - Otherwise, join keys with dot notation.
         """
-        return ".".join(str(k) for k in keys) if keys else "root"
+        if not keys:
+            return "root"
+        if len(keys) == 1:
+            return f"root.{keys[0]}"
+        return ".".join(str(k) for k in keys)
 
     @staticmethod
     def _parse_deepdiff_path(path: str) -> list[str | int]:
