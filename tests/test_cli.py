@@ -145,7 +145,9 @@ class CliTestCase(unittest.TestCase):
         test_diff2 = os.path.join(TEST_DIR, "data", "test_diff2.yaml")
 
         engine = create_engine(self.sqlite_url)
-        metadata_db = MetaDataBuilder(Schema.from_uri(test_diff1), apply_schema_to_metadata=False).build()
+        metadata_db = MetaDataBuilder(
+            Schema.from_uri(test_diff1, context={"id_generation": True}), apply_schema_to_metadata=False
+        ).build()
         metadata_db.create_all(engine)
 
         run_cli(["diff", f"--engine-url={self.sqlite_url}", test_diff2])
@@ -159,7 +161,9 @@ class CliTestCase(unittest.TestCase):
 
         db_url = f"sqlite:///{self.tmpdir}/tap_schema.sqlite3"
         engine = create_engine(db_url)
-        metadata_db = MetaDataBuilder(Schema.from_uri(test_diff1), apply_schema_to_metadata=False).build()
+        metadata_db = MetaDataBuilder(
+            Schema.from_uri(test_diff1, context={"id_generation": True}), apply_schema_to_metadata=False
+        ).build()
         metadata_db.create_all(engine)
 
         run_cli(
