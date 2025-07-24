@@ -21,26 +21,67 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import copy
+import json
 import logging
-import pprint
-import re
-from collections.abc import Callable
-from typing import Any
+from typing import IO, Any
 
+import sqlalchemy
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from deepdiff.diff import DeepDiff
+from deepdiff.model import DiffLevel
 from sqlalchemy import Engine, MetaData
 
 from .datamodel import Schema
 from .metadata import MetaDataBuilder
 
-__all__ = ["DatabaseDiff", "SchemaDiff"]
+__all__ = ["DatabaseDiff", "FormattedSchemaDiff", "SchemaDiff"]
 
 logger = logging.getLogger(__name__)
 
 # Change alembic log level to avoid unnecessary output
 logging.getLogger("alembic").setLevel(logging.WARNING)
+
+
+def _normalize_lists_by_name(obj: Any) -> Any:
+    """
+    Recursively normalize structures:
+    - Lists of dicts under specified keys become dicts keyed by 'name'.
+    - Lists of strings under specified keys become sorted lists.
+    - Everything else is recursively normalized in place.
+
+    Parameters
+    ----------
+    obj
+        The object to normalize, which can be a list, dict, or any other type.
+    """
+    dict_like_keys = {"tables", "columns", "constraints", "indexes", "column_groups"}
+    set_like_keys = {"columns", "referencedColumns"}
+
+    if isinstance(obj, list):
+        return [_normalize_lists_by_name(item) for item in obj]
+
+    elif isinstance(obj, dict):
+        normalized: dict[str, Any] = {}
+
+        for k, v in obj.items():
+            if isinstance(v, list):
+                if k in dict_like_keys and all(isinstance(i, dict) and "name" in i for i in v):
+                    logger.debug(f"Normalizing list of dicts under key '{k}' to dict keyed by 'name'")
+                    normalized[k] = {i["name"]: _normalize_lists_by_name(i) for i in v}
+                elif k in set_like_keys and all(isinstance(i, str) for i in v):
+                    logger.debug(f"Normalizing list of strings under key '{k}' to sorted list: {v}")
+                    normalized[k] = sorted(v)
+                else:
+                    normalized[k] = [_normalize_lists_by_name(i) for i in v]
+            else:
+                normalized[k] = _normalize_lists_by_name(v)
+
+        return normalized
+
+    else:
+        return obj
 
 
 class SchemaDiff:
@@ -49,22 +90,93 @@ class SchemaDiff:
 
     Parameters
     ----------
-    schema1
-        The first schema to compare.
-    schema2
-        The second schema to compare.
+    schema_old
+        The old schema to compare, typically the original schema.
+    schema_new
+        The new schema to compare, typically the modified schema.
+    table_filter
+        A list of table names to filter on.
+    strip_ids
+        Whether to strip '@id' fields from the schemas before comparison.
+
+    Notes
+    -----
+    This class uses DeepDiff to compare two schemas and provides methods to
+    retrieve the differences. It is designed to be extended for more structured
+    output, such as in `FormattedSchemaDiff` and would not typically be used
+    directly.
     """
 
-    def __init__(self, schema1: Schema, schema2: Schema):
-        self.dict1 = schema1.model_dump(exclude_none=True)
-        self.dict2 = schema2.model_dump(exclude_none=True)
-        self.diff = DeepDiff(self.dict1, self.dict2, ignore_order=True)
+    def __init__(
+        self,
+        schema_old: Schema,
+        schema_new: Schema,
+        table_filter: list[str] | None = None,
+        strip_ids: bool = True,
+    ):
+        self.schema_old = copy.deepcopy(schema_old)
+        self.schema_new = copy.deepcopy(schema_new)
+        if table_filter:
+            logger.debug(f"Filtering on tables: {table_filter}")
+        self.table_filter = table_filter or []
+        self.strip_ids = strip_ids
+        self._create_diff()
 
-    def print(self) -> None:
+    def _create_diff(self) -> dict[str, Any]:
+        if self.table_filter:
+            self.schema_old.tables = [
+                table for table in self.schema_old.tables if table.name in self.table_filter
+            ]
+            logger.debug(f"Filtered old schema tables: {[table.name for table in self.schema_old.tables]}")
+            self.schema_new.tables = [
+                table for table in self.schema_new.tables if table.name in self.table_filter
+            ]
+            logger.debug(f"Filtered new schema tables: {[table.name for table in self.schema_new.tables]}")
+        self.dict_old = _normalize_lists_by_name(self.schema_old._model_dump(strip_ids=self.strip_ids))
+        self.dict_new = _normalize_lists_by_name(self.schema_new._model_dump(strip_ids=self.strip_ids))
+        logger.debug(f"Normalized old dict:\n{json.dumps(self.dict_old, indent=2)}")
+        logger.debug(f"Normalized new dict:\n{json.dumps(self.dict_new, indent=2)}")
+        self._diff = DeepDiff(
+            self.dict_old,
+            self.dict_new,
+            ignore_order=True,
+            view="tree",
+        )
+        return self._diff
+
+    @property
+    def diff(self) -> dict[str, Any]:
         """
-        Print the differences between the two schemas.
+        Return the differences between the two schemas.
+
+        Returns
+        -------
+        dict
+            The differences between the two schemas.
         """
-        pprint.pprint(self.diff)
+        return self._diff
+
+    def to_change_list(self) -> list[dict[str, Any]]:
+        """
+        Convert differences to a structured format.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of change dictionaries.
+        """
+        raise NotImplementedError("Subclasses must implement to_change_list()")
+
+    def print(self, output_stream: IO[str] | None = None) -> None:
+        """
+        Print the differences between the two schemas in raw format.
+
+        Parameters
+        ----------
+        output_stream
+            The output stream for printing the differences.
+        """
+        print(self.diff, file=output_stream)
 
     @property
     def has_changes(self) -> bool:
@@ -79,134 +191,173 @@ class SchemaDiff:
         return len(self.diff) > 0
 
 
+class DiffHandler:
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        """Collect differences from the provided diff items.
+
+        Parameters
+        ----------
+        diff_items
+            The list of differences to collect.
+        """
+        raise NotImplementedError
+
+
+class ValuesChangedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "old_value": diff.t1,
+                    "new_value": diff.t2,
+                }
+            )
+        return results
+
+
+class IterableItemAddedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "value": diff.t2,
+                }
+            )
+        return results
+
+
+class IterableItemRemovedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "value": diff.t1,
+                }
+            )
+        return results
+
+
+class DictionaryItemAddedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            keys = diff.path(output_format="list")
+            added_key = keys[-1] if keys else None
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "added_key": added_key,
+                    "value": diff.t2,
+                }
+            )
+        return results
+
+
+class DictionaryItemRemovedHandler(DiffHandler):
+    def collect(self, diff_items: list[DiffLevel]) -> list[dict[str, Any]]:
+        results = []
+        for diff in diff_items:
+            keys = diff.path(output_format="list")
+            removed_key = keys[-1] if keys else None
+            results.append(
+                {
+                    "change_type": diff.report_type,
+                    "path": diff.path(),
+                    "removed_key": removed_key,
+                    "value": diff.t1,
+                }
+            )
+        return results
+
+
 class FormattedSchemaDiff(SchemaDiff):
     """
-    Compare two schemas using DeepDiff and print the differences using a
-    customized output format.
+    Compare two schemas using DeepDiff and emit structured JSON differences.
 
     Parameters
     ----------
-    schema1
-        The first schema to compare.
-    schema2
-        The second schema to compare.
-    """
+    schema_old
+        The old schema to compare, typically the original schema.
+    schema_new
+        The new schema to compare, typically the modified schema.
+    table_filter
+        A list of table names to filter on.
 
-    def __init__(self, schema1: Schema, schema2: Schema):
-        super().__init__(schema1, schema2)
+    Notes
+    -----
+    This class extends `SchemaDiff` to provide a more structured output of
+    differences. It formats the differences into a list of dictionaries, each
+    representing a change with details such as change type, path, and values
+    involved.
 
-    def print(self) -> None:
-        """
-        Print the differences between the two schemas using a custom format.
-        """
-        handlers: dict[str, Callable[[dict[str, Any]], None]] = {
-            "values_changed": self._handle_values_changed,
-            "iterable_item_added": self._handle_iterable_item_added,
-            "iterable_item_removed": self._handle_iterable_item_removed,
-            "dictionary_item_added": self._handle_dictionary_item_added,
-            "dictionary_item_removed": self._handle_dictionary_item_removed,
+    Output dictionaries representing the changes are formatted as follows::
+
+        {
+            "change_type": str,
+            "id": str,
+            "path": str,
+            "old_value": Any (for value changes),
+            "new_value": Any (for value changes),
+            "value": Any (for additions/removals)
         }
 
-        for change_type, handler in handlers.items():
+    The changes can be printed to JSON using the `print` method.
+    """
+
+    def __init__(self, schema_old: Schema, schema_new: Schema, table_filter: list[str] = []):
+        super().__init__(schema_old, schema_new, table_filter)
+
+        # Define a mapping between types of changes and their handlers
+        self.handlers = {
+            "values_changed": ValuesChangedHandler(),
+            "iterable_item_added": IterableItemAddedHandler(),
+            "iterable_item_removed": IterableItemRemovedHandler(),
+            "dictionary_item_added": DictionaryItemAddedHandler(),
+            "dictionary_item_removed": DictionaryItemRemovedHandler(),
+        }
+
+    def to_change_list(self) -> list[dict[str, Any]]:
+        """
+        Convert differences to a structured format.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of changes in their dictionary representation.
+        """
+        changes = []
+
+        for change_type, handler in self.handlers.items():
             if change_type in self.diff:
-                handler(self.diff[change_type])
+                changes.extend(handler.collect(self.diff[change_type]))
 
-    def _print_header(self, id_dict: dict[str, Any], keys: list[int | str]) -> None:
-        # id = self._get_id(id_dict, keys)
-        # Don't display ID here for now; it is always just the schema ID.
-        print(f"{self._get_key_display(keys)}")
-        # print(f"{id} @ {self._get_key_display(keys)}")
+        return changes
 
-    def _handle_values_changed(self, changes: dict[str, Any]) -> None:
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            value1 = changes[key]["old_value"]
-            value2 = changes[key]["new_value"]
-            self._print_header(self.dict1, keys)
-            print(f"- {value1}")
-            print(f"+ {value2}")
+    def print(self, output_stream: IO[str] | None = None) -> None:
+        """
+        Print the differences between the two schemas as JSON.
 
-    def _handle_iterable_item_added(self, changes: dict[str, Any]) -> None:
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            value = changes[key]
-            self._print_header(self.dict2, keys)
-            print(f"+ {value}")
-
-    def _handle_iterable_item_removed(self, changes: dict[str, Any]) -> None:
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            value = changes[key]
-            self._print_header(self.dict1, keys)
-            print(f"- {value}")
-
-    def _handle_dictionary_item_added(self, changes: dict[str, Any]) -> None:
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            value = keys[-1]
-            keys.pop()
-            self._print_header(self.dict2, keys)
-            print(f"+ {value}")
-
-    def _handle_dictionary_item_removed(self, changes: dict[str, Any]) -> None:
-        for key in changes:
-            keys = self._parse_deepdiff_path(key)
-            value = keys[-1]
-            keys.pop()
-            self._print_header(self.dict1, keys)
-            print(f"- {value}")
-
-    @staticmethod
-    def _get_id(values: dict, keys: list[str | int]) -> str:
-        # Unused for now, pending updates to diff tool in DM-49446.
-        value: list | dict = values
-        last_id = None
-
-        for key in keys:
-            logger.debug(f"Processing key <{key}> with type {type(key)}")
-            logger.debug(f"Type of value: {type(value)}")
-            if isinstance(value, dict) and "id" in value:
-                last_id = value["id"]
-            elif isinstance(value, list) and isinstance(key, int):
-                if 0 <= key < len(value):
-                    value = value[key]
-                else:
-                    raise ValueError(f"Index '{key}' is out of range for list of length {len(value)}")
-                value = value[key]
-
-        if isinstance(value, dict) and "id" in value:
-            last_id = value["id"]
-
-        if last_id is not None:
-            return last_id
-        else:
-            raise ValueError("No 'id' found in the specified path")
-
-    @staticmethod
-    def _get_key_display(keys: list[str | int]) -> str:
-        return ".".join(str(k) for k in keys)
-
-    @staticmethod
-    def _parse_deepdiff_path(path: str) -> list[str | int]:
-        if path.startswith("root"):
-            path = path[4:]
-
-        pattern = re.compile(r"\['([^']+)'\]|\[(\d+)\]")
-        matches = pattern.findall(path)
-
-        keys = []
-        for match in matches:
-            if match[0]:  # String key
-                keys.append(match[0])
-            elif match[1]:  # Integer index
-                keys.append(int(match[1]))
-
-        return keys
+        Parameters
+        ----------
+        output_stream
+            The output stream for printing the differences.
+        """
+        print(json.dumps(self.to_change_list(), indent=2), file=output_stream)
 
 
 class DatabaseDiff(SchemaDiff):
     """
-    Compare a schema with a database and print the differences.
+    Compare a schema with a database and emit structured differences.
 
     Parameters
     ----------
@@ -214,21 +365,101 @@ class DatabaseDiff(SchemaDiff):
         The schema to compare.
     engine
         The database engine to compare with.
+
+    Notes
+    -----
+    The `DatabaseDiff` class uses SQLAlchemy to reflect the database schema
+    and compare it with the provided `~felis.datamodel.Schema` object. It
+    generates a list of differences between the two schemas, which can be
+    printed or converted to a structured format.
+
+    The error-handling during the reflection and comparison process is
+    robust, catching various exceptions that may arise from database
+    connectivity issues, invalid configurations, or unexpected errors.
+    This is done because otherwise some obscure errors may be raised
+    during the reflection process and configuration of alembic, which are not
+    very informative to the user.
     """
 
     def __init__(self, schema: Schema, engine: Engine):
-        db_metadata = MetaData()
-        with engine.connect() as connection:
-            db_metadata.reflect(bind=connection)
-            mc = MigrationContext.configure(
-                connection, opts={"compare_type": True, "target_metadata": db_metadata}
-            )
-            schema_metadata = MetaDataBuilder(schema, apply_schema_to_metadata=False).build()
-            self.diff = compare_metadata(mc, schema_metadata)
+        self.schema = schema
+        self.engine = engine
+        self._generate_diff()
 
-    def print(self) -> None:
+    def _generate_diff(self) -> None:
+        """Generate the differences between the provided schema and
+        database.
         """
-        Print the differences between the schema and the database.
+        db_metadata = MetaData()
+        with self.engine.connect() as connection:
+            # Reflect the database schema
+            try:
+                db_metadata.reflect(bind=connection)
+            except (sqlalchemy.exc.DatabaseError, sqlalchemy.exc.OperationalError) as e:
+                raise RuntimeError(f"Database reflection failed: {e}") from e
+            except AttributeError as e:  # Happens when no database is provided in the URL
+                raise ValueError(
+                    f"Invalid engine URL: <{self.engine.url}> (Missing database or schema?)"
+                ) from e
+            except sqlalchemy.exc.ArgumentError as e:
+                raise ValueError(f"Invalid database URL or configuration: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error during database reflection: {e}") from e
+
+            # Configure the alembic migration context using the reflected
+            # metadata
+            try:
+                mc = MigrationContext.configure(
+                    connection, opts={"compare_type": True, "target_metadata": db_metadata}
+                )
+            except (sqlalchemy.exc.DatabaseError, TypeError, ValueError) as e:
+                raise RuntimeError(f"Migration context configuration failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error in migration context configuration: {e}") from e
+
+            # Build the schema metadata for comparison
+            try:
+                schema_metadata = MetaDataBuilder(self.schema, apply_schema_to_metadata=False).build()
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Schema metadata construction failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error in schema metadata construction: {e}") from e
+
+            # Compare the database metadata with the schema metadata
+            try:
+                self._diff = compare_metadata(mc, schema_metadata)
+            except (sqlalchemy.exc.DatabaseError, AttributeError, TypeError) as e:
+                raise RuntimeError(f"Metadata comparison failed: {e}") from e
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error during metadata comparison: {e}") from e
+
+    def to_change_list(self) -> list[dict[str, Any]]:
         """
-        if self.has_changes:
-            pprint.pprint(self.diff)
+        Convert database differences to structured format.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of database change dictionaries.
+        """
+        changes = []
+        for change in self._diff:
+            changes.append(
+                {
+                    "change_type": "database_diff",
+                    "operation": str(change[0]) if change else "unknown",
+                    "details": str(change) if change else "no details",
+                }
+            )
+        return changes
+
+    def print(self, output_stream: IO[str] | None = None) -> None:
+        """
+        Print the differences between the schema and the database as JSON.
+
+        Parameters
+        ----------
+        output_stream
+            The output stream for printing the differences.
+        """
+        print(json.dumps(self.to_change_list(), indent=2), file=output_stream)

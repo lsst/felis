@@ -19,9 +19,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .datamodel import Schema
+from .datamodel import (
+    CheckConstraint,
+    Column,
+    ColumnGroup,
+    Constraint,
+    DataType,
+    ForeignKeyConstraint,
+    Index,
+    Schema,
+    SchemaVersion,
+    Table,
+    UniqueConstraint,
+)
 from .db.schema import create_database
-from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
+from .diff import DatabaseDiff, FormattedSchemaDiff
 from .metadata import MetaDataBuilder
 
 from importlib.metadata import PackageNotFoundError, version

@@ -1,0 +1,6 @@
+The ``diff`` module was completely overhauled based on best practices for using the ``deepdiff`` library.
+The formatted differences are now displayed in a JSON format, which is more readable and structured than the previous print outs.
+A number of bugs and issues with the comparison logic and the display of the diffs were also fixed, improving the accuracy of the schema diffs.
+The error handling in the database diff class was improved so that exception messages should be more informative and helpful.
+A command line option has been added for writing the diff output to a file.
+Finally, an additional command line option allows filtering only on specified tables in the two schemas being compared.

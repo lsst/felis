@@ -1,39 +1,42 @@
 ---
 name: test_diff
 description: Test diff
-"@id": "#test_diff"
 version: "1.2.3"
 tables:
-  - name: test_table1
-    "@id": "#test_table1"
-    description: Test table 1
+- name: test_table1
+  description: Test table 1
+  columns:
+  - name: column1
+    datatype: int
+    description: Column 1
+  - name: column2
+    datatype: string
+    description: Column 2
+    length: 30
+    nullable: false
+  - name: column3
+    datatype: string
+    description: Column 3
+    length: 100
+  indexes:
+  - name: idx_column1
+    description: Index on column 1
     columns:
-      - name: column1
-        "@id": "#test_table1.column1"
-        datatype: int
-        description: Column 1
-      - name: column2
-        "@id": "#test_table1.column2"
-        datatype: string
-        description: Column 2
-        length: 30
-        nullable: false
-      - name: column3
-        "@id": "#test_table1.column3"
-        datatype: string
-        description: Column 3
-        length: 100
-    indexes:
-      - name: idx_column1
-        "@id": "#test_table1_idx_column1"
-        description: Index on column 1
-        columns:
-          - "#test_table1.column1"
-    constraints:
-      - name: uniq_column2
-        "@id": "#test_table1_uniq_column2"
-        "@type": "Unique"
-        description: Unique column 2
-        columns:
-          - "#test_table1.column2"
-    primaryKey: "#test_table1.column1"
+    - "#test_table1.column1"
+  columnGroups:
+  - name: group1
+    description: Group 1
+    columns:
+    - "#test_table1.column1"
+  - name: group2
+    description: Group 2
+    columns:
+    - "#test_table1.column1"
+    - "#test_table1.column2"
+  constraints:
+  - name: uniq_column2
+    "@type": "Unique"
+    description: Unique column 2
+    columns:
+    - "#test_table1.column2"
+  primaryKey: "#test_table1.column1"
