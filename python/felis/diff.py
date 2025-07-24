@@ -21,6 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import copy
 import json
 import logging
 from typing import IO, Any
@@ -113,8 +114,8 @@ class SchemaDiff:
         table_filter: list[str] | None = None,
         strip_ids: bool = True,
     ):
-        self.schema_old = schema_old
-        self.schema_new = schema_new
+        self.schema_old = copy.deepcopy(schema_old)
+        self.schema_new = copy.deepcopy(schema_new)
         if table_filter:
             logger.debug(f"Filtering on tables: {table_filter}")
         self.table_filter = table_filter or []
@@ -126,9 +127,11 @@ class SchemaDiff:
             self.schema_old.tables = [
                 table for table in self.schema_old.tables if table.name in self.table_filter
             ]
+            logger.debug(f"Filtered old schema tables: {[table.name for table in self.schema_old.tables]}")
             self.schema_new.tables = [
                 table for table in self.schema_new.tables if table.name in self.table_filter
             ]
+            logger.debug(f"Filtered new schema tables: {[table.name for table in self.schema_new.tables]}")
         self.dict_old = _normalize_lists_by_name(self.schema_old._model_dump(strip_ids=self.strip_ids))
         self.dict_new = _normalize_lists_by_name(self.schema_new._model_dump(strip_ids=self.strip_ids))
         logger.debug(f"Normalized old dict:\n{json.dumps(self.dict_old, indent=2)}")
