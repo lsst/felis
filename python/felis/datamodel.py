@@ -85,6 +85,33 @@ DescriptionStr: TypeAlias = Annotated[str, Field(min_length=DESCR_MIN_LENGTH)]
 """Type for a description, which must be three or more characters long."""
 
 
+def _context(info: ValidationInfo, key: str, default: bool = False) -> bool:
+    """Get a value from the validation context.
+
+    Parameters
+    ----------
+    info
+        Validation context.
+    key
+        Key to look up in the context.
+    default
+        Default value to return if the key is not found. All context values
+        currently in use are boolean, so this should be set to `False` or
+        `True`.
+
+    Notes
+    -----
+    Since all of the current context values are boolean, this function will
+    return a default of `False` if the key is not found or if there is no
+    context available. Should the context parameters be changed in the future
+    to allow for more complex values, this function will need to be updated to
+    handle those cases.
+    """
+    if info.context:
+        return info.context.get(key, default)
+    return False
+
+
 class BaseObject(BaseModel):
     """Base model.
 
@@ -279,9 +306,14 @@ class Column(BaseObject):
         return validate_ivoa_ucd(ivoa_ucd)
 
     @model_validator(mode="after")
-    def check_units(self) -> Column:
+    def check_units(self, info: ValidationInfo) -> Column:
         """Check that the ``fits:tunit`` or ``ivoa:unit`` field has valid
         units according to astropy. Only one may be provided.
+
+        Parameters
+        ----------
+        info
+            Validation context used to determine if the check is enabled.
 
         Returns
         -------
@@ -296,6 +328,7 @@ class Column(BaseObject):
         """
         fits_unit = self.fits_tunit
         ivoa_unit = self.ivoa_unit
+        check_vounit = _context(info, "check_vounit", False)
 
         if fits_unit and ivoa_unit:
             raise ValueError("Column cannot have both FITS and IVOA units")
@@ -303,7 +336,13 @@ class Column(BaseObject):
 
         if unit is not None:
             try:
-                units.Unit(unit)
+                if check_vounit:
+                    # Enable IVOA unit validation
+                    logger.debug(f"Checking 'vounit' format for column '{self.name}' with value '{unit}'")
+                    units.Unit(unit, format="vounit")
+                else:
+                    # Use astropy's default unit validation
+                    units.Unit(unit)
             except ValueError as e:
                 raise ValueError(f"Invalid unit: {e}")
 

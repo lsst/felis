@@ -349,6 +349,12 @@ def init_tap_schema(
     help="Check that at least one column per table is flagged as TAP principal",
     default=False,
 )
+@click.option(
+    "--check-vounit",
+    is_flag=True,
+    help="Validate unit fields using the 'vounit' format",
+    default=False,
+)
 @click.argument("files", nargs=-1, type=click.File())
 @click.pass_context
 def validate(
@@ -357,6 +363,7 @@ def validate(
     check_redundant_datatypes: bool,
     check_tap_table_indexes: bool,
     check_tap_principal: bool,
+    check_vounit: bool,
     files: Iterable[IO[str]],
 ) -> None:
     """Validate one or more felis YAML files.
@@ -371,6 +378,8 @@ def validate(
         Check that every table has a unique TAP table index.
     check_tap_principal
         Check that at least one column per table is flagged as TAP principal.
+    check_vounit
+        Validate unit fields using the 'vounit' format.
     files
         The Felis YAML files to validate.
 
@@ -398,6 +407,7 @@ def validate(
                     "check_redundant_datatypes": check_redundant_datatypes,
                     "check_tap_table_indexes": check_tap_table_indexes,
                     "check_tap_principal": check_tap_principal,
+                    "check_vounit": check_vounit,
                     "id_generation": ctx.obj["id_generation"],
                 },
             )

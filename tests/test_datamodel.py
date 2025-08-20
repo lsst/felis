@@ -237,6 +237,31 @@ class ColumnTestCase(unittest.TestCase):
         col = Column(name="testColumn", id="#test_col_id", datatype="timestamp")
         self.assertEqual(col.votable_xtype, "timestamp")
 
+    def test_check_vounit(self) -> None:
+        """Test validation of the 'vounit' format."""
+        # Check that a valid VOUnit is accepted when 'check_vounit' context is
+        # True.
+        col_data = {
+            "name": "testColumn",
+            "@id": "#test_col_id",
+            "datatype": "string",
+            "length": 256,
+            "ivoa:unit": "m",
+        }
+        Column.model_validate(col_data, context={"check_vounit": True})
+
+        # Check that a unit which is acceptable according to the default
+        # astropy format but not VOUnit is not accepted when the 'check_vounit'
+        # context is True.
+        invalid_col_data = col_data.copy()
+        invalid_col_data["ivoa:unit"] = "deg_C"
+        with self.assertRaises(ValidationError):
+            Column.model_validate(invalid_col_data, context={"check_vounit": True})
+
+        # Check that a unit which is valid according to the default astropy
+        # format is accepted when the 'check_vounit' context is False.
+        Column.model_validate(invalid_col_data, context={"check_vounit": False})
+
 
 class TableTestCase(unittest.TestCase):
     """Test Pydantic validation of the ``Table`` class."""

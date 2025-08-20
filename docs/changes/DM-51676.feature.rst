@@ -1,0 +1,2 @@
+Added support for validating units using VOUnit format.
+This can be enabled by using the ``--check-vounit`` flag from the command line.
