@@ -1,0 +1,8 @@
+name: vounit_test
+description: Schema for testing VOUnit checks
+tables:
+  - name: test_table
+    columns:
+      - name: test_column
+        datatype: float
+        ivoa:unit: deg_C  # Bad unit VOUnit format to trigger validation error

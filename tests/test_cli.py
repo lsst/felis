@@ -221,6 +221,15 @@ class CliTestCase(unittest.TestCase):
         """Test for ``dump`` command with JSON output."""
         run_cli(["dump", TEST_YAML, "out.bad"], expect_error=True)
 
+    def test_check_vounit(self) -> None:
+        """Test for the `--check-vounit` option."""
+        # The test schema contains a column with an invalid VOUnit, so
+        # validation should fail.
+        run_cli(
+            ["validate", "--check-vounit", os.path.join(TEST_DIR, "data", "test_vounit.yml")],
+            expect_error=True,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
