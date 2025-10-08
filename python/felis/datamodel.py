@@ -862,6 +862,30 @@ class Table(BaseObject):
             raise ValueError("Column names must be unique")
         return columns
 
+    @field_validator("indexes", mode="after")
+    @classmethod
+    def check_unique_index_names(cls, indexes: list[Index]) -> list[Index]:
+        """Check that index names are unique.
+
+        Parameters
+        ----------
+        indexes
+            The indexes to check.
+
+        Returns
+        -------
+        `list` [ `Index` ]
+            The indexes if they are unique.
+
+        Raises
+        ------
+        ValueError
+            Raised if index names are not unique.
+        """
+        if len(indexes) != len(set(index.name for index in indexes)):
+            raise ValueError("Index names must be unique within a table")
+        return indexes
+
     @model_validator(mode="after")
     def check_tap_table_index(self, info: ValidationInfo) -> Table:
         """Check that the table has a TAP table index.
@@ -1175,7 +1199,7 @@ class Schema(BaseObject, Generic[T]):
                 if "indexes" in table:
                     for index in table["indexes"]:
                         if "@id" not in index:
-                            index["@id"] = f"#{index['name']}"
+                            index["@id"] = f"#{table['name']}.{index['name']}"
                             logger.debug(f"Generated ID '{index['@id']}' for index '{index['name']}'")
         return values
 
@@ -1256,36 +1280,6 @@ class Schema(BaseObject, Generic[T]):
 
         if duplicate_names:
             raise ValueError(f"Duplicate constraint names found in schema: {duplicate_names}")
-
-        return self
-
-    @model_validator(mode="after")
-    def check_unique_index_names(self: Schema) -> Schema:
-        """Check for duplicate index names in the schema.
-
-        Returns
-        -------
-        `Schema`
-            The schema being validated.
-
-        Raises
-        ------
-        ValueError
-            Raised if duplicate index names are found in the schema.
-        """
-        index_names = set()
-        duplicate_names = []
-
-        for table in self.tables:
-            for index in table.indexes:
-                index_name = index.name
-                if index_name in index_names:
-                    duplicate_names.append(index_name)
-                else:
-                    index_names.add(index_name)
-
-        if duplicate_names:
-            raise ValueError(f"Duplicate index names found in schema: {duplicate_names}")
 
         return self
 

@@ -698,15 +698,26 @@ class SchemaTestCase(unittest.TestCase):
             Schema(name="testSchema", id="#test_id", tables=[test_tbl])
 
     def test_check_unique_index_names(self) -> None:
-        """Test that index names are unique."""
+        """Test that index names must be unique within a single table."""
         test_col = Column(name="test_column1", id="#test_table.test_column1", datatype="int")
         test_col2 = Column(name="test_column2", id="#test_table.test_column2", datatype="string", length=256)
-        test_tbl = Table(name="test_table", id="#test_table", columns=[test_col, test_col2])
         test_idx = Index(name="idx_test", id="#idx_test", columns=[test_col.id])
         test_idx2 = Index(name="idx_test", id="#idx_test2", columns=[test_col2.id])
-        test_tbl.indexes = [test_idx, test_idx2]
         with self.assertRaises(ValidationError):
-            Schema(name="test_schema", id="#test-schema", tables=[test_tbl])
+            Table(
+                name="test_table",
+                id="#test_table",
+                columns=[test_col, test_col2],
+                indexes=[test_idx, test_idx2],
+            )
+
+        # This should not raise an exception.
+        Table(
+            name="test_table",
+            id="#test_table",
+            columns=[test_col, test_col2],
+            indexes=[test_idx],
+        )
 
     def test_model_validate(self) -> None:
         """Load a YAML test file and validate the schema data model."""
