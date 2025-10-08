@@ -1,0 +1,1 @@
+Changed the checking of index name uniqueness from the schema to the table level
