@@ -1171,17 +1171,17 @@ class Schema(BaseObject, Generic[T]):
         if "@id" not in values:
             values["@id"] = f"#{schema_name}"
             logger.debug(f"Generated ID '{values['@id']}' for schema '{schema_name}'")
-        if "tables" in values:
+        if values.get("tables", None):
             for table in values["tables"]:
                 if "@id" not in table:
                     table["@id"] = f"#{table['name']}"
                     logger.debug(f"Generated ID '{table['@id']}' for table '{table['name']}'")
-                if "columns" in table:
+                if table.get("columns", None):
                     for column in table["columns"]:
                         if "@id" not in column:
                             column["@id"] = f"#{table['name']}.{column['name']}"
                             logger.debug(f"Generated ID '{column['@id']}' for column '{column['name']}'")
-                if "columnGroups" in table:
+                if table.get("columnGroups", None):
                     for column_group in table["columnGroups"]:
                         if "@id" not in column_group:
                             column_group["@id"] = f"#{table['name']}.{column_group['name']}"
@@ -1189,14 +1189,14 @@ class Schema(BaseObject, Generic[T]):
                                 f"Generated ID '{column_group['@id']}' for column group "
                                 f"'{column_group['name']}'"
                             )
-                if "constraints" in table:
+                if table.get("constraints", None):
                     for constraint in table["constraints"]:
                         if "@id" not in constraint:
                             constraint["@id"] = f"#{constraint['name']}"
                             logger.debug(
                                 f"Generated ID '{constraint['@id']}' for constraint '{constraint['name']}'"
                             )
-                if "indexes" in table:
+                if table.get("indexes", None):
                     for index in table["indexes"]:
                         if "@id" not in index:
                             index["@id"] = f"#{table['name']}.{index['name']}"
