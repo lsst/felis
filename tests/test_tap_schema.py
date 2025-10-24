@@ -424,5 +424,324 @@ class CompositeKeysTestCase(unittest.TestCase):
         )
 
 
+class TableManagerExtensionsTestCase(unittest.TestCase):
+    """Test the `TableManager` class with extensions."""
+
+    def setUp(self) -> None:
+        """Set up the test case."""
+        self.tmpdir = tempfile.mkdtemp(dir=TEST_DIR)
+
+        self.extensions_path = os.path.join(self.tmpdir, "test_extensions.yaml")
+        extensions_content = """
+tables:
+  schemas:
+    - name: owner_id
+      datatype: char
+      length: 32
+      nullable: true
+      description: "Owner identifier"
+      "@id": "#tap_schema.schemas.owner_id"
+    - name: read_anon
+      datatype: int
+      nullable: true
+      description: "Anon read flag"
+      "@id": "#tap_schema.schemas.read_anon"
+  tables:
+    - name: api_created
+      datatype: int
+      nullable: true
+      description: "API created flag"
+      "@id": "#tap_schema.tables.api_created"
+"""
+        with open(self.extensions_path, "w") as f:
+            f.write(extensions_content)
+
+    def tearDown(self) -> None:
+        """Clean up temporary directory."""
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_extensions_applied(self) -> None:
+        mgr = TableManager(extensions_path=self.extensions_path)
+
+        schemas_table = mgr["schemas"]
+        self.assertIn("owner_id", schemas_table.c)
+        self.assertIn("read_anon", schemas_table.c)
+
+        tables_table = mgr["tables"]
+        self.assertIn("api_created", tables_table.c)
+
+    def test_extensions_column_count(self) -> None:
+        mgr_without = TableManager()
+        mgr_with = TableManager(extensions_path=self.extensions_path)
+
+        schemas_before = len(mgr_without["schemas"].c)
+        schemas_after = len(mgr_with["schemas"].c)
+        self.assertEqual(schemas_after, schemas_before + 2)
+
+        tables_before = len(mgr_without["tables"].c)
+        tables_after = len(mgr_with["tables"].c)
+        self.assertEqual(tables_after, tables_before + 1)
+
+    def test_extensions_with_data_loader(self) -> None:
+        engine = create_engine("sqlite:///:memory:")
+
+        mgr = TableManager(apply_schema_to_metadata=False, extensions_path=self.extensions_path)
+        mgr.initialize_database(engine)
+
+        with open(TEST_TAP_SCHEMA) as test_file:
+            schema = Schema.from_stream(test_file, context={"id_generation": True})
+
+        loader = DataLoader(schema, mgr, engine)
+        loader.load()
+
+        schemas_table = mgr["schemas"]
+        with engine.connect() as connection:
+            result = connection.execute(select(schemas_table))
+            row = result.fetchone()
+            self.assertIn("owner_id", row._fields)
+            self.assertIn("read_anon", row._fields)
+
+    def test_invalid_extensions_file(self) -> None:
+        invalid_path = os.path.join(self.tmpdir, "nonexistent.yaml")
+
+        with self.assertRaises(FileNotFoundError):
+            TableManager(extensions_path=invalid_path)
+
+    def test_empty_extensions(self) -> None:
+        empty_extensions_path = os.path.join(self.tmpdir, "empty_extensions.yaml")
+        with open(empty_extensions_path, "w") as f:
+            f.write("tables: {}\n")
+
+        mgr = TableManager(extensions_path=empty_extensions_path)
+        self.assertIsNotNone(mgr["schemas"])
+
+    def test_extensions_file_with_no_tables_key(self) -> None:
+        no_tables_path = os.path.join(self.tmpdir, "no_tables_extensions.yaml")
+        with open(no_tables_path, "w") as f:
+            f.write("extensions: []\n")
+
+        mgr = TableManager(extensions_path=no_tables_path)
+
+        schemas_table = mgr["schemas"]
+        self.assertIsNotNone(schemas_table)
+        self.assertNotIn("owner_id", schemas_table.c)
+
+    def test_extensions_empty_yaml(self) -> None:
+        empty_yaml_path = os.path.join(self.tmpdir, "empty.yaml")
+        with open(empty_yaml_path, "w") as f:
+            f.write("")
+
+        mgr = TableManager(extensions_path=empty_yaml_path)
+        self.assertIsNotNone(mgr["schemas"])
+
+    def test_extensions_with_null_table_extensions(self) -> None:
+        null_extensions_path = os.path.join(self.tmpdir, "null_extensions.yaml")
+        with open(null_extensions_path, "w") as f:
+            f.write("""
+    tables:
+      schemas: []
+      tables: null
+      columns:
+        - name: test_col
+          datatype: int
+    """)
+
+        mgr = TableManager(extensions_path=null_extensions_path)
+
+        columns_table = mgr["columns"]
+        self.assertIn("test_col", columns_table.c)
+
+        schemas_table = mgr["schemas"]
+        self.assertNotIn("owner_id", schemas_table.c)
+
+    def test_extensions_invalid_column_missing_name(self) -> None:
+        invalid_name_path = os.path.join(self.tmpdir, "invalid_name.yaml")
+        with open(invalid_name_path, "w") as f:
+            f.write("""
+    tables:
+      schemas:
+        - datatype: int
+          description: "Missing name"
+        - name: some_column
+          datatype: int
+    """)
+
+        mgr = TableManager(extensions_path=invalid_name_path)
+        schemas_table = mgr["schemas"]
+        self.assertIn("some_column", schemas_table.c)
+
+    def test_extensions_column_id_auto_generation(self) -> None:
+        auto_id_path = os.path.join(self.tmpdir, "auto_id.yaml")
+        with open(auto_id_path, "w") as f:
+            f.write("""
+    tables:
+      schemas:
+        - name: auto_id
+          datatype: int
+          nullable: false
+          description: "Column with auto_id"
+    """)
+
+        mgr = TableManager(extensions_path=auto_id_path)
+        schemas_table = mgr["schemas"]
+        self.assertIn("auto_id", schemas_table.c)
+
+    def test_extensions_column_id_preserved(self) -> None:
+        explicit_id_path = os.path.join(self.tmpdir, "explicit_id.yaml")
+        with open(explicit_id_path, "w") as f:
+            f.write("""
+    tables:
+      schemas:
+        - name: explicit_id
+          datatype: int
+          "@id": "#custom.id.path"
+    """)
+
+        mgr = TableManager(extensions_path=explicit_id_path)
+        schemas_table = mgr["schemas"]
+        self.assertIn("explicit_id", schemas_table.c)
+
+    def test_extensions_multiple_tables_extended(self) -> None:
+        multi_table_path = os.path.join(self.tmpdir, "multi_table.yaml")
+        with open(multi_table_path, "w") as f:
+            f.write("""
+    tables:
+      schemas:
+        - name: schema_ext1
+          datatype: int
+        - name: schema_ext2
+          datatype: int
+      tables:
+        - name: table_ext1
+          datatype: boolean
+        - name: table_ext2
+          datatype: double
+      columns:
+        - name: col_ext1
+          datatype: int
+      keys:
+        - name: key_ext1
+          datatype: char
+          length: 128
+    """)
+
+        mgr = TableManager(extensions_path=multi_table_path)
+
+        schemas_table = mgr["schemas"]
+        self.assertIn("schema_ext1", schemas_table.c)
+        self.assertIn("schema_ext2", schemas_table.c)
+
+        tables_table = mgr["tables"]
+        self.assertIn("table_ext1", tables_table.c)
+        self.assertIn("table_ext2", tables_table.c)
+
+        columns_table = mgr["columns"]
+        self.assertIn("col_ext1", columns_table.c)
+
+        keys_table = mgr["keys"]
+        self.assertIn("key_ext1", keys_table.c)
+
+    def test_extensions_nonexistent_table_skipped(self) -> None:
+        nonexistent_table_path = os.path.join(self.tmpdir, "nonexistent_table.yaml")
+        with open(nonexistent_table_path, "w") as f:
+            f.write("""
+    tables:
+      schemas:
+        - name: valid_ext
+          datatype: int
+      nonexistent_table:
+        - name: should_be_ignored
+          datatype: varchar
+    """)
+
+        mgr = TableManager(extensions_path=nonexistent_table_path)
+        schemas_table = mgr["schemas"]
+        self.assertIn("valid_ext", schemas_table.c)
+
+    def test_extensions_column_properties_preserved(self) -> None:
+        full_props_path = os.path.join(self.tmpdir, "full_props.yaml")
+        with open(full_props_path, "w") as f:
+            f.write("""
+    tables:
+      schemas:
+        - name: full_property_column
+          datatype: char
+          length: 64
+          nullable: false
+          description: "Column with all properties"
+          "@id": "#tap_schema.schemas.full_property_column"
+    """)
+
+        mgr = TableManager(extensions_path=full_props_path)
+        schemas_table = mgr["schemas"]
+        self.assertIn("full_property_column", schemas_table.c)
+
+    def test_extensions_apply_schema_to_metadata_true(self) -> None:
+        mgr = TableManager(apply_schema_to_metadata=True, extensions_path=self.extensions_path)
+        schemas_table = mgr["schemas"]
+        self.assertIn("owner_id", schemas_table.c)
+
+    def test_extensions_apply_schema_to_metadata_false(self) -> None:
+        mgr = TableManager(apply_schema_to_metadata=False, extensions_path=self.extensions_path)
+
+        schemas_table = mgr["schemas"]
+        self.assertIn("owner_id", schemas_table.c)
+        self.assertIn("read_anon", schemas_table.c)
+
+    def test_extensions_with_table_name_postfix(self) -> None:
+        mgr = TableManager(
+            apply_schema_to_metadata=False, extensions_path=self.extensions_path, table_name_postfix="_custom"
+        )
+
+        schemas_table = mgr["schemas"]
+        self.assertIn("owner_id", schemas_table.c)
+
+    def test_extensions_metadata_builder_called(self) -> None:
+        mgr = TableManager(extensions_path=self.extensions_path)
+
+        self.assertIsNotNone(mgr._metadata)
+
+        table_names = list(mgr.metadata.tables.keys())
+        found_schemas = any("schemas" in name for name in table_names)
+        found_tables = any("tables" in name and "schemas" not in name for name in table_names)
+
+        self.assertTrue(found_schemas, f"No schemas table found in {table_names}")
+        self.assertTrue(found_tables, f"No tables table found in {table_names}")
+
+    def test_extensions_preserve_original_columns(self) -> None:
+        mgr = TableManager(extensions_path=self.extensions_path)
+
+        schemas_table = mgr["schemas"]
+        column_names = [col.name for col in schemas_table.columns]
+
+        self.assertIn("schema_name", column_names)
+        self.assertIn("owner_id", column_names)
+        self.assertIn("read_anon", column_names)
+
+    def test_no_extensions_path_provided(self) -> None:
+        mgr = TableManager(extensions_path=None)
+        schemas_table = mgr["schemas"]
+        self.assertNotIn("owner_id", schemas_table.c)
+
+    def test_extensions_path_empty_string(self) -> None:
+        mgr = TableManager(extensions_path="")
+        schemas_table = mgr["schemas"]
+        self.assertNotIn("owner_id", schemas_table.c)
+
+    def test_extensions_file_not_found(self) -> None:
+        nonexistent_path = os.path.join(self.tmpdir, "does_not_exist.yaml")
+        with self.assertRaises(FileNotFoundError):
+            TableManager(extensions_path=nonexistent_path)
+
+    def test_extensions_empty_file(self) -> None:
+        empty_path = os.path.join(self.tmpdir, "empty.yaml")
+        with open(empty_path, "w") as f:
+            f.write("")
+
+        mgr = TableManager(extensions_path=empty_path)
+        schemas_table = mgr["schemas"]
+        self.assertIsNotNone(schemas_table)
+
+
 if __name__ == "__main__":
     unittest.main()

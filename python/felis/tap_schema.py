@@ -26,8 +26,10 @@ import io
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Any
 
+import yaml
 from lsst.resources import ResourcePath
 from sqlalchemy import MetaData, Table, select, text
 from sqlalchemy.engine import Connection, Engine
@@ -68,6 +70,8 @@ class TableManager:
         A string to append to all the standard table names.
         This needs to be used in a way such that the resultant table names
         map to tables within the TAP_SCHEMA database.
+    extensions_path
+        The path to additional TAP_SCHEMA table definitions.
 
     Notes
     -----
@@ -88,12 +92,14 @@ class TableManager:
         schema_name: str | None = None,
         apply_schema_to_metadata: bool = True,
         table_name_postfix: str = "",
+        extensions_path: str | None = None,
     ):
         """Initialize the table manager."""
         self.table_name_postfix = table_name_postfix
         self.apply_schema_to_metadata = apply_schema_to_metadata
         self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
         self.table_name_postfix = table_name_postfix
+        self.extensions_path = extensions_path
 
         if is_valid_engine(engine):
             assert isinstance(engine, Engine)
@@ -109,9 +115,67 @@ class TableManager:
             self._reflect(engine)
         else:
             self._load_yaml()
+            if extensions_path:
+                self._apply_extensions()
 
         self._create_table_map()
         self._check_tables()
+
+    def _apply_extensions(self) -> None:
+        """Apply extensions from a YAML file to the TAP_SCHEMA schema.
+
+        This method loads extension column definitions from a YAML file and
+        adds them to the appropriate TAP_SCHEMA tables.
+        """
+        if not self.extensions_path:
+            return
+
+        ext_data = None
+
+        if self.extensions_path.startswith("resource://"):
+            ext_resource = ResourcePath(self.extensions_path)
+            ext_content = ext_resource.read()
+            ext_data = yaml.safe_load(ext_content)
+        else:
+            ext_path = Path(self.extensions_path)
+            if not ext_path.exists():
+                raise FileNotFoundError(f"Extensions file not found: {self.extensions_path}")
+            with open(ext_path) as f:
+                ext_data = yaml.safe_load(f)
+
+        if not ext_data or "tables" not in ext_data:
+            logger.warning("Extensions file does not contain 'tables' key, no extensions applied")
+            return
+
+        extension_count = 0
+        for table in self.schema.tables:
+            if table.name not in ext_data["tables"]:
+                continue
+
+            table_extensions = ext_data["tables"][table.name]
+            if not table_extensions:
+                continue
+
+            extension_columns = []
+            for col_def in table_extensions:
+                if "name" not in col_def or "datatype" not in col_def:
+                    logger.warning("Skipping invalid column definition in extensions: %s", col_def)
+                    continue
+
+                if "@id" not in col_def:
+                    col_def["@id"] = f"#{table.name}.{col_def['name']}"
+
+                ext_column = datamodel.Column(**col_def)
+                extension_columns.append(ext_column)
+                extension_count += 1
+
+            table.columns = list(table.columns) + extension_columns
+
+        self._metadata = MetaDataBuilder(
+            self.schema,
+            apply_schema_to_metadata=self.apply_schema_to_metadata,
+            table_name_postfix=self.table_name_postfix,
+        ).build()
 
     def _reflect(self, engine: Engine) -> None:
         """Reflect the TAP_SCHEMA database tables into the metadata.

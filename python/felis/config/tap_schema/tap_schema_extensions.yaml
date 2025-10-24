@@ -1,0 +1,73 @@
+# TAP_SCHEMA Extensions
+# This file defines additional columns to be added to the standard TAP_SCHEMA tables
+# These are extensions beyond the IVOA TAP 1.1 specification and needed for the CADC TAP service
+
+# Extension columns for each TAP_SCHEMA table
+tables:
+  schemas:
+    - name: owner_id
+      datatype: char
+      length: 32
+      nullable: true
+      description: "Owner identifier for user-created content"
+      "@id": "#tap_schema.schemas.owner_id"
+
+    - name: read_anon
+      datatype: int
+      nullable: true
+      description: "Anonymous read permission flag (0 or 1)"
+      "@id": "#tap_schema.schemas.read_anon"
+
+    - name: read_only_group
+      datatype: char
+      length: 128
+      nullable: true
+      description: "Read-only group identifier"
+      "@id": "#tap_schema.schemas.read_only_group"
+
+    - name: read_write_group
+      datatype: char
+      length: 128
+      nullable: true
+      description: "Read-write group identifier"
+      "@id": "#tap_schema.schemas.read_write_group"
+
+    - name: api_created
+      datatype: int
+      nullable: true
+      description: "Flag indicating if schema was created via TAP service API (0 or 1)"
+      "@id": "#tap_schema.schemas.api_created"
+
+  tables:
+    - name: owner_id
+      datatype: char
+      length: 32
+      nullable: true
+      description: "Owner identifier for user-created content"
+      "@id": "#tap_schema.tables.owner_id"
+
+    - name: read_anon
+      datatype: int
+      nullable: true
+      description: "Anonymous read permission flag (0 or 1)"
+      "@id": "#tap_schema.tables.read_anon"
+
+    - name: read_only_group
+      datatype: char
+      length: 128
+      nullable: true
+      description: "Read-only group identifier"
+      "@id": "#tap_schema.tables.read_only_group"
+
+    - name: read_write_group
+      datatype: char
+      length: 128
+      nullable: true
+      description: "Read-write group identifier"
+      "@id": "#tap_schema.tables.read_write_group"
+
+    - name: api_created
+      datatype: int
+      nullable: true
+      description: "Flag indicating if table was created via TAP service API (0 or 1)"
+      "@id": "#tap_schema.tables.api_created"
