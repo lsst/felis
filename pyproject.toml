@@ -224,3 +224,6 @@ format = "png"
 exclude = [
     "sqlalchemy"
 ]
+
+[tool.lsst_versions]
+write_to = "python/felis/version.py"

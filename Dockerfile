@@ -16,23 +16,28 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Install the dependencies and application
 WORKDIR /app
 
-# Copy the entire application (including .git for version detection)
+# Copy the entire application
 COPY . /app
 
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python -m venv /app/.venv && \
-    /app/.venv/bin/pip install --no-cache-dir . psycopg2-binary
+    pip install --no-cache-dir setuptools wheel build lsst-versions && \
+    pip install --no-cache-dir --no-build-isolation . psycopg2-binary
 
 FROM base-image AS runtime-image
 # Create a non-root user with UID 1001
 RUN useradd --create-home --uid 1001 felis
-# Copy the virtualenv
-COPY --from=install-image /app/.venv /app/.venv
+
+# Copy the entire app
+COPY --from=install-image /app /app
+
 # Set the working directory
 WORKDIR /app
+
 # Switch to the non-root user
 USER felis
-# Make sure we use the virtualenv
-ENV PATH="/app/.venv/bin:$PATH"
+
+# Python packages are already in system site-packages
+ENV PATH="/usr/local/bin:$PATH"
+
 # Run bash by default
 CMD ["bash"]
