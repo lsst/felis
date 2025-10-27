@@ -1,0 +1,36 @@
+name: Docker Build and Push
+on:
+  merge_group: {}
+  pull_request: {}
+  push:
+    branches-ignore:
+      - "dependabot/**"
+      - "gh-readonly-queue/**"
+      - "renovate/**"
+      - "tickets/**"
+      - "u/**"
+    tags:
+      - "*"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # Only build tagged releases or PR from ticket branches
+    if: >
+      github.event_name != 'merge_group'
+      && (startsWith(github.ref, 'refs/tags/')
+          || startsWith(github.head_ref, 'tickets/'))
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: lsst-sqre/build-and-push-to-ghcr@v1
+        id: build
+        with:
+          image: ${{ github.repository }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Report result
+        run: |
+          echo Pushed ghcr.io/${{ github.repository }}:${{ steps.build.outputs.tag }}
