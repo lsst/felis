@@ -374,6 +374,17 @@ def load_tap_schema(
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", required=True)
 @click.option("--tap-schema-name", help="Name of the TAP_SCHEMA schema in the database")
 @click.option(
+    "--extensions",
+    type=str,
+    default=None,
+    help=(
+        "Optional path to extensions YAML file (system path or resource:// URI). "
+        "If not provided, no extensions will be applied. "
+        "Example (default packaged extensions): "
+        "--extensions resource://felis/config/tap_schema/tap_schema_extensions.yaml"
+    ),
+)
+@click.option(
     "--tap-tables-postfix", help="Postfix which is applied to standard TAP_SCHEMA table names", default=""
 )
 @click.option(
@@ -384,7 +395,12 @@ def load_tap_schema(
 )
 @click.pass_context
 def init_tap_schema(
-    ctx: click.Context, engine_url: str, tap_schema_name: str, tap_tables_postfix: str, insert_metadata: bool
+    ctx: click.Context,
+    engine_url: str,
+    tap_schema_name: str,
+    extensions: str | None,
+    tap_tables_postfix: str,
+    insert_metadata: bool,
 ) -> None:
     """Initialize a standard TAP_SCHEMA database.
 
@@ -394,6 +410,8 @@ def init_tap_schema(
         SQLAlchemy Engine URL.
     tap_schema_name
         Name of the TAP_SCHEMA schema in the database.
+    extensions
+        Extensions YAML file.
     tap_tables_postfix
         Postfix which is applied to standard TAP_SCHEMA table names.
     insert_metadata
@@ -410,6 +428,7 @@ def init_tap_schema(
         apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
+        extensions_path=extensions,
     )
     mgr.initialize_database(engine)
     if insert_metadata:

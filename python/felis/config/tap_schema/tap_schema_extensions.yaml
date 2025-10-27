@@ -1,0 +1,68 @@
+# TAP_SCHEMA Extensions
+# This file defines additional columns to be added to the standard TAP_SCHEMA tables
+# These are extensions beyond the IVOA TAP 1.1 specification and needed for the CADC TAP service
+
+# Extension columns for each TAP_SCHEMA table
+name: tap_schema_extensions
+description: Extensions to the standard TAP_SCHEMA tables
+
+tables:
+  - name: schemas
+    description: "Extensions to TAP_SCHEMA.schemas table"
+    columns:
+      - name: owner_id
+        datatype: char
+        length: 32
+        description: "Owner identifier for user-created content"
+
+      - name: read_anon
+        datatype: int
+        description: "Anonymous read permission flag (0 or 1)"
+
+      - name: read_only_group
+        datatype: char
+        length: 128
+        description: "Read-only group identifier"
+
+      - name: read_write_group
+        datatype: char
+        length: 128
+        description: "Read-write group identifier"
+
+      - name: api_created
+        datatype: int
+        description: "Flag indicating if schema was created via TAP service API (0 or 1)"
+
+  - name: tables
+    description: "Extensions to TAP_SCHEMA.tables table"
+    columns:
+      - name: owner_id
+        datatype: char
+        length: 32
+        description: "Owner identifier for user-created content"
+
+      - name: read_anon
+        datatype: int
+        description: "Anonymous read permission flag (0 or 1)"
+
+      - name: read_only_group
+        datatype: char
+        length: 128
+        description: "Read-only group identifier"
+
+      - name: read_write_group
+        datatype: char
+        length: 128
+        description: "Read-write group identifier"
+
+      - name: api_created
+        datatype: int
+        description: "Flag indicating if table was created via TAP service API (0 or 1)"
+
+  - name: columns
+    description: "Extensions to TAP_SCHEMA.columns table"
+    columns:
+      - name: column_id
+        datatype: char
+        length: 32
+        description: "Globally unique columnID for use as an XML ID attribute on the FIELD in VOTable output"
