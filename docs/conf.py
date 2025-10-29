@@ -13,3 +13,10 @@ autodoc_pydantic_model_show_json = False
 autodoc_default_options = {"exclude-members": "model_post_init"}
 
 exclude_patterns = ["changes/*"]
+
+# As a temporary hack until we move to documenteer 2 delete scipy
+# (since it no longer works)
+try:
+    del intersphinx_mapping["scipy"]  # noqa: F405
+except KeyError:
+    pass
