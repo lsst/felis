@@ -100,6 +100,7 @@ def cli(ctx: click.Context, log_level: str, log_file: str | None, id_generation:
     "--output-file", "-o", type=click.File(mode="w"), help="Write SQL commands to a file instead of executing"
 )
 @click.option("--ignore-constraints", is_flag=True, help="Ignore constraints when creating tables")
+@click.option("--skip-indexes", is_flag=True, help="Skip creating indexes when building metadata")
 @click.argument("file", type=click.File())
 @click.pass_context
 def create(
@@ -112,6 +113,7 @@ def create(
     dry_run: bool,
     output_file: IO[str] | None,
     ignore_constraints: bool,
+    skip_indexes: bool,
     file: IO[str],
 ) -> None:
     """Create database objects from the Felis file.
@@ -134,6 +136,8 @@ def create(
         Write SQL commands to a file instead of executing.
     ignore_constraints
         Ignore constraints when creating tables.
+    skip_indexes
+        Skip creating indexes when building metadata.
     file
         Felis file to read.
     """
@@ -150,7 +154,11 @@ def create(
             dry_run = True
             logger.info("Forcing dry run for non-sqlite engine URL with no host")
 
-        metadata = MetaDataBuilder(schema, ignore_constraints=ignore_constraints).build()
+        metadata = MetaDataBuilder(
+            schema,
+            ignore_constraints=ignore_constraints,
+            skip_indexes=skip_indexes,
+        ).build()
         logger.debug(f"Created metadata with schema name: {metadata.schema}")
 
         engine: Engine | MockConnection

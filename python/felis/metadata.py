@@ -137,6 +137,7 @@ class MetaDataBuilder:
         apply_schema_to_metadata: bool = True,
         ignore_constraints: bool = False,
         table_name_postfix: str = "",
+        skip_indexes=False,
     ) -> None:
         """Initialize the metadata builder."""
         self.schema = schema
@@ -146,6 +147,7 @@ class MetaDataBuilder:
         self._objects: dict[str, Any] = {}
         self.ignore_constraints = ignore_constraints
         self.table_name_postfix = table_name_postfix
+        self.skip_indexes = skip_indexes
 
     def build(self) -> MetaData:
         """Build the SQLAlchemy tables and constraints from the schema.
@@ -162,6 +164,10 @@ class MetaDataBuilder:
             The SQLAlchemy metadata object.
         """
         self.build_tables()
+        if not self.skip_indexes:
+            self.build_indexes()
+        else:
+            logger.warning("Ignoring indexes")
         if not self.ignore_constraints:
             self.build_constraints()
         else:
@@ -235,12 +241,6 @@ class MetaDataBuilder:
             comment=description,
             **optargs,  # type: ignore[arg-type]
         )
-
-        # Create the indexes and add them to the table.
-        indexes = [self.build_index(index) for index in table_obj.indexes]
-        for index in indexes:
-            index._set_parent(table)
-            table.indexes.add(index)
 
         self._objects[id] = table
 
@@ -383,3 +383,18 @@ class MetaDataBuilder:
         index = Index(index_obj.name, *columns, *expressions)
         self._objects[index_obj.id] = index
         return index
+
+    def build_indexes(self):
+        """Build the SQLAlchemy indexes from the Felis schema and add them to
+        the associated table in the metadata.
+        """
+        for table in self.schema.tables:
+            sqa_table = self._objects.get(table.id, None)
+            if sqa_table is None:
+                raise KeyError(f"Table with ID '{table.id}' not found in objects map")
+            if not isinstance(sqa_table, Table):
+                raise TypeError(f"Expected Table object, got {type(sqa_table)}")
+            indexes = [self.build_index(index) for index in table.indexes]
+            for index in indexes:
+                index._set_parent(sqa_table)
+                sqa_table.indexes.add(index)
