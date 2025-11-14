@@ -30,11 +30,13 @@ from sqlalchemy import create_engine
 
 import felis.tap_schema as tap_schema
 from felis.datamodel import Schema
+from felis.db.utils import DatabaseContext
 from felis.metadata import MetaDataBuilder
 from felis.tests.run_cli import run_cli
 
 TEST_DIR = os.path.abspath(os.path.dirname(__file__))
 TEST_YAML = os.path.join(TEST_DIR, "data", "test.yml")
+TEST_SALES_YAML = os.path.join(TEST_DIR, "data", "sales.yaml")
 
 
 class CliTestCase(unittest.TestCase):
@@ -220,6 +222,50 @@ class CliTestCase(unittest.TestCase):
     def test_dump_with_invalid_file_extension_error(self) -> None:
         """Test for ``dump`` command with JSON output."""
         run_cli(["dump", TEST_YAML, "out.bad"], expect_error=True)
+
+    def test_create_and_drop_indexes(self) -> None:
+        """Test creating and dropping indexes using CLI commands with SQLite."""
+        # Load the schema to get expected indexes
+        schema = Schema.from_uri(TEST_SALES_YAML)
+        md_with_indexes = MetaDataBuilder(schema, skip_indexes=False).build()
+
+        engine = create_engine(self.sqlite_url)
+
+        def check_indexes_exist(should_exist: bool, message: str) -> None:
+            """Check if indexes exist or don't exist in the database."""
+            with engine.connect() as conn:
+                for table in md_with_indexes.tables.values():
+                    for index in table.indexes:
+                        if index.name is not None:
+                            exists = DatabaseContext._index_exists(conn, table, index)
+                            if should_exist:
+                                self.assertTrue(
+                                    exists,
+                                    f"Index '{index.name}' {message}",
+                                )
+                            else:
+                                self.assertFalse(
+                                    exists,
+                                    f"Index '{index.name}' {message}",
+                                )
+
+        # Create database without indexes
+        run_cli(["create", "--skip-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML])
+
+        # Check that indexes don't exist yet
+        check_indexes_exist(False, "should not exist after create with --skip-indexes")
+
+        # Create the indexes using CLI
+        run_cli(["create-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"])
+
+        # Check that indexes now exist
+        check_indexes_exist(True, "should exist after create-indexes")
+
+        # Drop the indexes using CLI
+        run_cli(["drop-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"])
+
+        # Check that indexes were dropped
+        check_indexes_exist(False, "should not exist after drop-indexes")
 
 
 if __name__ == "__main__":
