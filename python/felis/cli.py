@@ -191,6 +191,84 @@ def create(
         raise click.ClickException(str(e))
 
 
+@cli.command("create-indexes", help="Create database objects from the Felis file")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
+@click.option("--schema-name", help="Alternate schema name to override Felis file")
+@click.argument("file", type=click.File())
+@click.pass_context
+def create_indexes(
+    ctx: click.Context,
+    engine_url: str,
+    schema_name: str | None,
+    file: IO[str],
+) -> None:
+    """Create indexes from a Felis YAML file in a target database.
+
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL.
+    file
+        Felis file to read.
+    """
+    try:
+        schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
+        if schema_name:
+            logger.info(f"Overriding schema name with: {schema_name}")
+            schema.name = schema_name
+        metadata = MetaDataBuilder(
+            schema,
+        ).build()
+
+        url = make_url(engine_url)
+        engine = create_engine(url)
+        context = DatabaseContext(metadata, engine)
+        context.create_indexes()
+    except Exception as e:
+        logger.exception(e)
+        raise click.ClickException("Error creating indexes: " + str(e))
+
+
+@cli.command("drop-indexes", help="Create database objects from the Felis file")
+@click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
+@click.option("--schema-name", help="Alternate schema name to override Felis file")
+@click.argument("file", type=click.File())
+@click.pass_context
+def drop_indexes(
+    ctx: click.Context,
+    engine_url: str,
+    schema_name: str | None,
+    file: IO[str],
+) -> None:
+    """Drop indexes from a Felis YAML file in a target database.
+
+    Parameters
+    ----------
+    engine_url
+        SQLAlchemy Engine URL.
+    schema-name
+        Alternate schema name to override Felis file.
+    file
+        Felis file to read.
+    """
+    try:
+        schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
+        if schema_name:
+            logger.info(f"Overriding schema name with: {schema_name}")
+            schema.name = schema_name
+        metadata = MetaDataBuilder(
+            schema,
+        ).build()
+
+        url = make_url(engine_url)
+        engine = create_engine(url)
+        context = DatabaseContext(metadata, engine)
+        context.drop_indexes()
+    except Exception as e:
+        logger.exception(e)
+        raise click.ClickException("Error dropping indexes: " + str(e))
+
+
 @cli.command("load-tap-schema", help="Load metadata from a Felis file into a TAP_SCHEMA database")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL")
 @click.option(

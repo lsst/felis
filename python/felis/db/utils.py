@@ -27,12 +27,12 @@ import logging
 import re
 from typing import IO, Any
 
-from sqlalchemy import MetaData, types
-from sqlalchemy.engine import Dialect, Engine, ResultProxy
+from sqlalchemy import MetaData, inspect, types
+from sqlalchemy.engine import Connection, Dialect, Engine, ResultProxy
 from sqlalchemy.engine.mock import MockConnection, create_mock_engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.schema import CreateSchema, DropSchema
+from sqlalchemy.schema import CreateSchema, DropSchema, Index, Table
 from sqlalchemy.sql import text
 from sqlalchemy.types import TypeEngine
 
@@ -365,6 +365,51 @@ class DatabaseContext:
             self.metadata.create_all(self.engine)
         else:
             raise ValueError("Unsupported engine type: " + str(type(self.engine)))
+
+    def create_indexes(self):
+        """Create all indexes in the schema using the metadata object."""
+        with self.engine.begin() as conn:
+            for table in self.metadata.tables.values():
+                for index in table.indexes:
+                    if self._index_exists(conn, table, index):
+                        logger.warning(f"Skipping creation of index '{index.name}' which already exists")
+                        continue
+                    index.create(bind=conn, checkfirst=True)
+                    logger.info(f"Created index '{index.name}'")
+
+    def drop_indexes(self):
+        """Drop all indexes in the schema using the metadata object."""
+        with self.engine.begin() as conn:
+            for table in self.metadata.tables.values():
+                for index in table.indexes:
+                    if not self._index_exists(conn, table, index):
+                        logger.warning(f"Skipping index '{index.name}' which does not exist")
+                        continue
+                    index.drop(bind=conn, checkfirst=True)
+                    logger.info(f"Dropped index '{index.name}'")
+
+    @classmethod
+    def _index_exists(cls, conn: Connection, table: Table, index: Index) -> bool:
+        """Return True if an index with this name exists on the table in the
+        database.
+        """
+        if index.name is None:
+            # Anonymous indexes can't be reliably checked by name.
+            return False
+
+        inspector = inspect(conn)
+        # For SQLite, schema should be None as SQLite doesn't support schemas
+        # even though the table.schema might be set to "main"
+        schema = None if conn.dialect.name == "sqlite" else table.schema
+        existing = {
+            ix["name"]
+            for ix in inspector.get_indexes(
+                table_name=table.name,
+                schema=schema,
+            )
+            if "name" in ix and ix["name"] is not None
+        }
+        return index.name in existing
 
     @staticmethod
     def create_mock_engine(engine_url: str | URL, output_file: IO[str] | None = None) -> MockConnection:

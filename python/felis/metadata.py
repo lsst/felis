@@ -389,12 +389,12 @@ class MetaDataBuilder:
         the associated table in the metadata.
         """
         for table in self.schema.tables:
-            sqa_table = self._objects.get(table.id, None)
-            if sqa_table is None:
+            md_table = self._objects.get(table.id, None)
+            if md_table is None:
                 raise KeyError(f"Table with ID '{table.id}' not found in objects map")
-            if not isinstance(sqa_table, Table):
-                raise TypeError(f"Expected Table object, got {type(sqa_table)}")
+            if not isinstance(md_table, Table):
+                raise TypeError(f"Expected Table object, got {type(md_table)}")
             indexes = [self.build_index(index) for index in table.indexes]
             for index in indexes:
-                index._set_parent(sqa_table)
-                sqa_table.indexes.add(index)
+                index._set_parent(md_table)
+                md_table.indexes.add(index)
