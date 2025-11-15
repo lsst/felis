@@ -108,26 +108,32 @@ class TestPostgresql(unittest.TestCase):
         md_with_indexes = MetaDataBuilder(schema, skip_indexes=False).build()
         ctx_with_indexes = DatabaseContext(md_with_indexes, self.postgresql.engine)
 
+        def check_indexes_exist(should_exist: bool, message: str) -> None:
+            """Check if indexes exist or don't exist in the database."""
+            with self.postgresql.begin() as conn:
+                for table in md_with_indexes.tables.values():
+                    for index in table.indexes:
+                        if index.name is not None:
+                            exists = DatabaseContext._index_exists(conn, table, index)
+                            if should_exist:
+                                self.assertTrue(
+                                    exists,
+                                    f"Index '{index.name}' {message}",
+                                )
+                            else:
+                                self.assertFalse(
+                                    exists,
+                                    f"Index '{index.name}' {message}",
+                                )
+
         # Check that indexes don't exist yet
-        with self.postgresql.begin() as conn:
-            for table in md_with_indexes.tables.values():
-                for index in table.indexes:
-                    self.assertFalse(
-                        DatabaseContext._index_exists(conn, table, index),
-                        f"Index '{index.name}' should not exist yet",
-                    )
+        check_indexes_exist(False, "should not exist yet")
 
         # Create the indexes
         ctx_with_indexes.create_indexes()
 
         # Check that indexes now exist
-        with self.postgresql.begin() as conn:
-            for table in md_with_indexes.tables.values():
-                for index in table.indexes:
-                    self.assertTrue(
-                        DatabaseContext._index_exists(conn, table, index),
-                        f"Index '{index.name}' should exist after creation",
-                    )
+        check_indexes_exist(True, "should exist after creation")
 
         # Create the indexes again; should not raise an error
         ctx_with_indexes.create_indexes()
@@ -136,13 +142,7 @@ class TestPostgresql(unittest.TestCase):
         ctx_with_indexes.drop_indexes()
 
         # Check that indexes were dropped
-        with self.postgresql.begin() as conn:
-            for table in md_with_indexes.tables.values():
-                for index in table.indexes:
-                    self.assertFalse(
-                        DatabaseContext._index_exists(conn, table, index),
-                        f"Index '{index.name}' should not exist after dropping",
-                    )
+        check_indexes_exist(False, "should not exist after dropping")
 
         # Clean up: drop the schema
         ctx.drop()
