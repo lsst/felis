@@ -46,6 +46,19 @@ logger = logging.getLogger("felis")
 
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
+def _create_database_context(schema: Schema, engine_url: str, schema_name: str | None = None):
+    if schema_name:
+        logger.info(f"Overriding schema name with: {schema_name}")
+        schema.name = schema_name
+    metadata = MetaDataBuilder(
+        schema,
+    ).build()
+    url = make_url(engine_url)
+    engine = create_engine(url)
+    if engine.dialect.name == "sqlite":
+        schema.name = "main"
+        logger.info("Setting schema name to 'main' for SQLite")
+    return DatabaseContext(metadata, engine)
 
 @click.group()
 @click.version_option(__version__)
@@ -213,17 +226,8 @@ def create_indexes(
     """
     try:
         schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
-        if schema_name:
-            logger.info(f"Overriding schema name with: {schema_name}")
-            schema.name = schema_name
-        metadata = MetaDataBuilder(
-            schema,
-        ).build()
-
-        url = make_url(engine_url)
-        engine = create_engine(url)
-        context = DatabaseContext(metadata, engine)
-        context.create_indexes()
+        db = _create_database_context(schema, engine_url, schema_name)
+        db.create_indexes()
     except Exception as e:
         logger.exception(e)
         raise click.ClickException("Error creating indexes: " + str(e))
@@ -253,17 +257,8 @@ def drop_indexes(
     """
     try:
         schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
-        if schema_name:
-            logger.info(f"Overriding schema name with: {schema_name}")
-            schema.name = schema_name
-        metadata = MetaDataBuilder(
-            schema,
-        ).build()
-
-        url = make_url(engine_url)
-        engine = create_engine(url)
-        context = DatabaseContext(metadata, engine)
-        context.drop_indexes()
+        db = _create_database_context(schema, engine_url, schema_name)
+        db.drop_indexes()
     except Exception as e:
         logger.exception(e)
         raise click.ClickException("Error dropping indexes: " + str(e))
