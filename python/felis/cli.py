@@ -210,7 +210,7 @@ def create(
         raise click.ClickException(str(e))
 
 
-@cli.command("create-indexes", help="Create database objects from the Felis file")
+@cli.command("create-indexes", help="Create database indexes defined in the Felis file")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.argument("file", type=click.File())
@@ -239,7 +239,7 @@ def create_indexes(
         raise click.ClickException("Error creating indexes: " + str(e))
 
 
-@cli.command("drop-indexes", help="Create database objects from the Felis file")
+@cli.command("drop-indexes", help="Drop database indexes defined in the Felis file")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
 @click.argument("file", type=click.File())
