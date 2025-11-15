@@ -46,6 +46,7 @@ logger = logging.getLogger("felis")
 
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
+
 def _create_database_context(schema: Schema, engine_url: str, schema_name: str | None = None):
     if schema_name:
         logger.info(f"Overriding schema name with: {schema_name}")
@@ -59,6 +60,7 @@ def _create_database_context(schema: Schema, engine_url: str, schema_name: str |
         schema.name = "main"
         logger.info("Setting schema name to 'main' for SQLite")
     return DatabaseContext(metadata, engine)
+
 
 @click.group()
 @click.version_option(__version__)

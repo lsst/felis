@@ -89,7 +89,9 @@ class TestPostgresql(unittest.TestCase):
             self.assertNotIn("sales", schemas)
 
     def test_create_and_drop_indexes(self) -> None:
-        """Test creating and dropping indexes separately from table creation."""
+        """Test creating and dropping indexes separately from table
+        creation.
+        """
         # Load the schema
         yaml_data = yaml.safe_load(open(TEST_YAML))
         schema = Schema.model_validate(yaml_data)
@@ -141,4 +143,3 @@ class TestPostgresql(unittest.TestCase):
 
         # Clean up: drop the schema
         ctx.drop()
-

@@ -224,7 +224,9 @@ class CliTestCase(unittest.TestCase):
         run_cli(["dump", TEST_YAML, "out.bad"], expect_error=True)
 
     def test_create_and_drop_indexes(self) -> None:
-        """Test creating and dropping indexes using CLI commands with SQLite."""
+        """Test creating and dropping indexes using CLI commands with
+        SQLite.
+        """
         # Load the schema to get expected indexes
         schema = Schema.from_uri(TEST_SALES_YAML)
         md_with_indexes = MetaDataBuilder(schema, skip_indexes=False).build()
@@ -256,7 +258,9 @@ class CliTestCase(unittest.TestCase):
         check_indexes_exist(False, "should not exist after create with --skip-indexes")
 
         # Create the indexes using CLI
-        run_cli(["create-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"])
+        run_cli(
+            ["create-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"]
+        )
 
         # Check that indexes now exist
         check_indexes_exist(True, "should exist after create-indexes")
