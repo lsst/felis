@@ -366,8 +366,9 @@ class DatabaseContext:
         else:
             raise ValueError("Unsupported engine type: " + str(type(self.engine)))
 
-    def create_indexes(self):
+    def create_indexes(self) -> None:
         """Create all indexes in the schema using the metadata object."""
+        assert isinstance(self.engine, Engine)
         with self.engine.begin() as conn:
             for table in self.metadata.tables.values():
                 for index in table.indexes:
@@ -377,8 +378,9 @@ class DatabaseContext:
                     index.create(bind=conn, checkfirst=True)
                     logger.info(f"Created index '{index.name}'")
 
-    def drop_indexes(self):
+    def drop_indexes(self) -> None:
         """Drop all indexes in the schema using the metadata object."""
+        assert isinstance(self.engine, Engine)
         with self.engine.begin() as conn:
             for table in self.metadata.tables.values():
                 for index in table.indexes:

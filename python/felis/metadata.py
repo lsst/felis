@@ -129,6 +129,8 @@ class MetaDataBuilder:
         Whether to ignore constraints when building the metadata.
     table_name_postfix
         A string to append to the table names when building the metadata.
+    skip_indexes
+        Skip indexes when building the metadata.
     """
 
     def __init__(
@@ -137,7 +139,7 @@ class MetaDataBuilder:
         apply_schema_to_metadata: bool = True,
         ignore_constraints: bool = False,
         table_name_postfix: str = "",
-        skip_indexes=False,
+        skip_indexes: bool = False,
     ) -> None:
         """Initialize the metadata builder."""
         self.schema = schema
@@ -384,7 +386,7 @@ class MetaDataBuilder:
         self._objects[index_obj.id] = index
         return index
 
-    def build_indexes(self):
+    def build_indexes(self) -> None:
         """Build the SQLAlchemy indexes from the Felis schema and add them to
         the associated table in the metadata.
         """

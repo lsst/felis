@@ -47,7 +47,11 @@ logger = logging.getLogger("felis")
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
 
-def _create_database_context(schema: Schema, engine_url: str, schema_name: str | None = None):
+def _create_database_context(
+    schema: Schema,
+    engine_url: str,
+    schema_name: str | None = None,
+) -> DatabaseContext:
     if schema_name:
         logger.info(f"Overriding schema name with: {schema_name}")
         schema.name = schema_name
