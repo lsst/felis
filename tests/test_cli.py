@@ -265,6 +265,11 @@ class CliTestCase(unittest.TestCase):
         # Check that indexes now exist
         check_indexes_exist(True, "should exist after create-indexes")
 
+        # Create the indexes again; should not cause an error
+        run_cli(
+            ["create-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"]
+        )
+
         # Drop the indexes using CLI
         run_cli(["drop-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"])
 

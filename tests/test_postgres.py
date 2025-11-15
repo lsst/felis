@@ -129,6 +129,9 @@ class TestPostgresql(unittest.TestCase):
                         f"Index '{index.name}' should exist after creation",
                     )
 
+        # Create the indexes again; should not raise an error
+        ctx_with_indexes.create_indexes()
+
         # Drop the indexes
         ctx_with_indexes.drop_indexes()
 
