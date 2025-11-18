@@ -47,9 +47,8 @@ from pydantic import (
 )
 from pydantic_core import InitErrorDetails
 
-from .db.dialects import get_supported_dialects
-from .db.sqltypes import get_type_func
-from .db.utils import string_to_typeengine
+from .db._dialects import get_supported_dialects, string_to_typeengine
+from .db._sqltypes import get_type_func
 from .types import Boolean, Byte, Char, Double, FelisType, Float, Int, Long, Short, String, Text, Unicode
 
 logger = logging.getLogger(__name__)
