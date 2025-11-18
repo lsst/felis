@@ -26,7 +26,7 @@ import yaml
 from sqlalchemy import text
 
 from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
+from felis.db._database_context import PostgreSQLContext, _index_exists
 from felis.metadata import MetaDataBuilder
 from felis.tests.postgresql import TemporaryPostgresInstance, setup_postgres_test_db  # type: ignore
 
@@ -55,7 +55,7 @@ class TestPostgresql(unittest.TestCase):
         md = MetaDataBuilder(schema).build()
 
         # Initialize the database
-        ctx = DatabaseContext(md, self.postgresql.engine)
+        ctx = PostgreSQLContext(self.postgresql.engine, md)
         ctx.initialize()
         ctx.create_all()
 
@@ -100,13 +100,13 @@ class TestPostgresql(unittest.TestCase):
         md_no_indexes = MetaDataBuilder(schema, skip_indexes=True).build()
 
         # Initialize the database and create tables (without indexes)
-        ctx = DatabaseContext(md_no_indexes, self.postgresql.engine)
+        ctx = PostgreSQLContext(self.postgresql.engine, md_no_indexes)
         ctx.initialize()
         ctx.create_all()
 
         # Create metadata with indexes to get the index definitions
         md_with_indexes = MetaDataBuilder(schema, skip_indexes=False).build()
-        ctx_with_indexes = DatabaseContext(md_with_indexes, self.postgresql.engine)
+        ctx_with_indexes = PostgreSQLContext(self.postgresql.engine, md_with_indexes)
 
         def check_indexes_exist(should_exist: bool, message: str) -> None:
             """Check if indexes exist or don't exist in the database."""
@@ -114,7 +114,7 @@ class TestPostgresql(unittest.TestCase):
                 for table in md_with_indexes.tables.values():
                     for index in table.indexes:
                         if index.name is not None:
-                            exists = DatabaseContext._index_exists(conn, table, index)
+                            exists = _index_exists(conn, table, index, schema=table.schema)
                             if should_exist:
                                 self.assertTrue(
                                     exists,

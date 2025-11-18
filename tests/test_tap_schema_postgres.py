@@ -28,7 +28,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateSchema
 
 from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
+from felis.db._database_context import create_database_context
 from felis.metadata import MetaDataBuilder
 from felis.tap_schema import DataLoader, TableManager
 
@@ -73,7 +73,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
             loader.load()
         finally:
             # Drop the schema.
-            DatabaseContext(metadata=mgr.metadata, engine=self.engine).drop()
+            create_database_context(self.engine.url, mgr.metadata).drop()
 
     def test_reflect_database(self) -> None:
         """Test reflecting an existing PostgreSQL TAP_SCHEMA database into a
@@ -113,7 +113,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
             loader.load()
         finally:
             # Drop the schema.
-            DatabaseContext(metadata=mgr.metadata, engine=self.engine).drop()
+            create_database_context(self.engine.url, metadata=mgr.metadata).drop()
 
     def test_nonstandard_names(self) -> None:
         """Test the TAP table manager class with non-standard names for the
@@ -124,7 +124,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
             with open(TEST_TAP_SCHEMA_NONSTD) as file:
                 sch = Schema.from_stream(file, context={"id_generation": True})
             md = MetaDataBuilder(sch).build()
-            ctx = DatabaseContext(md, self.engine)
+            ctx = create_database_context(self.engine.url, md)
             ctx.initialize()
             ctx.create_all()
 

@@ -36,11 +36,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.sql.dml import Insert
 
-from felis import datamodel
-from felis.datamodel import Constraint, Schema
-from felis.db.utils import is_valid_engine
-from felis.metadata import MetaDataBuilder
-
+from . import datamodel
+from .datamodel import Constraint, Schema
+from .metadata import MetaDataBuilder
 from .types import FelisType
 
 __all__ = ["DataLoader", "MetadataInserter", "TableManager"]
@@ -86,7 +84,7 @@ class TableManager:
 
     def __init__(
         self,
-        engine: Engine | MockConnection | None = None,
+        engine: Engine | None = None,
         schema_name: str | None = None,
         apply_schema_to_metadata: bool = True,
         table_name_postfix: str = "",
@@ -98,8 +96,7 @@ class TableManager:
         self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
         self.extensions_path = extensions_path
 
-        if is_valid_engine(engine):
-            assert isinstance(engine, Engine)
+        if engine is not None:
             if table_name_postfix != "":
                 logger.warning(
                     "Table name postfix '%s' will be ignored when reflecting TAP_SCHEMA database",
