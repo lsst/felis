@@ -1,0 +1,5 @@
+- Added ``--skip-indexes`` option to ``create`` command for skipping index 
+  creation when initializing a schema in a database
+- Added index management commands to the CLI including ``create-indexes``
+  for creating indexes from a schema in a database and ``drop-indexes``
+  for dropping them
