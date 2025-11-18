@@ -273,3 +273,5 @@ class TestDatabaseDiff(unittest.TestCase):
         db_diff.print()
 
         self.assertEqual(db_diff.diff[0][0], "add_column")
+
+        engine.dispose()

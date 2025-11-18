@@ -130,5 +130,5 @@ def setup_postgres_test_db() -> Iterator[TemporaryPostgresInstance]:
 
         # Clean up any lingering SQLAlchemy engines/connections
         # so they're closed before we shut down the server.
-        gc.collect()
         engine.dispose()
+        gc.collect()

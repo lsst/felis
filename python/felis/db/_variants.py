@@ -32,7 +32,7 @@ from sqlalchemy import types
 from sqlalchemy.types import TypeEngine
 
 from ..datamodel import Column
-from .dialects import get_dialect_module, get_supported_dialects
+from ._dialects import get_dialect_module, get_supported_dialects
 
 __all__ = ["make_variant_dict"]
 

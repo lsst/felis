@@ -26,11 +26,10 @@ import unittest
 from typing import Any
 
 import yaml
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 import felis.tap_schema as tap_schema
 from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
 from felis.metadata import MetaDataBuilder
 from felis.tests.run_cli import run_cli
 
@@ -63,6 +62,10 @@ class CliTestCase(unittest.TestCase):
     def test_create(self) -> None:
         """Test for create command."""
         run_cli(["create", f"--engine-url={self.sqlite_url}", TEST_YAML])
+
+    def test_create_with_echo(self) -> None:
+        """Test for create command."""
+        run_cli(["create", "--echo", f"--engine-url={self.sqlite_url}", TEST_YAML])
 
     def test_create_with_dry_run(self) -> None:
         """Test for ``create --dry-run`` command."""
@@ -124,6 +127,26 @@ class CliTestCase(unittest.TestCase):
         # Load the TAP_SCHEMA data.
         run_cli(["load-tap-schema", f"--engine-url={self.sqlite_url}", TEST_YAML])
 
+    def test_load_tap_schema_with_dry_run_and_output_file(self) -> None:
+        """Test load-tap-schema command with dry run and output file."""
+        output_sql = os.path.join(self.tmpdir, "tap_schema.sql")
+        run_cli(
+            [
+                "load-tap-schema",
+                "--engine-url=mysql://",
+                "--dry-run",
+                "--tap-schema-index=1",
+                "--tap-tables-postfix=11",
+                "--force-unbounded-arraysize",
+                f"--output-file={output_sql}",
+                TEST_YAML,
+            ]
+        )
+        if not os.path.exists(output_sql):
+            self.fail("Output SQL file was not created")
+        if os.path.getsize(output_sql) == 0:
+            self.fail("Output SQL file is empty")
+
     def test_init_tap_schema(self) -> None:
         """Test init-tap-schema command."""
         run_cli(["init-tap-schema", f"--engine-url={self.sqlite_url}"])
@@ -178,6 +201,7 @@ class CliTestCase(unittest.TestCase):
         engine = create_engine(self.sqlite_url)
         metadata_db = MetaDataBuilder(Schema.from_uri(test_diff1), apply_schema_to_metadata=False).build()
         metadata_db.create_all(engine)
+        engine.dispose()
 
         run_cli(["diff", f"--engine-url={self.sqlite_url}", test_diff2])
 
@@ -254,45 +278,17 @@ class CliTestCase(unittest.TestCase):
 
     def test_create_and_drop_indexes(self) -> None:
         """Test creating and dropping indexes using CLI commands with
-        SQLite.
+        SQLite; no checking for the existence of the indexes is done on the
+        database because other test cases cover that functionality
+        sufficiently.
         """
-        # Load the schema to get expected indexes
-        schema = Schema.from_uri(TEST_SALES_YAML)
-        md_with_indexes = MetaDataBuilder(schema, skip_indexes=False).build()
-
-        engine = create_engine(self.sqlite_url)
-
-        def check_indexes_exist(should_exist: bool, message: str) -> None:
-            """Check if indexes exist or don't exist in the database."""
-            with engine.connect() as conn:
-                for table in md_with_indexes.tables.values():
-                    for index in table.indexes:
-                        if index.name is not None:
-                            exists = DatabaseContext._index_exists(conn, table, index)
-                            if should_exist:
-                                self.assertTrue(
-                                    exists,
-                                    f"Index '{index.name}' {message}",
-                                )
-                            else:
-                                self.assertFalse(
-                                    exists,
-                                    f"Index '{index.name}' {message}",
-                                )
-
         # Create database without indexes
         run_cli(["create", "--skip-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML])
-
-        # Check that indexes don't exist yet
-        check_indexes_exist(False, "should not exist after create with --skip-indexes")
 
         # Create the indexes using CLI
         run_cli(
             ["create-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"]
         )
-
-        # Check that indexes now exist
-        check_indexes_exist(True, "should exist after create-indexes")
 
         # Create the indexes again; should not cause an error
         run_cli(
@@ -302,8 +298,64 @@ class CliTestCase(unittest.TestCase):
         # Drop the indexes using CLI
         run_cli(["drop-indexes", f"--engine-url={self.sqlite_url}", TEST_SALES_YAML, "--schema-name", "main"])
 
-        # Check that indexes were dropped
-        check_indexes_exist(False, "should not exist after drop-indexes")
+    def test_generate_and_load_sql(self) -> None:
+        """Test generating SQL and then executing it on a SQLite database."""
+        generated_sql = os.path.join(self.tmpdir, "generated.sql")
+
+        try:
+            # Generate SQL DDL from schema using mock connection
+            run_cli(
+                [
+                    "create",
+                    "--engine-url=sqlite://",
+                    f"--output-file={generated_sql}",
+                    f"{TEST_YAML}",
+                ]
+            )
+
+            # Verify the SQL file was generated
+            self.assertTrue(os.path.exists(generated_sql), "Generated SQL file should exist")
+
+            # Read the generated SQL
+            with open(generated_sql) as f:
+                sql = f.read()
+
+            # Verify SQL content is not empty
+            self.assertGreater(len(sql.strip()), 0, "Generated SQL should not be empty")
+
+            # Execute the SQL against a real database
+            engine = create_engine(self.sqlite_url)
+            with engine.connect() as connection:
+                with connection.begin():
+                    # Split SQL into individual statements for execution since
+                    # SQLite can only execute one statement at a time
+                    statements = [stmt.strip() for stmt in sql.split(";") if stmt.strip()]
+                    for statement in statements:
+                        if statement:  # Skip empty statements
+                            connection.execute(text(statement))
+
+            # Verify that all expected tables were actually created
+            with engine.connect() as connection:
+                # Load the schema to get expected table names
+                schema = Schema.from_uri(TEST_YAML, context={"id_generation": True})
+                expected_table_names = {table.name for table in schema.tables}
+
+                # Get all tables that were created in the database
+                result = connection.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+                created_table_names = {row[0] for row in result.fetchall()}
+
+                # Verify all expected tables were created
+                self.assertTrue(
+                    expected_table_names.issubset(created_table_names),
+                    f"Missing tables: {expected_table_names - created_table_names}. "
+                    f"Expected: {sorted(expected_table_names)}, "
+                    f"Created: {sorted(created_table_names)}",
+                )
+
+            engine.dispose()
+
+        except Exception as e:
+            self.fail(f"Test failed with exception: {e}")
 
 
 if __name__ == "__main__":

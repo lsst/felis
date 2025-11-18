@@ -28,7 +28,7 @@ class TestPackageImports(ImportTestCase):
     """Check that all of the 'felis' modules can be imported."""
 
     PACKAGES = {
-        "felis"
+        "felis",
     }
 
 
