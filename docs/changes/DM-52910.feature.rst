@@ -1,0 +1,2 @@
+Added Dockerfile to build image with the felis cli available
+Added github workflow to build and push image to ghcr
