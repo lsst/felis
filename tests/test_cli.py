@@ -134,6 +134,35 @@ class CliTestCase(unittest.TestCase):
         """
         run_cli(["init-tap-schema", "sqlite://"], expect_error=True)
 
+    def test_init_tap_schema_with_extensions(self) -> None:
+        """Test init-tap-schema command with default extensions."""
+        run_cli(
+            [
+                "init-tap-schema",
+                f"--engine-url={self.sqlite_url}",
+                "--extensions",
+                "resource://felis/config/tap_schema/tap_schema_extensions.yaml",
+            ]
+        )
+
+    def test_init_tap_schema_with_custom_extensions(self) -> None:
+        """Test init-tap-schema command with custom extensions file."""
+        extensions_file = os.path.join(self.tmpdir, "custom_extensions.yaml")
+        extensions_content = """
+    name: TAP_SCHEMA
+    tables:
+      - name: schemas
+        columns:
+          - name: field1
+            datatype: char
+            length: 64
+            description: A custom field
+    """
+        with open(extensions_file, "w") as f:
+            f.write(extensions_content)
+
+        run_cli(["init-tap-schema", f"--engine-url={self.sqlite_url}", "--extensions", extensions_file])
+
     def test_diff(self) -> None:
         """Test for ``diff`` command."""
         test_diff1 = os.path.join(TEST_DIR, "data", "test_diff1.yaml")

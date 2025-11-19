@@ -68,6 +68,8 @@ class TableManager:
         A string to append to all the standard table names.
         This needs to be used in a way such that the resultant table names
         map to tables within the TAP_SCHEMA database.
+    extensions_path
+        The path to additional TAP_SCHEMA table definitions.
 
     Notes
     -----
@@ -88,12 +90,13 @@ class TableManager:
         schema_name: str | None = None,
         apply_schema_to_metadata: bool = True,
         table_name_postfix: str = "",
+        extensions_path: str | None = None,
     ):
         """Initialize the table manager."""
         self.table_name_postfix = table_name_postfix
         self.apply_schema_to_metadata = apply_schema_to_metadata
         self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
-        self.table_name_postfix = table_name_postfix
+        self.extensions_path = extensions_path
 
         if is_valid_engine(engine):
             assert isinstance(engine, Engine)
@@ -109,9 +112,39 @@ class TableManager:
             self._reflect(engine)
         else:
             self._load_yaml()
+            self._apply_extensions()
+            self._build_metadata()
 
         self._create_table_map()
         self._check_tables()
+
+    def _apply_extensions(self) -> None:
+        """Apply extensions from a YAML file to the TAP_SCHEMA schema.
+
+        This method loads extension column definitions from a YAML file and
+        adds them to the appropriate TAP_SCHEMA tables.
+        """
+        if not self.extensions_path:
+            return
+
+        logger.info("Loading TAP_SCHEMA extensions from: %s", self.extensions_path)
+        extensions_schema = Schema.from_uri(self.extensions_path, context={"id_generation": True})
+
+        if not extensions_schema.tables:
+            logger.warning("Extensions schema does not contain any tables, no extensions applied")
+            return
+
+        extension_count = 0
+        extension_tables = {table.name: table.columns for table in extensions_schema.tables}
+
+        for table in self.schema.tables:
+            extension_columns = extension_tables.get(table.name)
+            if extension_columns:
+                table.columns = list(table.columns) + list(extension_columns)
+                extension_count += len(extension_columns)
+                logger.debug("Added %d extension columns to table '%s'", len(extension_columns), table.name)
+
+        logger.info("Applied %d extension columns to TAP_SCHEMA", extension_count)
 
     def _reflect(self, engine: Engine) -> None:
         """Reflect the TAP_SCHEMA database tables into the metadata.
@@ -128,6 +161,14 @@ class TableManager:
             logger.error("Error reflecting TAP_SCHEMA database: %s", e)
             raise
 
+    def _build_metadata(self) -> None:
+        """Build SQLAlchemy metadata from the Felis schema."""
+        self._metadata = MetaDataBuilder(
+            self.schema,
+            apply_schema_to_metadata=self.apply_schema_to_metadata,
+            table_name_postfix=self.table_name_postfix,
+        ).build()
+
     def _load_yaml(self) -> None:
         """Load the standard TAP_SCHEMA schema from a Felis package
         resource.
@@ -137,12 +178,6 @@ class TableManager:
             self.schema.name = self.schema_name
         else:
             self.schema_name = self.schema.name
-
-        self._metadata = MetaDataBuilder(
-            self.schema,
-            apply_schema_to_metadata=self.apply_schema_to_metadata,
-            table_name_postfix=self.table_name_postfix,
-        ).build()
 
         logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)
 

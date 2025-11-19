@@ -1,0 +1,1 @@
+Add option to instantiate TAP_SCHEMA with extensions to table columns
