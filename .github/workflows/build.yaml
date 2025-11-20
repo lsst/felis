@@ -49,10 +49,7 @@ jobs:
           uv pip install --system -r requirements.txt
 
       - name: Install database drivers
-        run: uv pip install --system psycopg2 pymysql
-
-      - name: Install testing.postgresql
-        run: uv pip install --system testing.postgresql
+        run: uv pip install --system psycopg2 pymysql testing.postgresql
 
       # We have two cores so we can speed up the testing with xdist
       - name: Install pytest packages
