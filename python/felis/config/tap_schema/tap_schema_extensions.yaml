@@ -59,6 +59,11 @@ tables:
         datatype: int
         description: "Flag indicating if table was created via TAP service API (0 or 1)"
 
+      - name: view_target
+        datatype: char
+        length: 128
+        description: "View target identifier"
+
   - name: columns
     description: "Extensions to TAP_SCHEMA.columns table"
     columns:
