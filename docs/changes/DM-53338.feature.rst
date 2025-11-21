@@ -1,0 +1,1 @@
+Add view_target to tap_schema extensions for the tables table
