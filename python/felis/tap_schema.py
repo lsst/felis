@@ -607,17 +607,8 @@ class DataLoader:
         list
             A list of the compiled insert statements.
         """
-        # Get compile target from db_context
-        from .db._database_context import MockContext
-
-        if isinstance(self._db_context, MockContext):
-            # MockContext doesn't have an engine, use connection's dialect
-            compile_target = self._db_context._connection.dialect
-        else:
-            compile_target = self._db_context.engine
-
         return [
-            str(insert.compile(compile_target, compile_kwargs={"literal_binds": True}))
+            str(insert.compile(dialect=self._db_context.dialect, compile_kwargs={"literal_binds": True}))
             for insert in self.inserts
         ]
 
