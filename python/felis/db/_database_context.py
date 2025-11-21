@@ -83,6 +83,21 @@ def _create_mock_connection(engine_url: str | URL, output_file: IO[str] | None =
     return engine
 
 
+def _dialect_name(url: URL) -> str:
+    dialect_name = url.drivername
+    # Normalize dialect name (e.g., "postgresql+psycopg2" -> "postgresql")
+    if "+" in dialect_name:
+        dialect_name = dialect_name.split("+")[0]
+    return dialect_name
+
+
+def _clear_schema(metadata: MetaData) -> None:
+    if metadata.schema:
+        metadata.schema = None
+        for table in metadata.tables.values():
+            table.schema = None
+
+
 def _index_exists(conn: Connection, table: Table, index: Index, schema: str | None) -> bool:
     if index.name is None:
         # Anonymous indexes can't be reliably checked by name.
@@ -499,15 +514,10 @@ class SQLiteContext(_BaseContext):
     """
 
     def __init__(self, engine: Engine, metadata: MetaData):
-        if metadata.schema:
-            logger.warning("SQLite does not support named schemas; ignoring schema in the metadata.")
-            # If a schema is set, then it needs to be cleared, or DML
-            # operations will fail, with the side effect that the provided
-            # metadata is altered.
-            metadata.schema = None
-            for table in metadata.tables.values():
-                table.schema = None
-        super().__init__(engine, metadata)  # Schema name not required
+        # Schema name needs to be cleared, if set.
+        _clear_schema(metadata)
+        # Schema name is not required.
+        super().__init__(engine, metadata)
 
     @property
     def dialect_name(self) -> str:
@@ -618,28 +628,17 @@ def create_database_context(
         a `MockContext` if the URL appears like a mock URL or if `dry_run` is
         True, otherwise it will be a `PostgreSQLContext`, `MySQLContext`, or
         `SQLiteContext` based on the dialect.
-
-    Notes
-    -----
-    A mock connection will be returned either if the URL appears like a mock
-    URL, e.g., no database is provided for SQLite or if a host is missing for
-    other dialects. A mock connection will not perform any actual database
-    operations but is typically used to print SQL statements to the supplied
-    IO stream. Otherwise, a class for handling a specific dialect will be
-    returned based on the dialect from the engine URL. The metadata object
-    needs to be defined externally beforehand and a schema name must be set
-    on it for those dialects which require it (MySQL and PostgreSQL).
-    Technically, the default public schema could be used for PostgreSQL, but
-    this is unsupported by this module; an explicit schema must always be
-    provided. For SQLite, the metadata's schema will be cleared automatically
-    so that DML statements don't fail; it does not support explicit schema
-    names.
     """
     url = make_url(engine_url)
     if is_mock_url(url) or dry_run:
+        # Use a mock context for mock URLs or dry run mode.
+        dialect_name = _dialect_name(url)
+        if dialect_name == "sqlite":
+            _clear_schema(metadata)
         mock_connection = _create_mock_connection(engine_url, output_file)
         return MockContext(metadata, mock_connection)
     else:
+        # Create a real engine and context for the given dialect.
         engine = create_engine(url, echo=echo)
         dialect_name = engine.dialect.name
         if dialect_name == "postgresql":
