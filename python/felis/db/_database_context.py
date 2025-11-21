@@ -217,6 +217,14 @@ class DatabaseContext:
 
     @property
     @abstractmethod
+    def dialect(self) -> Dialect:
+        """The SQLAlchemy dialect for the context
+        (`~sqlalchemy.engine.Dialect`).
+        """
+        ...
+
+    @property
+    @abstractmethod
     def dialect_name(self) -> str:
         """Get the dialect name for this database context."""
         ...
@@ -316,9 +324,13 @@ class _BaseContext(DatabaseContext):
     def __init__(self, engine: Engine, metadata: MetaData, require_schema: bool = False):
         self._engine = engine
         if self.dialect_name != engine.dialect.name:
+            # Dialect name is a static property of the subclass, so we can
+            # check it here. This is not true for mock connections, but they
+            # do not inherit from the base class.
             raise DatabaseContextError(
                 f"Engine dialect '{engine.dialect.name}' does not match the context: {self.dialect_name}"
             )
+        self._dialect = engine.dialect
 
         self._metadata = metadata
         self._schema_name: str | None = metadata.schema
@@ -334,6 +346,10 @@ class _BaseContext(DatabaseContext):
     @property
     def metadata(self) -> MetaData:
         return self._metadata
+
+    @property
+    def dialect(self) -> Dialect:
+        return self._dialect
 
     @property
     def schema_name(self) -> str | None:
@@ -551,17 +567,15 @@ class MockContext(DatabaseContext):
     def __init__(self, metadata: MetaData, connection: MockConnection):
         self._metadata = metadata
         self._connection = connection
+        self._dialect = connection.dialect
+
+    @property
+    def dialect(self) -> Dialect:
+        return self._dialect
 
     @property
     def dialect_name(self) -> str:
-        """Get the dialect name for this database context.
-
-        Returns
-        -------
-        str
-            The dialect name from the mock connection.
-        """
-        return self._connection.dialect.name
+        return self.dialect.name
 
     @property
     def metadata(self) -> MetaData:
