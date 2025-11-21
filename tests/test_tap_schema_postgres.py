@@ -23,6 +23,7 @@ import gc
 import os
 import unittest
 
+from sqlalchemy import MetaData
 from sqlalchemy.engine import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateSchema
@@ -66,19 +67,22 @@ class TestTapSchemaPostgresql(unittest.TestCase):
         try:
             # Create the TAP_SCHEMA database.
             mgr = TableManager()
-            mgr.initialize_database(self.engine)
+            db_ctx = create_database_context(str(self.engine.url), mgr.metadata)
+            mgr.initialize_database(db_ctx)
 
             # Load the test data into the database.
-            loader = DataLoader(self.test_schema, mgr, self.engine, 1)
+            loader = DataLoader(self.test_schema, mgr, db_ctx, tap_schema_index=1)
             loader.load()
         finally:
             # Drop the schema.
-            create_database_context(self.engine.url, mgr.metadata).drop()
+            db_ctx.drop()
 
     def test_reflect_database(self) -> None:
         """Test reflecting an existing PostgreSQL TAP_SCHEMA database into a
         `~felis.tap_schema.TableManager`.
         """
+        mgr = None
+        db_ctx = None
         try:
             # Build the TAP_SCHEMA database independently of the TableManager.
             schema = TableManager.load_schema_resource()
@@ -99,7 +103,8 @@ class TestTapSchemaPostgresql(unittest.TestCase):
                 self.fail(f"Failed to create database: {e}")
 
             # Reflect the existing database into a TableManager.
-            mgr = TableManager(engine=self.engine)
+            db_ctx = create_database_context(str(self.engine.url), md)
+            mgr = TableManager(db_context=db_ctx)
             self.assertIsNotNone(mgr.metadata)
             self.assertGreater(len(mgr.metadata.tables), 0)
             table_names = set(
@@ -109,27 +114,31 @@ class TestTapSchemaPostgresql(unittest.TestCase):
 
             # See if test data can be loaded successfully using the existing
             # database.
-            loader = DataLoader(self.test_schema, mgr, self.engine, 1)
+            loader = DataLoader(self.test_schema, mgr, db_ctx, tap_schema_index=1)
             loader.load()
         finally:
             # Drop the schema.
-            create_database_context(self.engine.url, metadata=mgr.metadata).drop()
+            if db_ctx is not None:
+                db_ctx.drop()
 
     def test_nonstandard_names(self) -> None:
         """Test the TAP table manager class with non-standard names for the
         schema and columns, which are present in the test YAML file used
         to create the TAP_SCHEMA database.
         """
+        ctx = None
         try:
             with open(TEST_TAP_SCHEMA_NONSTD) as file:
                 sch = Schema.from_stream(file, context={"id_generation": True})
             md = MetaDataBuilder(sch).build()
-            ctx = create_database_context(self.engine.url, md)
+            ctx = create_database_context(str(self.engine.url), md)
             ctx.initialize()
             ctx.create_all()
 
             postfix = "11"
-            mgr = TableManager(engine=self.engine, table_name_postfix=postfix, schema_name=sch.name)
+            # Create a context for reflection with the existing database
+            reflect_ctx = create_database_context(str(self.engine.url), md)
+            mgr = TableManager(db_context=reflect_ctx, table_name_postfix=postfix, schema_name=sch.name)
             for table_name in mgr.get_table_names_std():
                 table = mgr[table_name]
                 self.assertEqual(table.name, f"{table_name}{postfix}".replace(f"{sch.name}", ""))
@@ -139,9 +148,13 @@ class TestTapSchemaPostgresql(unittest.TestCase):
 
     def test_bad_engine(self) -> None:
         """Test the TableManager class with an invalid engine."""
-        bad_engine = create_engine("postgresql+psycopg2://fake_user:fake_password@fake_host:5555")
+        bad_url = "postgresql+psycopg2://fake_user:fake_password@fake_host:5555"
+        # Create metadata for reflection attempt
+        md = MetaData(schema="TAP_SCHEMA")
+        db_ctx = create_database_context(bad_url, md)
+        # Reflection will fail when trying to connect
         with self.assertRaises(SQLAlchemyError):
-            TableManager(engine=bad_engine)
+            TableManager(db_context=db_ctx)
 
     def tearDown(self) -> None:
         """Tear down the test case."""

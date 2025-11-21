@@ -322,15 +322,21 @@ def load_tap_schema(
     command will not initialize the TAP_SCHEMA tables.
     """
     url = make_url(engine_url)
-    if is_mock_url(url):
-        raise ValueError("Mock connection cannot be used for loading TAP_SCHEMA data.")
-    engine = create_engine(url)
+    if is_mock_url(url) and not dry_run:
+        raise ValueError(
+            "Mock connection cannot be used for loading TAP_SCHEMA data (unless --dry-run is used)."
+        )
+
+    # Create TableManager first - it will build metadata from YAML
     mgr = TableManager(
-        engine=engine,
-        apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
+        apply_schema_to_metadata=False if url.drivername == "sqlite" else True,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
     )
+
+    # Create DatabaseContext using TableManager's metadata
+    # Pass dry_run to create_database_context for mock connection support
+    db_ctx = create_database_context(engine_url, mgr.metadata, dry_run=dry_run)
 
     schema = Schema.from_stream(
         file,
@@ -343,7 +349,7 @@ def load_tap_schema(
     DataLoader(
         schema,
         mgr,
-        engine,
+        db_context=db_ctx,
         tap_schema_index=tap_schema_index,
         dry_run=dry_run,
         print_sql=echo,
@@ -406,16 +412,21 @@ def init_tap_schema(
         raise click.ClickException(
             "Mock engine is not supported for TAP_SCHEMA initialization: " + engine_url
         )
-    engine = create_engine(url)
+
+    # Create TableManager first - it will build metadata from YAML
     mgr = TableManager(
-        apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
+        apply_schema_to_metadata=False if url.drivername == "sqlite" else True,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
         extensions_path=extensions,
     )
-    mgr.initialize_database(engine)
+
+    # Create DatabaseContext using TableManager's metadata
+    db_ctx = create_database_context(engine_url, mgr.metadata)
+
+    mgr.initialize_database(db_context=db_ctx)
     if insert_metadata:
-        inserter = MetadataInserter(mgr, engine)
+        inserter = MetadataInserter(mgr, db_context=db_ctx)
         inserter.insert_metadata()
 
 
