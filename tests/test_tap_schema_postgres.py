@@ -29,7 +29,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateSchema
 
 from felis.datamodel import Schema
-from felis.db._database_context import create_database_context
+from felis.db.database_context import create_database_context
 from felis.metadata import MetaDataBuilder
 from felis.tap_schema import DataLoader, TableManager
 

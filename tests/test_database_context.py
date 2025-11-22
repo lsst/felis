@@ -13,7 +13,7 @@ except ImportError:
     Postgresql = None
 
 from felis.datamodel import Schema
-from felis.db._database_context import (
+from felis.db.database_context import (
     DatabaseContextError,
     MockContext,
     PostgreSQLContext,

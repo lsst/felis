@@ -35,7 +35,7 @@ from sqlalchemy import (
 
 from felis import datamodel as dm
 from felis.datamodel import Schema
-from felis.db._database_context import create_database_context
+from felis.db.database_context import create_database_context
 from felis.metadata import MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))

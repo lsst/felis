@@ -22,5 +22,5 @@ Python API
 .. automodapi:: felis.types
    :include-all-objects:
 
-.. automodapi:: felis.db._database_context
+.. automodapi:: felis.db.database_context
    :include-all-objects:

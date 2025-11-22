@@ -35,7 +35,7 @@ from sqlalchemy.sql.dml import Insert
 
 from . import datamodel
 from .datamodel import Constraint, Schema
-from .db._database_context import DatabaseContext
+from .db.database_context import DatabaseContext
 from .metadata import MetaDataBuilder
 from .types import FelisType
 
