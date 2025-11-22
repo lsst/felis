@@ -37,7 +37,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import (
     Connection,
     Dialect,
-    ResultProxy,
+    Result,
 )
 from sqlalchemy.engine.mock import MockConnection, create_mock_engine
 from sqlalchemy.engine.url import URL
@@ -199,14 +199,14 @@ class DatabaseContext:
     @abstractmethod
     def metadata(self) -> MetaData:
         """The SQLAlchemy metadata representing the database for the context
-        (`~sqlalchemy.MetaData`).
+        (`~sqlalchemy.sql.schema.MetaData`).
         """
         ...
 
     @property
     @abstractmethod
     def engine(self) -> Engine:
-        """The SQAlchemy engine for the context (`~sqlalchemy.Engine`).
+        """The SQAlchemy engine for the context (`~sqlalchemy.engine.Engine`).
 
         Raises
         ------
@@ -287,7 +287,7 @@ class DatabaseContext:
         ...
 
     @abstractmethod
-    def execute(self, statement: SQLStatement) -> ResultProxy:
+    def execute(self, statement: SQLStatement) -> Result:
         """Execute a SQL statement and return the result.
 
         Parameters
@@ -297,7 +297,7 @@ class DatabaseContext:
 
         Returns
         -------
-        `~sqlalchemy.engine.ResultProxy`
+        `~sqlalchemy.engine.Result`
             The result of the statement execution.
 
         Raises
@@ -362,7 +362,7 @@ class _BaseContext(DatabaseContext):
         """
         return self._schema_name
 
-    def execute(self, statement: SQLStatement) -> ResultProxy:
+    def execute(self, statement: SQLStatement) -> Result:
         statement = _normalize_statement(statement)
         try:
             with self.engine.begin() as connection:
@@ -605,7 +605,7 @@ class MockContext(DatabaseContext):
         # Mock connection can't drop indexes.
         pass
 
-    def execute(self, statement: SQLStatement) -> ResultProxy:
+    def execute(self, statement: SQLStatement) -> Result:
         statement = _normalize_statement(statement)
         return self._connection.connect().execute(statement)
 
@@ -639,7 +639,7 @@ def create_database_context(
     -------
     DatabaseContext
         A database context appropriate for the given engine URL. This will be
-        a `MockContext` if the URL appears like a mock URL or if `dry_run` is
+        a `MockContext` if the URL appears like a mock URL or if ``dry_run`` is
         True, otherwise it will be a `PostgreSQLContext`, `MySQLContext`, or
         `SQLiteContext` based on the dialect.
     """
