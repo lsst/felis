@@ -31,12 +31,11 @@ from sqlalchemy import (
     MetaData,
     PrimaryKeyConstraint,
     UniqueConstraint,
-    create_engine,
 )
 
 from felis import datamodel as dm
 from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
+from felis.db.database_context import create_database_context
 from felis.metadata import MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -47,8 +46,7 @@ class MetaDataTestCase(unittest.TestCase):
     """Test creation of SQLAlchemy metadata from a Felis schema."""
 
     def setUp(self) -> None:
-        """Create an in-memory SQLite database and load the test data."""
-        self.engine = create_engine("sqlite://")
+        """Load the YAML test data."""
         with open(TEST_YAML) as data:
             self.yaml_data = yaml.safe_load(data)
 
@@ -76,12 +74,11 @@ class MetaDataTestCase(unittest.TestCase):
         builder = MetaDataBuilder(schema)
         md = builder.build()
 
-        ctx = DatabaseContext(md, self.engine)
-
-        ctx.create_all()
+        db_ctx = create_database_context("sqlite:///:memory:", md)
+        db_ctx.create_all()
 
         md_db = MetaData()
-        md_db.reflect(self.engine.connect(), schema=schema.name)
+        md_db.reflect(db_ctx.engine.connect(), schema=schema.name)
 
         self.assertEqual(md_db.tables.keys(), md.tables.keys())
 

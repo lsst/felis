@@ -29,13 +29,12 @@ from typing import IO
 
 import click
 from pydantic import ValidationError
-from sqlalchemy.engine import Engine, create_engine, make_url
-from sqlalchemy.engine.mock import MockConnection, create_mock_engine
+from sqlalchemy import MetaData
+from sqlalchemy.engine import create_engine, make_url
 
 from . import __version__
 from .datamodel import Schema
-from .db.schema import create_database
-from .db.utils import DatabaseContext, is_mock_url
+from .db.database_context import create_database_context, is_mock_url
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
 from .tap_schema import DataLoader, MetadataInserter, TableManager
@@ -47,23 +46,22 @@ logger = logging.getLogger("felis")
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
 
-def _create_database_context(
-    schema: Schema,
-    engine_url: str,
+def _create_metadata(
+    felis_file: IO[str],
+    context: click.Context,
     schema_name: str | None = None,
-) -> DatabaseContext:
+    ignore_constraints: bool = False,
+    skip_indexes: bool = False,
+) -> MetaData:
+    schema = Schema.from_stream(felis_file, context={"id_generation": context.obj["id_generation"]})
     if schema_name:
         logger.info(f"Overriding schema name with: {schema_name}")
         schema.name = schema_name
-    metadata = MetaDataBuilder(
+    return MetaDataBuilder(
         schema,
+        ignore_constraints=ignore_constraints,
+        skip_indexes=skip_indexes,
     ).build()
-    url = make_url(engine_url)
-    engine = create_engine(url)
-    if engine.dialect.name == "sqlite":
-        schema.name = "main"
-        logger.info("Setting schema name to 'main' for SQLite")
-    return DatabaseContext(metadata, engine)
 
 
 @click.group()
@@ -161,50 +159,36 @@ def create(
         Felis file to read.
     """
     try:
-        schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
-        url = make_url(engine_url)
-        if schema_name:
-            logger.info(f"Overriding schema name with: {schema_name}")
-            schema.name = schema_name
-        elif url.drivername == "sqlite":
-            logger.info("Overriding schema name for sqlite with: main")
-            schema.name = "main"
-        if not url.host and not url.drivername == "sqlite":
-            dry_run = True
-            logger.info("Forcing dry run for non-sqlite engine URL with no host")
-
-        metadata = MetaDataBuilder(
-            schema,
+        metadata = _create_metadata(
+            file,
+            ctx,
+            schema_name,
             ignore_constraints=ignore_constraints,
             skip_indexes=skip_indexes,
-        ).build()
-        logger.debug(f"Created metadata with schema name: {metadata.schema}")
+        )
 
-        engine: Engine | MockConnection
-        if not dry_run and not output_file:
-            engine = create_engine(url, echo=echo)
-        else:
-            if dry_run:
-                logger.info("Dry run will be executed")
-            engine = DatabaseContext.create_mock_engine(url, output_file)
-            if output_file:
-                logger.info("Writing SQL output to: " + output_file.name)
-
-        context = DatabaseContext(metadata, engine)
+        db_ctx = create_database_context(
+            engine_url,
+            metadata,
+            echo=echo,
+            dry_run=dry_run,
+            output_file=output_file,
+        )
 
         if drop and initialize:
             raise ValueError("Cannot drop and initialize schema at the same time")
 
         if drop:
             logger.debug("Dropping schema if it exists")
-            context.drop()
+            db_ctx.drop()
             initialize = True  # If schema is dropped, it needs to be recreated.
 
         if initialize:
             logger.debug("Creating schema if not exists")
-            context.initialize()
+            db_ctx.initialize()
 
-        context.create_all()
+        db_ctx.create_all()
+
     except Exception as e:
         logger.exception(e)
         raise click.ClickException(str(e))
@@ -231,9 +215,9 @@ def create_indexes(
         Felis file to read.
     """
     try:
-        schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
-        db = _create_database_context(schema, engine_url, schema_name)
-        db.create_indexes()
+        metadata = _create_metadata(file, ctx, schema_name, skip_indexes=False)
+        db_ctx = create_database_context(engine_url, metadata)
+        db_ctx.create_indexes()
     except Exception as e:
         logger.exception(e)
         raise click.ClickException("Error creating indexes: " + str(e))
@@ -262,8 +246,8 @@ def drop_indexes(
         Felis file to read.
     """
     try:
-        schema = Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]})
-        db = _create_database_context(schema, engine_url, schema_name)
+        metadata = _create_metadata(file, ctx, schema_name)
+        db = create_database_context(engine_url, metadata)
         db.drop_indexes()
     except Exception as e:
         logger.exception(e)
@@ -338,17 +322,21 @@ def load_tap_schema(
     command will not initialize the TAP_SCHEMA tables.
     """
     url = make_url(engine_url)
-    engine: Engine | MockConnection
-    if dry_run or is_mock_url(url):
-        engine = create_mock_engine(url, executor=None)
-    else:
-        engine = create_engine(engine_url)
+    if is_mock_url(url) and not dry_run:
+        raise ValueError(
+            "Mock connection cannot be used for loading TAP_SCHEMA data (unless --dry-run is used)."
+        )
+
+    # Create TableManager first - it will build metadata from YAML
     mgr = TableManager(
-        engine=engine,
-        apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
+        apply_schema_to_metadata=False if url.drivername == "sqlite" else True,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
     )
+
+    # Create DatabaseContext using TableManager's metadata
+    # Pass dry_run to create_database_context for mock connection support
+    db_ctx = create_database_context(engine_url, mgr.metadata, dry_run=dry_run)
 
     schema = Schema.from_stream(
         file,
@@ -361,7 +349,7 @@ def load_tap_schema(
     DataLoader(
         schema,
         mgr,
-        engine,
+        db_context=db_ctx,
         tap_schema_index=tap_schema_index,
         dry_run=dry_run,
         print_sql=echo,
@@ -420,19 +408,25 @@ def init_tap_schema(
         metadata will be inserted.
     """
     url = make_url(engine_url)
-    engine: Engine | MockConnection
     if is_mock_url(url):
-        raise click.ClickException("Mock engine URL is not supported for this command")
-    engine = create_engine(engine_url)
+        raise click.ClickException(
+            "Mock engine is not supported for TAP_SCHEMA initialization: " + engine_url
+        )
+
+    # Create TableManager first - it will build metadata from YAML
     mgr = TableManager(
-        apply_schema_to_metadata=False if engine.dialect.name == "sqlite" else True,
+        apply_schema_to_metadata=False if url.drivername == "sqlite" else True,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
         extensions_path=extensions,
     )
-    mgr.initialize_database(engine)
+
+    # Create DatabaseContext using TableManager's metadata
+    db_ctx = create_database_context(engine_url, mgr.metadata)
+
+    mgr.initialize_database(db_context=db_ctx)
     if insert_metadata:
-        inserter = MetadataInserter(mgr, engine)
+        inserter = MetadataInserter(mgr, db_context=db_ctx)
         inserter.insert_metadata()
 
 
@@ -546,16 +540,20 @@ def diff(
     error_on_change: bool,
     files: Iterable[IO[str]],
 ) -> None:
+    files_list = list(files)
     schemas = [
-        Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]}) for file in files
+        Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]}) for file in files_list
     ]
-
     diff: SchemaDiff
-    if len(schemas) == 2 and engine_url is None:
+    if len(schemas) == 2:
         if comparator == "alembic":
-            db_context = create_database(schemas[0])
-            assert isinstance(db_context.engine, Engine)
-            diff = DatabaseDiff(schemas[1], db_context.engine)
+            # Reset file stream to beginning before re-reading
+            files_list[0].seek(0)
+            metadata = _create_metadata(files_list[0], ctx)
+            db_ctx = create_database_context(engine_url if engine_url else "sqlite:///:memory:", metadata)
+            db_ctx.initialize()
+            db_ctx.create_all()
+            diff = DatabaseDiff(schemas[1], db_ctx.engine)
         else:
             diff = FormattedSchemaDiff(schemas[0], schemas[1])
     elif len(schemas) == 1 and engine_url is not None:
@@ -563,7 +561,7 @@ def diff(
         diff = DatabaseDiff(schemas[0], engine)
     else:
         raise click.ClickException(
-            "Invalid arguments - provide two schemas or a schema and a database engine URL"
+            "Invalid arguments - provide two schemas or a single schema and a database engine URL"
         )
 
     diff.print()

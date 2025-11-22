@@ -43,11 +43,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.types import TypeEngine
 
-from felis.datamodel import Schema
-from felis.db.variants import make_variant_dict
-
 from . import datamodel
-from .db import sqltypes
+from .datamodel import Schema
+from .db import _sqltypes as sqltypes
+from .db._variants import make_variant_dict
 from .types import FelisType
 
 __all__ = ("MetaDataBuilder", "get_datatype_with_variants")

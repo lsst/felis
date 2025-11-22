@@ -24,7 +24,15 @@ jobs:
       - name: Set up PostgreSQL
         uses: Harmon758/postgresql-action@v1.0.0
         with:
-          postgresql version: '16'
+          postgresql version: "16"
+
+      - name: Set up MySQL
+        uses: shogo82148/actions-setup-mysql@v1
+        with:
+          distribution: "mariadb"
+          mysql-version: "10.6"
+          user: rubin
+          password: rubin
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -40,11 +48,8 @@ jobs:
           python -m pip install --upgrade pip uv
           uv pip install --system -r requirements.txt
 
-      - name: Install psycopg2
-        run: uv pip install --system psycopg2
-
-      - name: Install testing.postgresql
-        run: uv pip install --system testing.postgresql
+      - name: Install database drivers
+        run: uv pip install --system psycopg2 pymysql testing.postgresql
 
       # We have two cores so we can speed up the testing with xdist
       - name: Install pytest packages
@@ -56,17 +61,21 @@ jobs:
       - name: Build and install
         run: uv pip install --system --no-deps -e .
 
+      - name: Check command-line help
+        run: felis --help
+
       - name: Run tests
         run: |
-          pytest -r a -v -n 3 --cov=tests --cov=felis --cov-report=xml --cov-report=term --cov-branch \
+          export _FELIS_MYSQL_ENGINE_URL="mysql+pymysql://rubin:rubin@127.0.0.1:3306/"
+          pytest -r a -v -n 3 --cov=felis --cov-report=xml --cov-report=term --cov-branch \
             --junitxml=junit.xml -o junit_family=legacy
-          felis --help
 
-      - name: Upload coverage to codecov
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
