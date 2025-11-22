@@ -28,7 +28,7 @@ from typing import Any
 from sqlalchemy import select
 
 from felis.datamodel import Schema
-from felis.db._database_context import create_database_context
+from felis.db.database_context import create_database_context
 from felis.tap_schema import DataLoader, TableManager
 
 TEST_DIR = os.path.dirname(__file__)

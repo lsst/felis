@@ -26,7 +26,7 @@ import yaml
 from sqlalchemy import text
 
 from felis.datamodel import Schema
-from felis.db._database_context import PostgreSQLContext, _index_exists
+from felis.db.database_context import PostgreSQLContext, _index_exists
 from felis.metadata import MetaDataBuilder
 from felis.tests.postgresql import TemporaryPostgresInstance, setup_postgres_test_db  # type: ignore
 

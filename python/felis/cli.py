@@ -34,7 +34,7 @@ from sqlalchemy.engine import create_engine, make_url
 
 from . import __version__
 from .datamodel import Schema
-from .db._database_context import create_database_context, is_mock_url
+from .db.database_context import create_database_context, is_mock_url
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
 from .tap_schema import DataLoader, MetadataInserter, TableManager
