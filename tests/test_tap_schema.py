@@ -53,7 +53,10 @@ class TableManagerTestCase(unittest.TestCase):
 
         # Check the created metadata and tables.
         self.assertNotEqual(len(mgr.metadata.tables), 0)
-        self.assertEqual(mgr.metadata.schema, schema_name)
+        # For SQLite (default), metadata.schema is None but schema_name is set
+        expected_metadata_schema = None if not mgr.apply_schema_to_metadata else schema_name
+        self.assertEqual(mgr.metadata.schema, expected_metadata_schema)
+        self.assertEqual(mgr.schema_name, "TAP_SCHEMA")  # schema_name should always be set
         for table_name in mgr.get_table_names_std():
             mgr[table_name]
 
@@ -63,7 +66,7 @@ class TableManagerTestCase(unittest.TestCase):
 
     def test_table_name_postfix(self) -> None:
         """Test the table name postfix."""
-        mgr = TableManager(apply_schema_to_metadata=False, table_name_postfix="_test")
+        mgr = TableManager(table_name_postfix="_test")
         for table_name in mgr.metadata.tables:
             self.assertTrue(table_name.endswith("_test"))
 
@@ -84,7 +87,7 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_sqlite(self) -> None:
         """Test the `DataLoader` using an in-memory SQLite database."""
-        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr = TableManager()
         db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
         mgr.initialize_database(db_ctx)
 
@@ -93,7 +96,7 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_sql_output(self) -> None:
         """Test printing SQL to stdout and writing SQL to a file."""
-        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr = TableManager()
         db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
         loader = DataLoader(self.schema, mgr, db_ctx, dry_run=True, print_sql=True)
         loader.load()
@@ -114,7 +117,7 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_unique_keys(self) -> None:
         """Test generation of unique foreign keys."""
-        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr = TableManager()
         db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
         mgr.initialize_database(db_ctx)
 
@@ -133,7 +136,7 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_select_with_filter(self) -> None:
         """Test selecting rows with a filter."""
-        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr = TableManager()
         db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
         mgr.initialize_database(db_ctx)
         loader = DataLoader(self.schema, mgr, db_context=db_ctx, unique_keys=True)
@@ -169,7 +172,7 @@ class TapSchemaSqliteSetup:
         with open(test_file_path) as test_file:
             self._schema = Schema.from_stream(test_file, context=context)
 
-        mgr = TableManager(apply_schema_to_metadata=False)
+        mgr = TableManager()
         self._db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
         mgr.initialize_database(self._db_ctx)
         self._mgr = mgr
@@ -486,7 +489,7 @@ tables:
         self.assertEqual(tables_after, tables_before + 1)
 
     def test_extensions_with_data_loader(self) -> None:
-        mgr = TableManager(apply_schema_to_metadata=False, extensions_path=self.extensions_path)
+        mgr = TableManager(extensions_path=self.extensions_path)
         db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
         mgr.initialize_database(db_ctx)
 
@@ -678,21 +681,21 @@ tables:
         self.assertIn("full_property_column", schemas_table.c)
 
     def test_extensions_apply_schema_to_metadata_true(self) -> None:
-        mgr = TableManager(apply_schema_to_metadata=True, extensions_path=self.extensions_path)
+        mgr = TableManager(
+            engine_url="postgresql://user:pass@localhost/db", extensions_path=self.extensions_path
+        )
         schemas_table = mgr["schemas"]
         self.assertIn("owner_id", schemas_table.c)
 
     def test_extensions_apply_schema_to_metadata_false(self) -> None:
-        mgr = TableManager(apply_schema_to_metadata=False, extensions_path=self.extensions_path)
+        mgr = TableManager(extensions_path=self.extensions_path)
 
         schemas_table = mgr["schemas"]
         self.assertIn("owner_id", schemas_table.c)
         self.assertIn("read_anon", schemas_table.c)
 
     def test_extensions_with_table_name_postfix(self) -> None:
-        mgr = TableManager(
-            apply_schema_to_metadata=False, extensions_path=self.extensions_path, table_name_postfix="_custom"
-        )
+        mgr = TableManager(extensions_path=self.extensions_path, table_name_postfix="_custom")
 
         schemas_table = mgr["schemas"]
         self.assertIn("owner_id", schemas_table.c)

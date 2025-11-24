@@ -35,7 +35,7 @@ from sqlalchemy.sql.dml import Insert
 
 from . import datamodel
 from .datamodel import Constraint, Schema
-from .db.database_context import DatabaseContext
+from .db.database_context import DatabaseContext, is_sqlite_url
 from .metadata import MetaDataBuilder
 from .types import FelisType
 
@@ -45,32 +45,32 @@ logger = logging.getLogger(__name__)
 
 
 class TableManager:
-    """Manage creation of TAP_SCHEMA tables.
+    """Manage TAP_SCHEMA table definitions and access.
+
+    This class provides a streamlined interface for managing TAP_SCHEMA tables,
+    automatically handling dialect-specific requirements and providing
+    consistent access to TAP_SCHEMA tables through a dictionary-like interface.
 
     Parameters
     ----------
+    engine_url
+        Database engine URL for automatic dialect detection and schema
+        handling.
     db_context
-        The database context for reflecting the TAP_SCHEMA tables from an
-        existing database. If None, the internal TAP_SCHEMA schema will be
-        used by loading an internal YAML file.
+        Optional database context for reflecting existing TAP_SCHEMA tables.
+        If None, loads from internal YAML schema.
     schema_name
-        The name of the schema to use for the TAP_SCHEMA tables.
-        Leave as None to use the standard name of "TAP_SCHEMA".
-    apply_schema_to_metadata
-        If True, apply the schema to the metadata as well as the tables.
-        If False, these will be set to None, e.g., for sqlite.
+        The name of the schema to use for TAP_SCHEMA tables.
+        Defaults to "TAP_SCHEMA".
     table_name_postfix
-        A string to append to all the standard table names.
-        This needs to be used in a way such that the resultant table names
-        map to tables within the TAP_SCHEMA database.
+        A string to append to standard table names for customization.
     extensions_path
-        The path to additional TAP_SCHEMA table definitions.
+        Path to additional TAP_SCHEMA table definitions.
 
     Notes
     -----
-    The TAP_SCHEMA schema must either have been created already, in which case
-    the ``db_context`` should be provided. Or the internal TAP_SCHEMA schema
-    will be used if ``db_context`` is None.
+    The TableManager automatically detects SQLite vs. schema-supporting
+    databases and handles schema application appropriately.
     """
 
     _TABLE_NAMES_STD = ["schemas", "tables", "columns", "keys", "key_columns"]
@@ -81,18 +81,26 @@ class TableManager:
 
     def __init__(
         self,
+        engine_url: str | None = None,
         db_context: DatabaseContext | None = None,
         schema_name: str | None = None,
-        apply_schema_to_metadata: bool = True,
         table_name_postfix: str = "",
         extensions_path: str | None = None,
     ):
         """Initialize the table manager."""
         self.table_name_postfix = table_name_postfix
-        self.apply_schema_to_metadata = apply_schema_to_metadata
-        self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
+        self.schema_name = schema_name or self._SCHEMA_NAME_STD
         self.extensions_path = extensions_path
         self._reflection_context = db_context
+
+        # Automatic dialect detection from engine URL
+        if engine_url is not None:
+            self.engine_url = engine_url
+            self.apply_schema_to_metadata = not is_sqlite_url(engine_url)
+        else:
+            # Default case: assume SQLite
+            self.engine_url = "sqlite:///:memory:"
+            self.apply_schema_to_metadata = False
 
         if db_context is not None:
             if table_name_postfix != "":
@@ -104,14 +112,50 @@ class TableManager:
                 "Reflecting TAP_SCHEMA database from existing database at %s",
                 db_context.engine.url._replace(password="***"),
             )
-            self._reflect(db_context)
+            self._reflect_from_database(db_context)
         else:
-            self._load_yaml()
-            self._apply_extensions()
-            self._build_metadata()
+            self._load_from_yaml()
 
         self._create_table_map()
         self._check_tables()
+
+    def _load_from_yaml(self) -> None:
+        """Load TAP_SCHEMA from YAML resources and build metadata."""
+        # Load the base schema
+        self._schema = self.load_schema_resource()
+
+        # Override schema name if specified
+        if self.schema_name != self._SCHEMA_NAME_STD:
+            self._schema.name = self.schema_name
+        else:
+            self.schema_name = self._schema.name
+
+        # Apply any extensions
+        self._apply_extensions()
+
+        # Build metadata using streamlined approach
+        self._metadata = MetaDataBuilder(
+            self._schema,
+            apply_schema_to_metadata=self.apply_schema_to_metadata,
+            table_name_postfix=self.table_name_postfix,
+        ).build()
+
+        logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)
+
+    def _reflect_from_database(self, db_context: DatabaseContext) -> None:
+        """Reflect TAP_SCHEMA tables from an existing database.
+
+        Parameters
+        ----------
+        db_context
+            The database context to use for reflection.
+        """
+        self._metadata = MetaData(schema=self.schema_name if self.apply_schema_to_metadata else None)
+        try:
+            self._metadata.reflect(bind=db_context.engine)
+        except SQLAlchemyError as e:
+            logger.error("Error reflecting TAP_SCHEMA database: %s", e)
+            raise
 
     def _apply_extensions(self) -> None:
         """Apply extensions from a YAML file to the TAP_SCHEMA schema.
@@ -140,41 +184,6 @@ class TableManager:
                 logger.debug("Added %d extension columns to table '%s'", len(extension_columns), table.name)
 
         logger.info("Applied %d extension columns to TAP_SCHEMA", extension_count)
-
-    def _reflect(self, db_context: DatabaseContext) -> None:
-        """Reflect the TAP_SCHEMA database tables into the metadata.
-
-        Parameters
-        ----------
-        db_context
-            The database context to use to reflect the tables.
-        """
-        self._metadata = MetaData(schema=self.schema_name if self.apply_schema_to_metadata else None)
-        try:
-            self.metadata.reflect(bind=db_context.engine)
-        except SQLAlchemyError as e:
-            logger.error("Error reflecting TAP_SCHEMA database: %s", e)
-            raise
-
-    def _build_metadata(self) -> None:
-        """Build SQLAlchemy metadata from the Felis schema."""
-        self._metadata = MetaDataBuilder(
-            self.schema,
-            apply_schema_to_metadata=self.apply_schema_to_metadata,
-            table_name_postfix=self.table_name_postfix,
-        ).build()
-
-    def _load_yaml(self) -> None:
-        """Load the standard TAP_SCHEMA schema from a Felis package
-        resource.
-        """
-        self._load_schema()
-        if self.schema_name != TableManager._SCHEMA_NAME_STD:
-            self.schema.name = self.schema_name
-        else:
-            self.schema_name = self.schema.name
-
-        logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)
 
     def __getitem__(self, table_name: str) -> Table:
         """Get one of the TAP_SCHEMA tables by its standard TAP_SCHEMA name.

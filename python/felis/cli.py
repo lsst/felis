@@ -30,11 +30,11 @@ from typing import IO
 import click
 from pydantic import ValidationError
 from sqlalchemy import MetaData
-from sqlalchemy.engine import create_engine, make_url
+from sqlalchemy.engine import create_engine
 
 from . import __version__
 from .datamodel import Schema
-from .db.database_context import create_database_context, is_mock_url
+from .db.database_context import create_database_context, is_sqlite_url
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
 from .metadata import MetaDataBuilder
 from .tap_schema import DataLoader, MetadataInserter, TableManager
@@ -84,8 +84,7 @@ def _create_metadata(
     # Determine if we need SQLite-specific handling
     apply_schema = True
     if engine_url:
-        url = make_url(engine_url)
-        if url.drivername == "sqlite" or (url.drivername == "sqlite" and url.database is None):
+        if is_sqlite_url(engine_url):
             apply_schema = False
             logger.debug("SQLite detected: schema name will not be applied to metadata")
 
@@ -355,21 +354,14 @@ def load_tap_schema(
     The TAP_SCHEMA database must already exist or the command will fail. This
     command will not initialize the TAP_SCHEMA tables.
     """
-    url = make_url(engine_url)
-    if is_mock_url(url) and not dry_run:
-        raise ValueError(
-            "Mock connection cannot be used for loading TAP_SCHEMA data (unless --dry-run is used)."
-        )
-
-    # Create TableManager first - it will build metadata from YAML
+    # Create TableManager with automatic dialect detection
     mgr = TableManager(
-        apply_schema_to_metadata=False if url.drivername == "sqlite" else True,
+        engine_url=engine_url,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
     )
 
     # Create DatabaseContext using TableManager's metadata
-    # Pass dry_run to create_database_context for mock connection support
     db_ctx = create_database_context(engine_url, mgr.metadata, dry_run=dry_run)
 
     schema = Schema.from_stream(
@@ -441,15 +433,9 @@ def init_tap_schema(
         If set to False, only the TAP_SCHEMA tables will be created, but no
         metadata will be inserted.
     """
-    url = make_url(engine_url)
-    if is_mock_url(url):
-        raise click.ClickException(
-            "Mock engine is not supported for TAP_SCHEMA initialization: " + engine_url
-        )
-
-    # Create TableManager first - it will build metadata from YAML
+    # Create TableManager with automatic dialect detection
     mgr = TableManager(
-        apply_schema_to_metadata=False if url.drivername == "sqlite" else True,
+        engine_url=engine_url,
         schema_name=tap_schema_name,
         table_name_postfix=tap_tables_postfix,
         extensions_path=extensions,
@@ -460,8 +446,7 @@ def init_tap_schema(
 
     mgr.initialize_database(db_context=db_ctx)
     if insert_metadata:
-        inserter = MetadataInserter(mgr, db_context=db_ctx)
-        inserter.insert_metadata()
+        MetadataInserter(mgr, db_context=db_ctx).insert_metadata()
 
 
 @cli.command("validate", help="Validate one or more Felis YAML files")

@@ -382,6 +382,24 @@ def is_mock_url(url: URL) -> bool:
     )
 
 
+def is_sqlite_url(url: URL | str) -> bool:
+    """Check if the engine URL points to a SQLite database.
+
+    Parameters
+    ----------
+    url
+        The SQLAlchemy engine URL or string.
+
+    Returns
+    -------
+    bool
+        True if the URL is a SQLite URL, False otherwise.
+    """
+    if isinstance(url, str):
+        url = make_url(url)
+    return url.drivername.startswith("sqlite")
+
+
 class _SQLWriter:
     """Write SQL statements to stdout or a file.
 

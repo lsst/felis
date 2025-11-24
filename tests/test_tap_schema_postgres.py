@@ -64,9 +64,10 @@ class TestTapSchemaPostgresql(unittest.TestCase):
         """Test loading of data into a PostgreSQL TAP_SCHEMA database created
         by the `~felis.tap_schema.TableManager`.
         """
+        db_ctx = None
         try:
             # Create the TAP_SCHEMA database.
-            mgr = TableManager()
+            mgr = TableManager(engine_url=str(self.engine.url))
             db_ctx = create_database_context(str(self.engine.url), mgr.metadata)
             mgr.initialize_database(db_ctx)
 
@@ -75,7 +76,8 @@ class TestTapSchemaPostgresql(unittest.TestCase):
             loader.load()
         finally:
             # Drop the schema.
-            db_ctx.drop()
+            if db_ctx is not None:
+                db_ctx.drop()
 
     def test_reflect_database(self) -> None:
         """Test reflecting an existing PostgreSQL TAP_SCHEMA database into a
@@ -104,7 +106,7 @@ class TestTapSchemaPostgresql(unittest.TestCase):
 
             # Reflect the existing database into a TableManager.
             db_ctx = create_database_context(str(self.engine.url), md)
-            mgr = TableManager(db_context=db_ctx)
+            mgr = TableManager(engine_url=str(self.engine.url), db_context=db_ctx)
             self.assertIsNotNone(mgr.metadata)
             self.assertGreater(len(mgr.metadata.tables), 0)
             table_names = set(
@@ -138,7 +140,12 @@ class TestTapSchemaPostgresql(unittest.TestCase):
             postfix = "11"
             # Create a context for reflection with the existing database
             reflect_ctx = create_database_context(str(self.engine.url), md)
-            mgr = TableManager(db_context=reflect_ctx, table_name_postfix=postfix, schema_name=sch.name)
+            mgr = TableManager(
+                engine_url=str(self.engine.url),
+                db_context=reflect_ctx,
+                table_name_postfix=postfix,
+                schema_name=sch.name,
+            )
             for table_name in mgr.get_table_names_std():
                 table = mgr[table_name]
                 self.assertEqual(table.name, f"{table_name}{postfix}".replace(f"{sch.name}", ""))
