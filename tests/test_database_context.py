@@ -33,11 +33,6 @@ class DatabaseContextTestCase:
         self._schema = Schema.from_uri(TEST_YAML)
         self._metadata = MetaDataBuilder(self._schema).build()
 
-        # These are defaults for SQLite and should be overridden by subclasses
-        # using a different database.
-        self._dialect_name = "sqlite"
-        self._engine_url = f"{self._dialect_name}:///:memory:"
-
     def test_database_context(self):
         """Test database context with SQLite."""
         # Initialize the database context
@@ -80,6 +75,12 @@ class DatabaseContextTestCase:
 
 class SQLiteTestCase(DatabaseContextTestCase, unittest.TestCase):
     """Tests of database context using SQLite dialect."""
+
+    def setUp(self) -> None:
+        """Set up the test case."""
+        super().setUp()
+        self._dialect_name = "sqlite"
+        self._engine_url = "sqlite:///:memory:"
 
 
 @unittest.skipIf(Postgresql is None, "testing.postgresql is not installed")
