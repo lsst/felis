@@ -29,14 +29,13 @@ from typing import IO
 
 import click
 from pydantic import ValidationError
-from sqlalchemy import MetaData
 from sqlalchemy.engine import create_engine
 
 from . import __version__
 from .datamodel import Schema
-from .db.database_context import create_database_context, is_sqlite_url
+from .db.database_context import create_database_context
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
-from .metadata import MetaDataBuilder
+from .metadata import create_metadata
 from .tap_schema import DataLoader, MetadataInserter, TableManager
 
 __all__ = ["cli"]
@@ -44,56 +43,6 @@ __all__ = ["cli"]
 logger = logging.getLogger("felis")
 
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
-
-
-def _create_metadata(
-    felis_file: IO[str],
-    context: click.Context,
-    schema_name: str | None = None,
-    ignore_constraints: bool = False,
-    skip_indexes: bool = False,
-    engine_url: str | None = None,
-) -> MetaData:
-    """Create SQLAlchemy metadata from a Felis schema file.
-
-    Parameters
-    ----------
-    felis_file
-        The Felis schema file to read.
-    context
-        The Click context.
-    schema_name
-        Optional schema name to override the one in the file.
-    ignore_constraints
-        Whether to ignore constraints when building metadata.
-    skip_indexes
-        Whether to skip creating indexes when building metadata.
-    engine_url
-        Engine URL to determine if SQLite-specific handling is needed.
-
-    Returns
-    -------
-    MetaData
-        The SQLAlchemy metadata object with proper schema handling.
-    """
-    schema = Schema.from_stream(felis_file, context={"id_generation": context.obj["id_generation"]})
-    if schema_name:
-        logger.info(f"Overriding schema name with: {schema_name}")
-        schema.name = schema_name
-
-    # Determine if we need SQLite-specific handling
-    apply_schema = True
-    if engine_url:
-        if is_sqlite_url(engine_url):
-            apply_schema = False
-            logger.debug("SQLite detected: schema name will not be applied to metadata")
-
-    return MetaDataBuilder(
-        schema,
-        ignore_constraints=ignore_constraints,
-        skip_indexes=skip_indexes,
-        apply_schema_to_metadata=apply_schema,
-    ).build()
 
 
 @click.group()
@@ -191,10 +140,10 @@ def create(
         Felis file to read.
     """
     try:
-        metadata = _create_metadata(
+        metadata = create_metadata(
             file,
-            ctx,
-            schema_name,
+            id_generation=ctx.obj["id_generation"],
+            schema_name=schema_name,
             ignore_constraints=ignore_constraints,
             skip_indexes=skip_indexes,
             engine_url=engine_url,
@@ -248,7 +197,9 @@ def create_indexes(
         Felis file to read.
     """
     try:
-        metadata = _create_metadata(file, ctx, schema_name, engine_url=engine_url)
+        metadata = create_metadata(
+            file, id_generation=ctx.obj["id_generation"], schema_name=schema_name, engine_url=engine_url
+        )
         db_ctx = create_database_context(engine_url, metadata)
         db_ctx.create_indexes()
     except Exception as e:
@@ -279,7 +230,9 @@ def drop_indexes(
         Felis file to read.
     """
     try:
-        metadata = _create_metadata(file, ctx, schema_name, engine_url=engine_url)
+        metadata = create_metadata(
+            file, id_generation=ctx.obj["id_generation"], schema_name=schema_name, engine_url=engine_url
+        )
         db = create_database_context(engine_url, metadata)
         db.drop_indexes()
     except Exception as e:
@@ -568,7 +521,9 @@ def diff(
         if comparator == "alembic":
             # Reset file stream to beginning before re-reading
             files_list[0].seek(0)
-            metadata = _create_metadata(files_list[0], ctx, engine_url=engine_url)
+            metadata = create_metadata(
+                files_list[0], id_generation=ctx.obj["id_generation"], engine_url=engine_url
+            )
             db_ctx = create_database_context(engine_url if engine_url else "sqlite:///:memory:", metadata)
             db_ctx.initialize()
             db_ctx.create_all()
