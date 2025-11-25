@@ -647,11 +647,11 @@ class PostgreSQLContext(_BaseContext, dialect=SupportedDialect.POSTGRESQL):
                 """
             )
             if result.fetchone():
-                raise ValueError(f"PostgreSQL schema '{schema_name}' already exists.")
+                raise DatabaseContextError(f"PostgreSQL schema '{schema_name}' already exists.")
             logger.debug(f"Creating PG schema: {schema_name}")
             self.execute(CreateSchema(schema_name))
         except SQLAlchemyError as e:
-            raise DatabaseContextError("Error initializing Postgres database", e)
+            raise DatabaseContextError("Error initializing Postgres schema", e)
 
     def drop(self) -> None:
         schema_name = self._required_schema_name()
@@ -685,7 +685,7 @@ class MySQLContext(_BaseContext, dialect=SupportedDialect.MYSQL):
             logger.debug(f"Checking if MySQL database exists: {schema_name}")
             result = self.execute(f"SHOW DATABASES LIKE '{schema_name}'")
             if result.fetchone():
-                raise ValueError(f"MySQL database '{schema_name}' already exists.")
+                raise DatabaseContextError(f"MySQL database '{schema_name}' already exists.")
             logger.debug(f"Creating MySQL database: {schema_name}")
             self.execute(f"CREATE DATABASE {schema_name}")
         except SQLAlchemyError as e:
