@@ -1,4 +1,4 @@
-"""Database context management classes."""
+"""API for managing database operations across different dialects."""
 
 # This file is part of felis.
 #
@@ -25,8 +25,9 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
+from collections.abc import Callable
 from enum import Enum
-from typing import IO, Any
+from typing import IO, Any, TypeAlias
 
 from sqlalchemy import (
     Engine,
@@ -70,6 +71,87 @@ __all__ = [
 logger = logging.getLogger("felis")
 
 SQLStatement = str | Executable | TextClause
+
+
+def _normalize_statement(statement: SQLStatement) -> Executable | TextClause:
+    if isinstance(statement, str):
+        return text(statement)
+    return statement
+
+
+def _create_mock_connection(engine_url: str | URL, output_file: IO[str] | None = None) -> MockConnection:
+    writer = _SQLWriter(output_file)
+    engine = create_mock_engine(engine_url, executor=writer.write, paramstyle="pyformat")
+    writer.dialect = engine.dialect
+    return engine
+
+
+def _dialect_name(url: URL) -> str:
+    dialect_name = url.drivername
+    # Normalize dialect name (e.g., "postgresql+psycopg2" -> "postgresql")
+    if "+" in dialect_name:
+        dialect_name = dialect_name.split("+")[0]
+    return dialect_name
+
+
+def _clear_schema(metadata: MetaData) -> None:
+    if metadata.schema:
+        metadata.schema = None
+        for table in metadata.tables.values():
+            table.schema = None
+
+
+def _index_exists(conn: Connection, table: Table, index: Index, schema: str | None) -> bool:
+    if index.name is None:
+        # Anonymous indexes can't be reliably checked by name.
+        return False
+
+    inspector = inspect(conn)
+    existing = {
+        ix["name"]
+        for ix in inspector.get_indexes(
+            table_name=table.name,
+            schema=schema,
+        )
+        if "name" in ix and ix["name"] is not None
+    }
+    return index.name in existing
+
+
+def is_mock_url(url: URL) -> bool:
+    """Check if the engine URL points to a mock connection.
+
+    Parameters
+    ----------
+    url
+        The SQLAlchemy engine URL.
+
+    Returns
+    -------
+    bool
+        True if the URL is a mock URL, False otherwise.
+    """
+    return (url.drivername == "sqlite" and url.database is None) or (
+        url.drivername != "sqlite" and url.host is None
+    )
+
+
+def is_sqlite_url(url: URL | str) -> bool:
+    """Check if the engine URL points to a SQLite database.
+
+    Parameters
+    ----------
+    url
+        The SQLAlchemy engine URL or string.
+
+    Returns
+    -------
+    bool
+        True if the URL is a SQLite URL, False otherwise.
+    """
+    if isinstance(url, str):
+        url = make_url(url)
+    return url.drivername.startswith("sqlite")
 
 
 class DatabaseContextError(Exception):
@@ -192,265 +274,6 @@ class DatabaseContext:
             If there is an error executing the SQL statement.
         """
         ...
-
-
-class SupportedDialect(Enum):
-    """Enumeration of supported database dialects."""
-
-    POSTGRESQL = "postgresql"
-    MYSQL = "mysql"
-    SQLITE = "sqlite"
-
-    @classmethod
-    def from_string(cls, dialect_name: str) -> SupportedDialect:
-        """Create a SupportedDialect from a string, with normalization.
-
-        Parameters
-        ----------
-        dialect_name
-            The dialect name to convert (e.g., "postgresql+psycopg2").
-
-        Returns
-        -------
-        SupportedDialect
-            The corresponding dialect enum value.
-
-        Raises
-        ------
-        ValueError
-            If the dialect is not supported.
-        """
-        # Normalize dialect name (e.g., "postgresql+psycopg2" -> "postgresql")
-        if "+" in dialect_name:
-            dialect_name = dialect_name.split("+")[0]
-
-        dialect_name = dialect_name.lower()
-
-        for dialect in cls:
-            if dialect.value == dialect_name:
-                return dialect
-
-        raise ValueError(f"Unsupported dialect: {dialect_name}")
-
-
-class DatabaseContextFactory:
-    """Factory for creating DatabaseContext instances based on dialect type."""
-
-    _registry: dict[SupportedDialect, type[_BaseContext]] = {}
-
-    @classmethod
-    def register(cls, dialect: SupportedDialect):
-        """Register a context class for a specific dialect.
-
-        Parameters
-        ----------
-        dialect
-            The dialect to register the decorated class for.
-
-        Returns
-        -------
-        function
-            The decorator function that registers the context class.
-
-        Examples
-        --------
-        >>> @DatabaseContextFactory.register(SupportedDialect.POSTGRESQL)
-        ... class PostgreSQLContext(_BaseContext):
-        ...     pass
-        """
-
-        def decorator(context_class: type[_BaseContext]) -> type[_BaseContext]:
-            cls._registry[dialect] = context_class
-            return context_class
-
-        return decorator
-
-    @classmethod
-    def register_class(cls, dialect: SupportedDialect, context_class: type[_BaseContext]) -> None:
-        """Register a context class for a specific dialect programmatically.
-
-        Parameters
-        ----------
-        dialect
-            The dialect to register.
-        context_class
-            The context class to use for this dialect.
-        """
-        cls._registry[dialect] = context_class
-
-    @classmethod
-    def create_context(cls, dialect: SupportedDialect, engine: Engine, metadata: MetaData) -> DatabaseContext:
-        """Create a context instance for the given dialect.
-
-        Parameters
-        ----------
-        dialect
-            The database dialect.
-        engine
-            The SQLAlchemy engine.
-        metadata
-            The SQLAlchemy metadata.
-
-        Returns
-        -------
-        DatabaseContext
-            The appropriate context instance.
-
-        Raises
-        ------
-        ValueError
-            If no context class is registered for the dialect.
-        """
-        if dialect not in cls._registry:
-            raise ValueError(f"No context class registered for dialect: {dialect.value}")
-
-        context_class = cls._registry[dialect]
-        return context_class(engine, metadata)
-
-    @classmethod
-    def get_supported_dialects(cls) -> list[str]:
-        """Get a list of supported dialect names.
-
-        Returns
-        -------
-        list[str]
-            List of supported dialect names.
-        """
-        return [dialect.value for dialect in SupportedDialect]
-
-
-def _normalize_statement(statement: SQLStatement) -> Executable | TextClause:
-    if isinstance(statement, str):
-        return text(statement)
-    return statement
-
-
-def _create_mock_connection(engine_url: str | URL, output_file: IO[str] | None = None) -> MockConnection:
-    writer = _SQLWriter(output_file)
-    engine = create_mock_engine(engine_url, executor=writer.write, paramstyle="pyformat")
-    writer.dialect = engine.dialect
-    return engine
-
-
-def _dialect_name(url: URL) -> str:
-    dialect_name = url.drivername
-    # Normalize dialect name (e.g., "postgresql+psycopg2" -> "postgresql")
-    if "+" in dialect_name:
-        dialect_name = dialect_name.split("+")[0]
-    return dialect_name
-
-
-def _clear_schema(metadata: MetaData) -> None:
-    if metadata.schema:
-        metadata.schema = None
-        for table in metadata.tables.values():
-            table.schema = None
-
-
-def _index_exists(conn: Connection, table: Table, index: Index, schema: str | None) -> bool:
-    if index.name is None:
-        # Anonymous indexes can't be reliably checked by name.
-        return False
-
-    inspector = inspect(conn)
-    existing = {
-        ix["name"]
-        for ix in inspector.get_indexes(
-            table_name=table.name,
-            schema=schema,
-        )
-        if "name" in ix and ix["name"] is not None
-    }
-    return index.name in existing
-
-
-def is_mock_url(url: URL) -> bool:
-    """Check if the engine URL points to a mock connection.
-
-    Parameters
-    ----------
-    url
-        The SQLAlchemy engine URL.
-
-    Returns
-    -------
-    bool
-        True if the URL is a mock URL, False otherwise.
-    """
-    return (url.drivername == "sqlite" and url.database is None) or (
-        url.drivername != "sqlite" and url.host is None
-    )
-
-
-def is_sqlite_url(url: URL | str) -> bool:
-    """Check if the engine URL points to a SQLite database.
-
-    Parameters
-    ----------
-    url
-        The SQLAlchemy engine URL or string.
-
-    Returns
-    -------
-    bool
-        True if the URL is a SQLite URL, False otherwise.
-    """
-    if isinstance(url, str):
-        url = make_url(url)
-    return url.drivername.startswith("sqlite")
-
-
-class _SQLWriter:
-    """Write SQL statements to stdout or a file.
-
-    Parameters
-    ----------
-    file
-        The file to write the SQL statements to. If None, the statements
-        will be written to stdout.
-    """
-
-    def __init__(self, file: IO[str] | None = None) -> None:
-        """Initialize the SQL writer."""
-        self.file = file
-        self.dialect: Dialect | None = None
-
-    def write(self, sql: Any, *multiparams: Any, **params: Any) -> None:
-        """Write the SQL statement to a file or stdout.
-
-        Statements with parameters will be formatted with the values
-        inserted into the resultant SQL output.
-
-        Parameters
-        ----------
-        sql
-            The SQL statement to write.
-        *multiparams
-            The multiparams to use for the SQL statement.
-        **params
-            The params to use for the SQL statement.
-
-        Notes
-        -----
-        The functions arguments are typed very loosely because this method in
-        SQLAlchemy is untyped, amd we do not call it directly.
-        """
-        compiled = sql.compile(dialect=self.dialect)
-        sql_str = str(compiled) + ";"
-        params_list = [compiled.params]
-        for params in params_list:
-            if not params:
-                print(sql_str, file=self.file)
-                continue
-            new_params = {}
-            for key, value in params.items():
-                if isinstance(value, str):
-                    new_params[key] = f"'{value}'"
-                elif value is None:
-                    new_params[key] = "null"
-                else:
-                    new_params[key] = value
-            print(sql_str % new_params, file=self.file)
 
 
 class _BaseContext(DatabaseContext):
@@ -596,6 +419,188 @@ class _BaseContext(DatabaseContext):
         if self.schema_name is None:
             raise DatabaseContextError("Schema name is required but not set.")
         return self.schema_name
+
+
+class SupportedDialect(Enum):
+    """Enumeration of supported database dialects."""
+
+    POSTGRESQL = "postgresql"
+    MYSQL = "mysql"
+    SQLITE = "sqlite"
+
+    @classmethod
+    def from_string(cls, dialect_name: str) -> SupportedDialect:
+        """Create a SupportedDialect from a string, with normalization.
+
+        Parameters
+        ----------
+        dialect_name
+            The dialect name to convert (e.g., "postgresql+psycopg2").
+
+        Returns
+        -------
+        SupportedDialect
+            The corresponding dialect enum value.
+
+        Raises
+        ------
+        ValueError
+            If the dialect is not supported.
+        """
+        # Normalize dialect name (e.g., "postgresql+psycopg2" -> "postgresql")
+        if "+" in dialect_name:
+            dialect_name = dialect_name.split("+")[0]
+
+        dialect_name = dialect_name.lower()
+
+        for dialect in cls:
+            if dialect.value == dialect_name:
+                return dialect
+
+        raise ValueError(f"Unsupported dialect: {dialect_name}")
+
+
+_ContextClass: TypeAlias = type[_BaseContext]
+_ContextDecorator: TypeAlias = Callable[[_ContextClass], _ContextClass]
+
+
+class DatabaseContextFactory:
+    """Factory for creating DatabaseContext instances based on dialect type."""
+
+    _registry: dict[SupportedDialect, _ContextClass] = {}
+
+    @classmethod
+    def register(cls, dialect: SupportedDialect) -> _ContextDecorator:
+        """Register a context class for a specific dialect.
+
+        Parameters
+        ----------
+        dialect
+            The dialect to register the decorated class for.
+
+        Returns
+        -------
+        Callable
+            The decorator function that registers the context class.
+
+        Examples
+        --------
+        >>> @DatabaseContextFactory.register(SupportedDialect.POSTGRESQL)
+        ... class PostgreSQLContext(_BaseContext):
+        ...     pass
+        """
+
+        def decorator(context_class: type[_BaseContext]) -> type[_BaseContext]:
+            cls._registry[dialect] = context_class
+            return context_class
+
+        return decorator
+
+    @classmethod
+    def register_class(cls, dialect: SupportedDialect, context_class: type[_BaseContext]) -> None:
+        """Register a context class for a specific dialect programmatically.
+
+        Parameters
+        ----------
+        dialect
+            The dialect to register.
+        context_class
+            The context class to use for this dialect.
+        """
+        cls._registry[dialect] = context_class
+
+    @classmethod
+    def create_context(cls, dialect: SupportedDialect, engine: Engine, metadata: MetaData) -> DatabaseContext:
+        """Create a context instance for the given dialect.
+
+        Parameters
+        ----------
+        dialect
+            The database dialect.
+        engine
+            The SQLAlchemy engine.
+        metadata
+            The SQLAlchemy metadata.
+
+        Returns
+        -------
+        DatabaseContext
+            The appropriate context instance.
+
+        Raises
+        ------
+        ValueError
+            If no context class is registered for the dialect.
+        """
+        if dialect not in cls._registry:
+            raise ValueError(f"No context class registered for dialect: {dialect.value}")
+
+        context_class = cls._registry[dialect]
+        return context_class(engine, metadata)
+
+    @classmethod
+    def get_supported_dialects(cls) -> list[str]:
+        """Get a list of supported dialect names.
+
+        Returns
+        -------
+        list[str]
+            List of supported dialect names.
+        """
+        return [dialect.value for dialect in SupportedDialect]
+
+
+class _SQLWriter:
+    """Write SQL statements to stdout or a file.
+
+    Parameters
+    ----------
+    file
+        The file to write the SQL statements to. If None, the statements
+        will be written to stdout.
+    """
+
+    def __init__(self, file: IO[str] | None = None) -> None:
+        """Initialize the SQL writer."""
+        self.file = file
+        self.dialect: Dialect | None = None
+
+    def write(self, sql: Any, *multiparams: Any, **params: Any) -> None:
+        """Write the SQL statement to a file or stdout.
+
+        Statements with parameters will be formatted with the values
+        inserted into the resultant SQL output.
+
+        Parameters
+        ----------
+        sql
+            The SQL statement to write.
+        *multiparams
+            The multiparams to use for the SQL statement.
+        **params
+            The params to use for the SQL statement.
+
+        Notes
+        -----
+        The functions arguments are typed very loosely because this method in
+        SQLAlchemy is untyped, amd we do not call it directly.
+        """
+        compiled = sql.compile(dialect=self.dialect)
+        sql_str = str(compiled) + ";"
+        params_list = [compiled.params]
+        for params in params_list:
+            if not params:
+                print(sql_str, file=self.file)
+                continue
+            new_params = {}
+            for key, value in params.items():
+                if isinstance(value, str):
+                    new_params[key] = f"'{value}'"
+                elif value is None:
+                    new_params[key] = "null"
+                else:
+                    new_params[key] = value
+            print(sql_str % new_params, file=self.file)
 
 
 @DatabaseContextFactory.register(SupportedDialect.POSTGRESQL)
