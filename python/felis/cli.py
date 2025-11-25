@@ -537,6 +537,14 @@ def validate(
     default="deepdiff",
 )
 @click.option("-E", "--error-on-change", is_flag=True, help="Exit with error code if schemas are different")
+@click.option("--table", "tables", multiple=True, help="Table names to filter on.")
+@click.option(
+    "--output-file",
+    "-o",
+    type=click.File(mode="w"),
+    help="Write diff output to a file insteading of printing",
+    default=None,
+)
 @click.argument("files", nargs=-1, type=click.File())
 @click.pass_context
 def diff(
@@ -544,6 +552,8 @@ def diff(
     engine_url: str | None,
     comparator: str,
     error_on_change: bool,
+    tables: list[str],
+    output_file: IO[str] | None,
     files: Iterable[IO[str]],
 ) -> None:
     schemas = [
@@ -553,12 +563,16 @@ def diff(
     diff: SchemaDiff
     if len(schemas) == 2 and engine_url is None:
         if comparator == "alembic":
+            if tables:
+                raise click.ClickException("Table filtering is not supported for Alembic comparator")
             db_context = create_database(schemas[0])
             assert isinstance(db_context.engine, Engine)
             diff = DatabaseDiff(schemas[1], db_context.engine)
         else:
             diff = FormattedSchemaDiff(schemas[0], schemas[1])
     elif len(schemas) == 1 and engine_url is not None:
+        if tables:
+            raise click.ClickException("Table filtering is not supported for database comparison")
         engine = create_engine(engine_url)
         diff = DatabaseDiff(schemas[0], engine)
     else:
@@ -566,7 +580,7 @@ def diff(
             "Invalid arguments - provide two schemas or a schema and a database engine URL"
         )
 
-    diff.print()
+    diff.print(output_file)
 
     if diff.has_changes and error_on_change:
         raise click.ClickException("Schema was changed")

@@ -3,32 +3,52 @@ name: test_diff
 description: Another test diff
 "@id": "#test_diff"
 version: "4.5.6"
+votable:utype: Schema
 tables:
-  - name: test_table1
-    "@id": "#test_table1"
-    description: Test table 1
+- name: test_table1
+  "@id": "#test_table1"
+  description: Test table 1
+  columns:
+  - name: column1
+    "@id": "#test_table1.column1"
+    datatype: int
+    description: Column 1
+    ivoa:ucd: meta.id
+  - name: column2
+    "@id": "#test_table1.column2"
+    datatype: string
+    description: Column 2
+    length: 30
+    nullable: false
+  indexes:
+  - name: idx_column2
+    "@id": "#test_table1_idx_column2"
+    description: Index on column 2
     columns:
-      - name: column1
-        "@id": "#test_table1.column1"
-        datatype: int
-        description: Column 1
-      - name: column2
-        "@id": "#test_table1.column2"
-        datatype: string
-        description: Column 2
-        length: 30
-        nullable: false
-    indexes:
-      - name: idx_column2
-        "@id": "#test_table1_idx_column2"
-        description: Index on column 2
-        columns:
-          - "#test_table1.column2"
-    constraints:
-      - name: uniq_column2
-        "@id": "#test_table1_uniq_column2"
-        "@type": "Unique"
-        description: Unique column 2
-        columns:
-          - "#test_table1.column2"
-    primaryKey: "#test_table1.column1"
+    - "#test_table1.column2"
+  columnGroups:
+  - name: group1
+    description: Group 1
+    columns:
+    - "#test_table1.column1"
+    - "#test_table1.column2"
+  - name: group2
+    description: Group 2
+    columns:
+    - "#test_table1.column1"
+  constraints:
+  - name: uniq_column2
+    "@id": "#test_table1_uniq_column2"
+    "@type": "Unique"
+    description: Unique column 2
+    columns:
+    - "#test_table1.column2"
+  primaryKey: "#test_table1.column1"
+- name: test_table2
+  "@id": "#test_table2"
+  description: Test table 2
+  columns:
+  - name: column1
+    "@id": "#test_table2.column1"
+    datatype: int
+    description: Column 1
