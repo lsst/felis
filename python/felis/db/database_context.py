@@ -289,8 +289,22 @@ class _BaseContext(DatabaseContext):
         True if a valid schema name is required on the MetaData, False if not.
     """
 
-    # Subclasses must define this
-    DIALECT_NAME: str | None = None
+    # Will be set by __init_subclass__
+    DIALECT: SupportedDialect
+
+    @classmethod
+    def __init_subclass__(cls, /, dialect: SupportedDialect, **kwargs: Any) -> None:
+        """Register the dialect for this context subclass.
+
+        Parameters
+        ----------
+        dialect
+            The database dialect this context is for.
+        kwargs
+            Additional keyword arguments.
+        """
+        super().__init_subclass__(**kwargs)
+        cls.DIALECT = dialect
 
     def __init__(self, engine: Engine, metadata: MetaData, require_schema: bool = False):
         self._engine = engine
@@ -318,12 +332,9 @@ class _BaseContext(DatabaseContext):
         DatabaseContextError
             If the engine dialect doesn't match the context's expected dialect.
         """
-        if self.DIALECT_NAME is None:
-            raise DatabaseContextError(f"DIALECT_NAME not defined for {self.__class__.__name__}")
-
         # Normalize both the engine dialect and expected dialect for comparison
         engine_dialect = _dialect_name(engine.url)
-        expected_dialect = self.DIALECT_NAME.lower()
+        expected_dialect = self.DIALECT.value.lower()
 
         if engine_dialect != expected_dialect:
             raise DatabaseContextError(
@@ -352,9 +363,7 @@ class _BaseContext(DatabaseContext):
         str
             The normalized dialect name.
         """
-        if self.DIALECT_NAME is None:
-            raise DatabaseContextError(f"DIALECT_NAME not defined for {self.__class__.__name__}")
-        return self.DIALECT_NAME
+        return self.DIALECT.value
 
     @property
     def schema_name(self) -> str | None:
@@ -604,7 +613,7 @@ class _SQLWriter:
 
 
 @DatabaseContextFactory.register(SupportedDialect.POSTGRESQL)
-class PostgreSQLContext(_BaseContext):
+class PostgreSQLContext(_BaseContext, dialect=SupportedDialect.POSTGRESQL):
     """Database context for Postgres.
 
     Parameters
@@ -614,8 +623,6 @@ class PostgreSQLContext(_BaseContext):
     metadata
         The SQLAlchemy metadata representing the database objects.
     """
-
-    DIALECT_NAME = "postgresql"
 
     def __init__(self, engine: Engine, metadata: MetaData):
         super().__init__(engine, metadata, require_schema=True)
@@ -648,7 +655,7 @@ class PostgreSQLContext(_BaseContext):
 
 
 @DatabaseContextFactory.register(SupportedDialect.MYSQL)
-class MySQLContext(_BaseContext):
+class MySQLContext(_BaseContext, dialect=SupportedDialect.MYSQL):
     """Database context for MySQL.
 
     Parameters
@@ -658,8 +665,6 @@ class MySQLContext(_BaseContext):
     metadata
         The SQLAlchemy metadata representing the database objects.
     """
-
-    DIALECT_NAME = "mysql"
 
     def __init__(self, engine: Engine, metadata: MetaData):
         super().__init__(engine, metadata, require_schema=True)
@@ -690,7 +695,7 @@ class MySQLContext(_BaseContext):
 
 
 @DatabaseContextFactory.register(SupportedDialect.SQLITE)
-class SQLiteContext(_BaseContext):
+class SQLiteContext(_BaseContext, dialect=SupportedDialect.SQLITE):
     """Database context for SQLite.
 
     Parameters
@@ -700,8 +705,6 @@ class SQLiteContext(_BaseContext):
     metadata
         The SQLAlchemy metadata representing the database objects.
     """
-
-    DIALECT_NAME = "sqlite"
 
     def __init__(self, engine: Engine, metadata: MetaData):
         # Schema name needs to be cleared, if set.
