@@ -26,7 +26,7 @@ import yaml
 from sqlalchemy import text
 
 from felis.datamodel import Schema
-from felis.db.database_context import PostgreSQLContext, _index_exists
+from felis.db.database_context import PostgreSQLContext
 from felis.metadata import MetaDataBuilder
 from felis.tests.postgresql import TemporaryPostgresInstance, setup_postgres_test_db  # type: ignore
 
@@ -111,10 +111,19 @@ class TestPostgresql(unittest.TestCase):
         def check_indexes_exist(should_exist: bool, message: str) -> None:
             """Check if indexes exist or don't exist in the database."""
             with self.postgresql.begin() as conn:
+                from sqlalchemy import inspect
+
+                inspector = inspect(conn)
                 for table in md_with_indexes.tables.values():
+                    # Get existing indexes for this table
+                    existing_indexes = {
+                        ix["name"]
+                        for ix in inspector.get_indexes(table.name, schema=table.schema)
+                        if "name" in ix and ix["name"] is not None
+                    }
                     for index in table.indexes:
                         if index.name is not None:
-                            exists = _index_exists(conn, table, index, schema=table.schema)
+                            exists = index.name in existing_indexes
                             if should_exist:
                                 self.assertTrue(
                                     exists,

@@ -37,7 +37,6 @@ from sqlalchemy import (
     make_url,
 )
 from sqlalchemy.engine import (
-    Connection,
     Dialect,
     Result,
 )
@@ -47,8 +46,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import (
     CreateSchema,
     DropSchema,
-    Index,
-    Table,
 )
 from sqlalchemy.sql import (
     Executable,
@@ -101,21 +98,12 @@ def _clear_schema(metadata: MetaData) -> None:
             table.schema = None
 
 
-def _index_exists(conn: Connection, table: Table, index: Index, schema: str | None) -> bool:
-    if index.name is None:
-        # Anonymous indexes can't be reliably checked by name.
-        return False
-
-    inspector = inspect(conn)
-    existing = {
+def _get_existing_indexes(inspector: Any, table_name: str, schema: str | None) -> set[str]:
+    return {
         ix["name"]
-        for ix in inspector.get_indexes(
-            table_name=table.name,
-            schema=schema,
-        )
+        for ix in inspector.get_indexes(table_name, schema=schema)
         if "name" in ix and ix["name"] is not None
     }
-    return index.name in existing
 
 
 def is_mock_url(url: URL) -> bool:
@@ -395,12 +383,22 @@ class _BaseContext(DatabaseContext):
     def create_indexes(self) -> None:
         with self.engine.begin() as conn:
             try:
+                inspector = inspect(conn)
                 for table in self.metadata.tables.values():
+                    # Fetch all existing indexes for this table once
+                    existing_indexes = _get_existing_indexes(inspector, table.name, self.schema_name)
+
                     for index in table.indexes:
-                        if _index_exists(conn, table, index, self.schema_name):
+                        if index.name is None:
+                            # Anonymous indexes can't be checked by name
+                            logger.warning(f"Skipping anonymous index on table '{table.name}'")
+                            continue
+
+                        if index.name in existing_indexes:
                             logger.warning(f"Skipping creation of index '{index.name}' which already exists")
                             continue
-                        index.create(bind=conn, checkfirst=True)
+
+                        index.create(bind=conn, checkfirst=False)  # We already checked
                         logger.info(f"Created index '{index.name}'")
             except SQLAlchemyError as e:
                 raise DatabaseContextError("Error creating indexes", e)
@@ -408,12 +406,22 @@ class _BaseContext(DatabaseContext):
     def drop_indexes(self) -> None:
         with self.engine.begin() as conn:
             try:
+                inspector = inspect(conn)
                 for table in self.metadata.tables.values():
+                    # Fetch all existing indexes for this table once
+                    existing_indexes = _get_existing_indexes(inspector, table.name, self.schema_name)
+
                     for index in table.indexes:
-                        if not _index_exists(conn, table, index, self.schema_name):
+                        if index.name is None:
+                            # Anonymous indexes can't be checked by name
+                            logger.warning(f"Skipping anonymous index on table '{table.name}'")
+                            continue
+
+                        if index.name not in existing_indexes:
                             logger.warning(f"Skipping index '{index.name}' which does not exist")
                             continue
-                        index.drop(bind=conn, checkfirst=True)
+
+                        index.drop(bind=conn, checkfirst=False)  # We already checked
                         logger.info(f"Dropped index '{index.name}'")
             except SQLAlchemyError as e:
                 raise DatabaseContextError("Error dropping indexes", e)
@@ -681,8 +689,7 @@ class MySQLContext(_BaseContext, dialect=SupportedDialect.MYSQL):
             logger.debug(f"Creating MySQL database: {schema_name}")
             self.execute(f"CREATE DATABASE {schema_name}")
         except SQLAlchemyError as e:
-            logger.exception(f"Error creating schema: {e}")
-            raise
+            raise DatabaseContextError("Error initializing MySQL database", e)
 
     def drop(self) -> None:
         schema_name = self._required_schema_name()
@@ -690,8 +697,7 @@ class MySQLContext(_BaseContext, dialect=SupportedDialect.MYSQL):
             logger.debug(f"Dropping MySQL database if exists: {schema_name}")
             self.execute(f"DROP DATABASE IF EXISTS {schema_name}")
         except SQLAlchemyError as e:
-            logger.error(f"Error dropping schema: {e}")
-            raise
+            raise DatabaseContextError("Error dropping MySQL database", e)
 
 
 @DatabaseContextFactory.register(SupportedDialect.SQLITE)
@@ -722,8 +728,7 @@ class SQLiteContext(_BaseContext, dialect=SupportedDialect.SQLITE):
             # Drop all the tables in the database file.
             self.metadata.drop_all(bind=self.engine)
         except SQLAlchemyError as e:
-            logger.exception(f"Error dropping schema: {e}")
-            raise
+            raise DatabaseContextError("Error dropping SQLite database", e)
 
 
 class MockContext(DatabaseContext):
