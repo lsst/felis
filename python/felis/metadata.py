@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+from typing import IO, Any, Literal
 
 from lsst.utils.iteration import ensure_iterable
 from sqlalchemy import (
@@ -43,11 +43,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.types import TypeEngine
 
-from felis.datamodel import Schema
-from felis.db.variants import make_variant_dict
-
 from . import datamodel
-from .db import sqltypes
+from .datamodel import Schema
+from .db import _sqltypes as sqltypes
+from .db._variants import make_variant_dict
+from .db.database_context import is_sqlite_url
 from .types import FelisType
 
 __all__ = ("MetaDataBuilder", "get_datatype_with_variants")
@@ -400,3 +400,54 @@ class MetaDataBuilder:
             for index in indexes:
                 index._set_parent(md_table)
                 md_table.indexes.add(index)
+
+
+def create_metadata(
+    felis_file: IO[str],
+    schema_name: str | None = None,
+    id_generation: bool = True,
+    ignore_constraints: bool = False,
+    skip_indexes: bool = False,
+    engine_url: str | None = None,
+) -> MetaData:
+    """Create SQLAlchemy metadata from a Felis schema file.
+
+    Parameters
+    ----------
+    felis_file
+        The Felis schema file to read.
+    schema_name
+        Optional schema name to override the one in the file.
+    id_generation
+        Whether to generate IDs for all objects in the schema that do not have
+        them.
+    ignore_constraints
+        Whether to ignore constraints when building metadata.
+    skip_indexes
+        Whether to skip creating indexes when building metadata.
+    engine_url
+        Engine URL to determine if SQLite-specific handling is needed.
+
+    Returns
+    -------
+    MetaData
+        The SQLAlchemy metadata object with proper schema handling.
+    """
+    schema = Schema.from_stream(felis_file, context={"id_generation": id_generation})
+    if schema_name:
+        logger.info(f"Overriding schema name with: {schema_name}")
+        schema.name = schema_name
+
+    # Determine if we need SQLite-specific handling
+    apply_schema = True
+    if engine_url:
+        if is_sqlite_url(engine_url):
+            apply_schema = False
+            logger.debug("SQLite detected: schema name will not be applied to metadata")
+
+    return MetaDataBuilder(
+        schema,
+        ignore_constraints=ignore_constraints,
+        skip_indexes=skip_indexes,
+        apply_schema_to_metadata=apply_schema,
+    ).build()

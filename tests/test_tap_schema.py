@@ -25,9 +25,10 @@ import tempfile
 import unittest
 from typing import Any
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 
 from felis.datamodel import Schema
+from felis.db.database_context import create_database_context
 from felis.tap_schema import DataLoader, TableManager
 
 TEST_DIR = os.path.dirname(__file__)
@@ -52,7 +53,10 @@ class TableManagerTestCase(unittest.TestCase):
 
         # Check the created metadata and tables.
         self.assertNotEqual(len(mgr.metadata.tables), 0)
-        self.assertEqual(mgr.metadata.schema, schema_name)
+        # For SQLite (default), metadata.schema is None but schema_name is set
+        expected_metadata_schema = None if not mgr.apply_schema_to_metadata else schema_name
+        self.assertEqual(mgr.metadata.schema, expected_metadata_schema)
+        self.assertEqual(mgr.schema_name, "TAP_SCHEMA")  # schema_name should always be set
         for table_name in mgr.get_table_names_std():
             mgr[table_name]
 
@@ -62,7 +66,7 @@ class TableManagerTestCase(unittest.TestCase):
 
     def test_table_name_postfix(self) -> None:
         """Test the table name postfix."""
-        mgr = TableManager(apply_schema_to_metadata=False, table_name_postfix="_test")
+        mgr = TableManager(table_name_postfix="_test")
         for table_name in mgr.metadata.tables:
             self.assertTrue(table_name.endswith("_test"))
 
@@ -83,23 +87,22 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_sqlite(self) -> None:
         """Test the `DataLoader` using an in-memory SQLite database."""
-        engine = create_engine("sqlite:///:memory:")
+        mgr = TableManager()
+        db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
+        mgr.initialize_database(db_ctx)
 
-        mgr = TableManager(apply_schema_to_metadata=False)
-        mgr.initialize_database(engine)
-
-        loader = DataLoader(self.schema, mgr, engine)
+        loader = DataLoader(self.schema, mgr, db_context=db_ctx)
         loader.load()
 
     def test_sql_output(self) -> None:
         """Test printing SQL to stdout and writing SQL to a file."""
-        engine = create_engine("sqlite:///:memory:")
-        mgr = TableManager(apply_schema_to_metadata=False)
-        loader = DataLoader(self.schema, mgr, engine, dry_run=True, print_sql=True)
+        mgr = TableManager()
+        db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
+        loader = DataLoader(self.schema, mgr, db_ctx, dry_run=True, print_sql=True)
         loader.load()
 
         sql_path = os.path.join(self.tmpdir, "test_tap_schema_print_sql.sql")
-        loader = DataLoader(self.schema, mgr, engine, dry_run=True, print_sql=True, output_path=sql_path)
+        loader = DataLoader(self.schema, mgr, db_ctx, dry_run=True, print_sql=True, output_path=sql_path)
         loader.load()
 
         self.assertTrue(os.path.exists(sql_path))
@@ -114,33 +117,32 @@ class DataLoaderTestCase(unittest.TestCase):
 
     def test_unique_keys(self) -> None:
         """Test generation of unique foreign keys."""
-        engine = create_engine("sqlite:///:memory:")
+        mgr = TableManager()
+        db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
+        mgr.initialize_database(db_ctx)
 
-        mgr = TableManager(apply_schema_to_metadata=False)
-        mgr.initialize_database(engine)
-
-        loader = DataLoader(self.schema, mgr, engine, unique_keys=True)
+        loader = DataLoader(self.schema, mgr, db_context=db_ctx, unique_keys=True)
         loader.load()
 
-        keys_data = mgr.select(engine, "keys")
+        keys_data = mgr.select(db_ctx, "keys")
         self.assertGreaterEqual(len(keys_data), 1)
         for row in keys_data:
             self.assertTrue(row["key_id"].startswith(f"{self.schema.name}_"))
 
-        key_columns_data = mgr.select(engine, "key_columns")
+        key_columns_data = mgr.select(db_ctx, "key_columns")
         self.assertGreaterEqual(len(key_columns_data), 1)
         for row in key_columns_data:
             self.assertTrue(row["key_id"].startswith(f"{self.schema.name}_"))
 
     def test_select_with_filter(self) -> None:
         """Test selecting rows with a filter."""
-        engine = create_engine("sqlite:///:memory:")
-        mgr = TableManager(apply_schema_to_metadata=False)
-        mgr.initialize_database(engine)
-        loader = DataLoader(self.schema, mgr, engine, unique_keys=True)
+        mgr = TableManager()
+        db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
+        mgr.initialize_database(db_ctx)
+        loader = DataLoader(self.schema, mgr, db_context=db_ctx, unique_keys=True)
         loader.load()
 
-        rows = mgr.select(engine, "columns", "table_name = 'test_schema.table1'")
+        rows = mgr.select(db_ctx, "columns", "table_name = 'test_schema.table1'")
         self.assertEqual(len(rows), 16)
 
 
@@ -170,13 +172,12 @@ class TapSchemaSqliteSetup:
         with open(test_file_path) as test_file:
             self._schema = Schema.from_stream(test_file, context=context)
 
-        self._engine = create_engine("sqlite:///:memory:")
-
-        mgr = TableManager(apply_schema_to_metadata=False)
-        mgr.initialize_database(self._engine)
+        mgr = TableManager()
+        self._db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
+        mgr.initialize_database(self._db_ctx)
         self._mgr = mgr
 
-        loader = DataLoader(self._schema, mgr, self._engine, tap_schema_index=2)
+        loader = DataLoader(self._schema, mgr, db_context=self._db_ctx, tap_schema_index=2)
         loader.load()
 
     @property
@@ -185,9 +186,9 @@ class TapSchemaSqliteSetup:
         return self._schema
 
     @property
-    def engine(self) -> Any:
-        """Return the engine."""
-        return self._engine
+    def db_context(self) -> Any:
+        """Return the database context."""
+        return self._db_ctx
 
     @property
     def mgr(self) -> TableManager:
@@ -204,7 +205,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def test_schemas(self) -> None:
         schemas_table = self.tap_schema_setup.mgr["schemas"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             result = connection.execute(select(schemas_table))
             schema_data = [row._asdict() for row in result]
 
@@ -218,7 +219,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def test_tables(self) -> None:
         tables_table = self.tap_schema_setup.mgr["tables"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             result = connection.execute(select(tables_table))
             table_data = [row._asdict() for row in result]
 
@@ -235,7 +236,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def test_columns(self) -> None:
         columns_table = self.tap_schema_setup.mgr["columns"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             result = connection.execute(select(columns_table))
             column_data = [row._asdict() for row in result]
 
@@ -307,7 +308,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def test_keys(self) -> None:
         keys_table = self.tap_schema_setup.mgr["keys"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             result = connection.execute(select(keys_table))
             key_data = [row._asdict() for row in result]
 
@@ -324,7 +325,7 @@ class TapSchemaDataTest(unittest.TestCase):
 
     def test_key_columns(self) -> None:
         key_columns_table = self.tap_schema_setup.mgr["key_columns"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             result = connection.execute(select(key_columns_table))
             key_column_data = [row._asdict() for row in result]
 
@@ -357,7 +358,7 @@ class ForceUnboundArraySizeTest(unittest.TestCase):
     def test_force_unbounded_arraysize(self) -> None:
         """Test that unbounded arraysize is set to None."""
         columns_table = self.tap_schema_setup.mgr["columns"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             result = connection.execute(select(columns_table))
             column_data = [row._asdict() for row in result]
 
@@ -379,7 +380,7 @@ class CompositeKeysTestCase(unittest.TestCase):
         # Fetch the keys and key_columns data from the TAP_SCHEMA tables.
         keys_table = self.tap_schema_setup.mgr["keys"]
         key_columns_table = self.tap_schema_setup.mgr["key_columns"]
-        with self.tap_schema_setup.engine.connect() as connection:
+        with self.tap_schema_setup.db_context.engine.connect() as connection:
             key_columns_result = connection.execute(select(key_columns_table))
             self.key_columns_data = [row._asdict() for row in key_columns_result]
 
@@ -488,19 +489,18 @@ tables:
         self.assertEqual(tables_after, tables_before + 1)
 
     def test_extensions_with_data_loader(self) -> None:
-        engine = create_engine("sqlite:///:memory:")
-
-        mgr = TableManager(apply_schema_to_metadata=False, extensions_path=self.extensions_path)
-        mgr.initialize_database(engine)
+        mgr = TableManager(extensions_path=self.extensions_path)
+        db_ctx = create_database_context("sqlite:///:memory:", mgr.metadata)
+        mgr.initialize_database(db_ctx)
 
         with open(TEST_TAP_SCHEMA) as test_file:
             schema = Schema.from_stream(test_file, context={"id_generation": True})
 
-        loader = DataLoader(schema, mgr, engine)
+        loader = DataLoader(schema, mgr, db_context=db_ctx)
         loader.load()
 
         schemas_table = mgr["schemas"]
-        with engine.connect() as connection:
+        with db_ctx.engine.connect() as connection:
             result = connection.execute(select(schemas_table))
             row = result.fetchone()
             self.assertIn("owner_id", row._fields)
@@ -681,21 +681,21 @@ tables:
         self.assertIn("full_property_column", schemas_table.c)
 
     def test_extensions_apply_schema_to_metadata_true(self) -> None:
-        mgr = TableManager(apply_schema_to_metadata=True, extensions_path=self.extensions_path)
+        mgr = TableManager(
+            engine_url="postgresql://user:pass@localhost/db", extensions_path=self.extensions_path
+        )
         schemas_table = mgr["schemas"]
         self.assertIn("owner_id", schemas_table.c)
 
     def test_extensions_apply_schema_to_metadata_false(self) -> None:
-        mgr = TableManager(apply_schema_to_metadata=False, extensions_path=self.extensions_path)
+        mgr = TableManager(extensions_path=self.extensions_path)
 
         schemas_table = mgr["schemas"]
         self.assertIn("owner_id", schemas_table.c)
         self.assertIn("read_anon", schemas_table.c)
 
     def test_extensions_with_table_name_postfix(self) -> None:
-        mgr = TableManager(
-            apply_schema_to_metadata=False, extensions_path=self.extensions_path, table_name_postfix="_custom"
-        )
+        mgr = TableManager(extensions_path=self.extensions_path, table_name_postfix="_custom")
 
         schemas_table = mgr["schemas"]
         self.assertIn("owner_id", schemas_table.c)
