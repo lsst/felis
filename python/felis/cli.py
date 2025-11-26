@@ -315,7 +315,9 @@ def load_tap_schema(
     )
 
     # Create DatabaseContext using TableManager's metadata
-    db_ctx = create_database_context(engine_url, mgr.metadata, dry_run=dry_run)
+    db_ctx = create_database_context(
+        engine_url, mgr.metadata, echo=echo, dry_run=dry_run, output_file=output_file
+    )
 
     schema = Schema.from_stream(
         file,
