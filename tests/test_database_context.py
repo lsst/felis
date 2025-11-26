@@ -1,3 +1,24 @@
+# This file is part of felis.
+#
+# Developed for the LSST Data Management System.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import os
 import unittest
 
@@ -14,6 +35,7 @@ except ImportError:
 
 from felis.datamodel import Schema
 from felis.db.database_context import (
+    DatabaseContext,
     DatabaseContextError,
     DatabaseContextFactory,
     MockContext,
@@ -35,12 +57,15 @@ class BaseDatabaseContextTest:
         """Set up the test case."""
         self._schema = Schema.from_uri(TEST_YAML)
         self._metadata = MetaDataBuilder(self._schema).build()
+        self._engine_url: str
+        self._dialect_name: str
+
+    def _create_database_context(self) -> DatabaseContext:
+        return create_database_context(self._engine_url, self._metadata)
 
     def test_database_context(self):
         """Test database context with SQLite."""
-        # Initialize the database context
-
-        db_ctx = create_database_context(self._engine_url, self._metadata)
+        db_ctx = self._create_database_context()
         self.assertIsNotNone(db_ctx)
         self.assertIsNotNone(db_ctx.metadata)
         if not isinstance(db_ctx, MockContext):
@@ -75,12 +100,45 @@ class BaseDatabaseContextTest:
         # Execute a simple query from a TextClause
         db_ctx.execute(text(f"SELECT * FROM {schema_prefix}orders"))
 
-        # Execute a query that raises an error
+        # Execute a query that raises an error, except for MockContext
         if not isinstance(db_ctx, MockContext):
             with self.assertRaises(DatabaseContextError):
                 db_ctx.execute("SELECT * FROM non_existent_table")
 
         # Drop all tables
+        db_ctx.drop()
+
+    def test_initialize_is_idempotent(self):
+        """Test that attempting to create a schema that already exists does not
+        raise an error.
+        """
+        db_ctx = self._create_database_context()
+
+        # Ensure database does not exist by first dropping
+        db_ctx.drop()
+
+        # Initialize the database
+        db_ctx.initialize()
+
+        # Second initialization should not raise an error.
+        db_ctx.initialize()
+
+        # Clean up
+        db_ctx.drop()
+
+    def test_drop_is_idempotent(self):
+        """Test that dropping a schema that does not exist does not raise an
+        error.
+        """
+        db_ctx = self._create_database_context()
+
+        # Initialize the database
+        db_ctx.initialize()
+
+        # Drop the schema
+        db_ctx.drop()
+
+        # Second drop should not raise an error.
         db_ctx.drop()
 
 
@@ -114,19 +172,6 @@ class PostgreSQLTestCase(BaseDatabaseContextTest, unittest.TestCase):
         with self.assertRaises(DatabaseContextError):
             PostgreSQLContext(engine, metadata)
 
-    def test_schema_already_exists_error(self):
-        """Test that attempting to create a schema that already exists
-        raises an error.
-        """
-        engine = create_engine(self._engine_url)
-        db_ctx = PostgreSQLContext(engine, self._metadata)
-        db_ctx.drop()  # Ensure database does not exist
-        db_ctx.initialize()
-        # Attempt to initialize again, which should raise an error
-        with self.assertRaises(DatabaseContextError):
-            db_ctx.initialize()
-        db_ctx.drop()  # Clean up
-
 
 class MySQLTestCase(BaseDatabaseContextTest, unittest.TestCase):
     """Tests of MySQL database context."""
@@ -145,18 +190,14 @@ class MySQLTestCase(BaseDatabaseContextTest, unittest.TestCase):
         self._dialect_name = "mysql"
         self._engine_url = mysql_engine_url
 
-    def test_database_already_exists_error(self):
-        """Test that attempting to create a MySQL database that already exists
-        raises an error.
+    def test_missing_schema_name(self):
+        """Test that a missing schema name raises an error when using
+        a MySQL context.
         """
         engine = create_engine(self._engine_url)
-        db_ctx = MySQLContext(engine, self._metadata)
-        db_ctx.drop()  # Ensure database does not exist
-        db_ctx.initialize()
-        # Attempt to initialize again, which should raise an error
+        metadata = MetaDataBuilder(self._schema, apply_schema_to_metadata=False).build()
         with self.assertRaises(DatabaseContextError):
-            db_ctx.initialize()
-        db_ctx.drop()  # Clean up
+            MySQLContext(engine, metadata)
 
 
 class MockTestCase(BaseDatabaseContextTest, unittest.TestCase):
@@ -181,15 +222,15 @@ class DatabaseContextTestCase(unittest.TestCase):
     throws an error.
     """
 
-    def test_bad_engine(self):
+    def test_create_with_bad_engine(self):
         """Test that using a SQLite engine with a Postgres context correctly
         throws an error.
         """
         with self.assertRaises(DatabaseContextError):
             engine = create_engine("sqlite:///:memory:")
-            PostgreSQLContext(engine, MetaData())
+            PostgreSQLContext(engine, MetaData(schema="test_schema"))
 
-    def test_create_database_context_bad_dialect(self):
+    def test_create_with_bad_dialect(self):
         """Test that attempting to create a database context with an
         unsupported dialect raises an error.
         """

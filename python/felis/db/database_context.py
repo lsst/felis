@@ -190,6 +190,11 @@ class DatabaseContext(ABC):
         """Create the target schema in the database if it does not exist
         already.
 
+        Sub-classes should implement idempotent behavior so that calling this
+        method multiple times has no adverse effects. If the schema already
+        exists, the method should simply return without raising an error. (A
+        warning message may be logged in this case.)
+
         Raises
         ------
         DatabaseContextError
@@ -200,6 +205,9 @@ class DatabaseContext(ABC):
     @abstractmethod
     def drop(self) -> None:
         """Drop the schema in the database if it exists.
+
+        Implementations should use ``IF EXISTS`` semantics to avoid raising
+        an error if the schema does not exist.
 
         Raises
         ------
@@ -647,7 +655,8 @@ class PostgreSQLContext(_BaseContext, dialect=SupportedDialect.POSTGRESQL):
                 """
             )
             if result.fetchone():
-                raise DatabaseContextError(f"PostgreSQL schema '{schema_name}' already exists.")
+                logger.warning(f"Postgres schema '{schema_name}' already exists; skipping initialization.")
+                return
             logger.debug(f"Creating PG schema: {schema_name}")
             self.execute(CreateSchema(schema_name))
         except SQLAlchemyError as e:
@@ -685,7 +694,8 @@ class MySQLContext(_BaseContext, dialect=SupportedDialect.MYSQL):
             logger.debug(f"Checking if MySQL database exists: {schema_name}")
             result = self.execute(f"SHOW DATABASES LIKE '{schema_name}'")
             if result.fetchone():
-                raise DatabaseContextError(f"MySQL database '{schema_name}' already exists.")
+                logger.warning(f"MySQL database '{schema_name}' already exists; skipping initialization.")
+                return
             logger.debug(f"Creating MySQL database: {schema_name}")
             self.execute(f"CREATE DATABASE {schema_name}")
         except SQLAlchemyError as e:
