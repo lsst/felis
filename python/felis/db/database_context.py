@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import logging
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum
 from typing import IO, Any, TypeAlias
@@ -146,7 +146,7 @@ class DatabaseContextError(Exception):
     """Exception raised for errors in the DatabaseContext operations."""
 
 
-class DatabaseContext:
+class DatabaseContext(ABC):
     """Interface for managing database operations across different
     SQL dialects.
     """
