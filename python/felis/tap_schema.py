@@ -26,21 +26,17 @@ import io
 import logging
 import os
 import re
-from typing import Any
+from typing import IO, Any
 
 from lsst.resources import ResourcePath
 from sqlalchemy import MetaData, Table, select, text
-from sqlalchemy.engine import Connection, Engine
-from sqlalchemy.engine.mock import MockConnection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.schema import CreateSchema
 from sqlalchemy.sql.dml import Insert
 
-from felis import datamodel
-from felis.datamodel import Constraint, Schema
-from felis.db.utils import is_valid_engine
-from felis.metadata import MetaDataBuilder
-
+from . import datamodel
+from .datamodel import Constraint, Schema
+from .db.database_context import DatabaseContext, is_sqlite_url
+from .metadata import MetaDataBuilder
 from .types import FelisType
 
 __all__ = ["DataLoader", "MetadataInserter", "TableManager"]
@@ -49,33 +45,32 @@ logger = logging.getLogger(__name__)
 
 
 class TableManager:
-    """Manage creation of TAP_SCHEMA tables.
+    """Manage TAP_SCHEMA table definitions and access.
+
+    This class provides a streamlined interface for managing TAP_SCHEMA tables,
+    automatically handling dialect-specific requirements and providing
+    consistent access to TAP_SCHEMA tables through a dictionary-like interface.
 
     Parameters
     ----------
-    engine
-        The SQLAlchemy engine for reflecting the TAP_SCHEMA tables from an
-        existing database.
-        This can be a mock connection or None, in which case the internal
-        TAP_SCHEMA schema will be used by loading an internal YAML file.
+    engine_url
+        Database engine URL for automatic dialect detection and schema
+        handling.
+    db_context
+        Optional database context for reflecting existing TAP_SCHEMA tables.
+        If None, loads from internal YAML schema.
     schema_name
-        The name of the schema to use for the TAP_SCHEMA tables.
-        Leave as None to use the standard name of "TAP_SCHEMA".
-    apply_schema_to_metadata
-        If True, apply the schema to the metadata as well as the tables.
-        If False, these will be set to None, e.g., for sqlite.
+        The name of the schema to use for TAP_SCHEMA tables.
+        Defaults to "TAP_SCHEMA".
     table_name_postfix
-        A string to append to all the standard table names.
-        This needs to be used in a way such that the resultant table names
-        map to tables within the TAP_SCHEMA database.
+        A string to append to standard table names for customization.
     extensions_path
-        The path to additional TAP_SCHEMA table definitions.
+        Path to additional TAP_SCHEMA table definitions.
 
     Notes
     -----
-    The TAP_SCHEMA schema must either have been created already, in which case
-    the ``engine`` should be provided. Or the internal TAP_SCHEMA schema will
-    be used if ``engine`` is None or a ``MockConnection``.
+    The TableManager automatically detects SQLite vs. schema-supporting
+    databases and handles schema application appropriately.
     """
 
     _TABLE_NAMES_STD = ["schemas", "tables", "columns", "keys", "key_columns"]
@@ -86,20 +81,26 @@ class TableManager:
 
     def __init__(
         self,
-        engine: Engine | MockConnection | None = None,
+        engine_url: str | None = None,
+        db_context: DatabaseContext | None = None,
         schema_name: str | None = None,
-        apply_schema_to_metadata: bool = True,
         table_name_postfix: str = "",
         extensions_path: str | None = None,
     ):
         """Initialize the table manager."""
         self.table_name_postfix = table_name_postfix
-        self.apply_schema_to_metadata = apply_schema_to_metadata
-        self.schema_name = schema_name or TableManager._SCHEMA_NAME_STD
+        self.schema_name = schema_name or self._SCHEMA_NAME_STD
         self.extensions_path = extensions_path
 
-        if is_valid_engine(engine):
-            assert isinstance(engine, Engine)
+        # Automatic dialect detection from engine URL
+        if engine_url is not None:
+            self.apply_schema_to_metadata = not is_sqlite_url(engine_url)
+        else:
+            # Default case: assume SQLite
+            engine_url = "sqlite:///:memory:"
+            self.apply_schema_to_metadata = False
+
+        if db_context is not None:
             if table_name_postfix != "":
                 logger.warning(
                     "Table name postfix '%s' will be ignored when reflecting TAP_SCHEMA database",
@@ -107,16 +108,52 @@ class TableManager:
                 )
             logger.debug(
                 "Reflecting TAP_SCHEMA database from existing database at %s",
-                engine.url._replace(password="***"),
+                db_context.engine.url._replace(password="***"),
             )
-            self._reflect(engine)
+            self._reflect_from_database(db_context)
         else:
-            self._load_yaml()
-            self._apply_extensions()
-            self._build_metadata()
+            self._load_from_yaml()
 
         self._create_table_map()
         self._check_tables()
+
+    def _load_from_yaml(self) -> None:
+        """Load TAP_SCHEMA from YAML resources and build metadata."""
+        # Load the base schema
+        self._schema = self.load_schema_resource()
+
+        # Override schema name if specified
+        if self.schema_name != self._SCHEMA_NAME_STD:
+            self._schema.name = self.schema_name
+        else:
+            self.schema_name = self._schema.name
+
+        # Apply any extensions
+        self._apply_extensions()
+
+        # Build metadata using streamlined approach
+        self._metadata = MetaDataBuilder(
+            self._schema,
+            apply_schema_to_metadata=self.apply_schema_to_metadata,
+            table_name_postfix=self.table_name_postfix,
+        ).build()
+
+        logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)
+
+    def _reflect_from_database(self, db_context: DatabaseContext) -> None:
+        """Reflect TAP_SCHEMA tables from an existing database.
+
+        Parameters
+        ----------
+        db_context
+            The database context to use for reflection.
+        """
+        self._metadata = MetaData(schema=self.schema_name if self.apply_schema_to_metadata else None)
+        try:
+            self._metadata.reflect(bind=db_context.engine)
+        except SQLAlchemyError as e:
+            logger.error("Error reflecting TAP_SCHEMA database: %s", e)
+            raise
 
     def _apply_extensions(self) -> None:
         """Apply extensions from a YAML file to the TAP_SCHEMA schema.
@@ -145,41 +182,6 @@ class TableManager:
                 logger.debug("Added %d extension columns to table '%s'", len(extension_columns), table.name)
 
         logger.info("Applied %d extension columns to TAP_SCHEMA", extension_count)
-
-    def _reflect(self, engine: Engine) -> None:
-        """Reflect the TAP_SCHEMA database tables into the metadata.
-
-        Parameters
-        ----------
-        engine
-            The SQLAlchemy engine to use to reflect the tables.
-        """
-        self._metadata = MetaData(schema=self.schema_name if self.apply_schema_to_metadata else None)
-        try:
-            self.metadata.reflect(bind=engine)
-        except SQLAlchemyError as e:
-            logger.error("Error reflecting TAP_SCHEMA database: %s", e)
-            raise
-
-    def _build_metadata(self) -> None:
-        """Build SQLAlchemy metadata from the Felis schema."""
-        self._metadata = MetaDataBuilder(
-            self.schema,
-            apply_schema_to_metadata=self.apply_schema_to_metadata,
-            table_name_postfix=self.table_name_postfix,
-        ).build()
-
-    def _load_yaml(self) -> None:
-        """Load the standard TAP_SCHEMA schema from a Felis package
-        resource.
-        """
-        self._load_schema()
-        if self.schema_name != TableManager._SCHEMA_NAME_STD:
-            self.schema.name = self.schema_name
-        else:
-            self.schema_name = self.schema.name
-
-        logger.debug("Loaded TAP_SCHEMA '%s' from YAML resource", self.schema_name)
 
     def __getitem__(self, table_name: str) -> Table:
         """Get one of the TAP_SCHEMA tables by its standard TAP_SCHEMA name.
@@ -301,19 +303,13 @@ class TableManager:
         """Create a mapping of standard table names to the table names modified
         with a postfix, as well as the prepended schema name if it is set.
 
-        Returns
-        -------
-        dict
-            A dictionary mapping the standard table names to the modified
-            table names.
-
         Notes
         -----
         This is a private method that is called during initialization, allowing
         us to use table names like ``schemas11`` such as those used by the CADC
         TAP library instead of the standard table names. It also maps between
         the standard table names and those with the schema name prepended like
-        SQLAlchemy uses.
+        SQLAlchemy uses. The mapping is stored in ``self._table_map``.
         """
         self._table_map = {
             table_name: (
@@ -335,81 +331,31 @@ class TableManager:
         for table_name in TableManager.get_table_names_std():
             self[table_name]
 
-    def _create_schema(self, engine: Engine) -> None:
-        """Create the database schema for TAP_SCHEMA if it does not already
-        exist.
-
-        Parameters
-        ----------
-        engine
-            The SQLAlchemy engine to use to create the schema.
-
-        Notes
-        -----
-        This method only creates the schema in the database. It does not create
-        the tables.
-        """
-        create_schema_functions = {
-            "postgresql": self._create_schema_postgresql,
-            "mysql": self._create_schema_mysql,
-        }
-
-        dialect_name = engine.dialect.name
-        if dialect_name == "sqlite":
-            # SQLite doesn't have schemas.
-            return
-
-        create_function = create_schema_functions.get(dialect_name)
-
-        if create_function:
-            with engine.begin() as connection:
-                create_function(connection)
-        else:
-            # Some other database engine we don't currently know how to handle.
-            raise NotImplementedError(
-                f"Database engine '{engine.dialect.name}' is not supported for schema creation"
-            )
-
-    def _create_schema_postgresql(self, connection: Connection) -> None:
-        """Create the schema in a PostgreSQL database.
-
-        Parameters
-        ----------
-        connection
-            The SQLAlchemy connection to use to create the schema.
-        """
-        connection.execute(CreateSchema(self.schema_name, if_not_exists=True))
-
-    def _create_schema_mysql(self, connection: Connection) -> None:
-        """Create the schema in a MySQL database.
-
-        Parameters
-        ----------
-        connection
-            The SQLAlchemy connection to use to create the schema.
-        """
-        connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {self.schema_name}"))
-
-    def initialize_database(self, engine: Engine) -> None:
+    def initialize_database(self, db_context: DatabaseContext) -> None:
         """Initialize a database with the TAP_SCHEMA tables.
 
         Parameters
         ----------
-        engine
-            The SQLAlchemy engine to use to create the tables.
+        db_context
+            The database context to use to create the tables.
         """
         logger.info("Creating TAP_SCHEMA database '%s'", self.schema_name)
-        self._create_schema(engine)
-        self.metadata.create_all(engine)
+        db_context.initialize()
+        db_context.create_all()
 
-    def select(self, engine: Engine, table_name: str, filter_condition: str = "") -> list[dict[str, Any]]:
+    def select(
+        self,
+        db_context: DatabaseContext,
+        table_name: str,
+        filter_condition: str = "",
+    ) -> list[dict[str, Any]]:
         """Select all rows from a TAP_SCHEMA table with an optional filter
         condition.
 
         Parameters
         ----------
-        engine
-            The SQLAlchemy engine to use to connect to the database.
+        db_context
+            The database context to use to connect to the database.
         table_name
             The name of the table to select from.
         filter_condition
@@ -425,7 +371,7 @@ class TableManager:
         query = select(table)
         if filter_condition:
             query = query.where(text(filter_condition))
-        with engine.connect() as connection:
+        with db_context.engine.connect() as connection:
             result = connection.execute(query)
             rows = [dict(row._mapping) for row in result]
         return rows
@@ -440,13 +386,13 @@ class DataLoader:
         The Felis ``Schema`` to load into the TAP_SCHEMA tables.
     mgr
         The table manager that contains the TAP_SCHEMA tables.
-    engine
-        The SQLAlchemy engine to use to connect to the database.
+    db_context
+        The database context to use to connect to the database.
     tap_schema_index
         The index of the schema in the TAP_SCHEMA database.
-    output_path
-        The file to write the SQL statements to. If None, printing will be
-        suppressed.
+    output_file
+        The file object to write the SQL statements to. If None, file output
+        will be suppressed.
     print_sql
         If True, print the SQL statements that will be executed.
     dry_run
@@ -460,19 +406,19 @@ class DataLoader:
         self,
         schema: Schema,
         mgr: TableManager,
-        engine: Engine | MockConnection,
+        db_context: DatabaseContext,
         tap_schema_index: int = 0,
-        output_path: str | None = None,
+        output_file: IO[str] | None = None,
         print_sql: bool = False,
         dry_run: bool = False,
         unique_keys: bool = False,
     ):
         self.schema = schema
         self.mgr = mgr
-        self.engine = engine
+        self._db_context = db_context
         self.tap_schema_index = tap_schema_index
         self.inserts: list[Insert] = []
-        self.output_path = output_path
+        self.output_file = output_file
         self.print_sql = print_sql
         self.dry_run = dry_run
         self.unique_keys = unique_keys
@@ -495,14 +441,14 @@ class DataLoader:
         if self.print_sql:
             # Print to stdout.
             self._print_sql()
-        if self.output_path:
+        if self.output_file:
             # Print to an output file.
             self._write_sql_to_file()
         if not self.dry_run:
             # Execute the inserts if not in dry run mode.
             self._execute_inserts()
         else:
-            logger.info("Dry run - not loading data into database")
+            logger.info("Dry run - skipped loading into database")
 
     def _insert_schemas(self) -> None:
         """Insert the schema data into the ``schemas`` table."""
@@ -652,17 +598,13 @@ class DataLoader:
         """Load the `~felis.datamodel.Schema` data into the TAP_SCHEMA
         tables.
         """
-        if isinstance(self.engine, Engine):
-            with self.engine.connect() as connection:
-                transaction = connection.begin()
-                try:
-                    for insert in self.inserts:
-                        connection.execute(insert)
-                    transaction.commit()
-                except Exception as e:
-                    logger.error("Error loading data into database: %s", e)
-                    transaction.rollback()
-                    raise
+        try:
+            with self._db_context.engine.begin() as connection:
+                for insert in self.inserts:
+                    connection.execute(insert)
+        except Exception as e:
+            logger.error("Error loading data into database: %s", e)
+            raise
 
     def _compiled_inserts(self) -> list[str]:
         """Compile the inserts to SQL.
@@ -673,7 +615,12 @@ class DataLoader:
             A list of the compiled insert statements.
         """
         return [
-            str(insert.compile(self.engine, compile_kwargs={"literal_binds": True}))
+            str(
+                insert.compile(
+                    dialect=self._db_context.dialect,
+                    compile_kwargs={"literal_binds": True},
+                ),
+            )
             for insert in self.inserts
         ]
 
@@ -684,11 +631,10 @@ class DataLoader:
 
     def _write_sql_to_file(self) -> None:
         """Write the generated insert statements to a file."""
-        if not self.output_path:
-            raise ValueError("No output path specified")
-        with open(self.output_path, "w") as outfile:
-            for insert_str in self._compiled_inserts():
-                outfile.write(insert_str + ";" + "\n")
+        if not self.output_file:
+            raise ValueError("No output file specified")
+        for insert_str in self._compiled_inserts():
+            self.output_file.write(insert_str + ";" + "\n")
 
     def _insert(self, table_name: str, record: list[Any] | dict[str, Any]) -> None:
         """Generate an insert statement for a record.
@@ -764,39 +710,40 @@ class MetadataInserter:
     ----------
     mgr
         The table manager that contains the TAP_SCHEMA tables.
-    engine
-        The engine for connecting to the TAP_SCHEMA database.
+    db_context
+        The database context for connecting to the TAP_SCHEMA database.
     """
 
-    def __init__(self, mgr: TableManager, engine: Engine):
+    def __init__(self, mgr: TableManager, db_context: DatabaseContext):
         """Initialize the metadata inserter.
 
         Parameters
         ----------
         mgr
             The table manager representing the TAP_SCHEMA tables.
-        engine
-            The SQLAlchemy engine for connecting to the database.
+        db_context
+            The database context for connecting to the database.
         """
         self._mgr = mgr
-        self._engine = engine
+        self._db_context = db_context
 
     def insert_metadata(self) -> None:
         """Insert the TAP_SCHEMA metadata into the database."""
-        for table_name in self._mgr.get_table_names_std():
-            table = self._mgr[table_name]
-            csv_bytes = ResourcePath(f"resource://felis/config/tap_schema/{table_name}.csv").read()
-            text_stream = io.TextIOWrapper(io.BytesIO(csv_bytes), encoding="utf-8")
-            reader = csv.reader(text_stream)
-            headers = next(reader)
-            rows = [
-                {key: None if value == "\\N" else value for key, value in zip(headers, row)} for row in reader
-            ]
-            logger.debug(
-                "Inserting %d rows into table '%s' with headers: %s",
-                len(rows),
-                table_name,
-                headers,
-            )
-            with self._engine.begin() as conn:
+        with self._db_context.engine.begin() as conn:
+            for table_name in self._mgr.get_table_names_std():
+                table = self._mgr[table_name]
+                csv_bytes = ResourcePath(f"resource://felis/config/tap_schema/{table_name}.csv").read()
+                text_stream = io.TextIOWrapper(io.BytesIO(csv_bytes), encoding="utf-8")
+                reader = csv.reader(text_stream)
+                headers = next(reader)
+                rows = [
+                    {key: None if value == "\\N" else value for key, value in zip(headers, row)}
+                    for row in reader
+                ]
+                logger.debug(
+                    "Inserting %d rows into table '%s' with headers: %s",
+                    len(rows),
+                    table_name,
+                    headers,
+                )
                 conn.execute(table.insert(), rows)

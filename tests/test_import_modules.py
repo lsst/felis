@@ -19,12 +19,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .datamodel import *
+import unittest
 
-from importlib.metadata import PackageNotFoundError, version
+from lsst.utils.tests import ImportTestCase
 
-try:
-    __version__ = version("lsst-felis")
-except PackageNotFoundError:
-    # Package not installed or scons not run.
-    __version__ = "0.0.0"
+
+class TestPackageImports(ImportTestCase):
+    """Check that all of the 'felis' modules can be imported."""
+
+    PACKAGES = {
+        "felis",
+    }
+
+
+if __name__ == "__main__":
+    unittest.main()

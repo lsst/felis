@@ -31,13 +31,13 @@ tables:
           - "#customers.name"
           - "#customers.address"
     indexes:
-      - name: idx_name
+      - name: idx_customers_name
         "@id": "#customers_idx_name"
         description: Index on customer name
         columns:
           - "#customers.name"
     constraints:
-      - name: uniq_name
+      - name: idx_customers_uniq_name
         "@id": "#customers_uniq_name"
         "@type": "Unique"
         description: Unique customer name

@@ -758,7 +758,8 @@ class SchemaTestCase(unittest.TestCase):
             self.assertIsInstance(schema, Schema)
 
         # Test path string.
-        schema = Schema.from_stream(open(TEST_SALES))
+        with open(TEST_SALES) as test_file:
+            schema = Schema.from_stream(test_file)
         self.assertIsInstance(schema, Schema)
 
         # Path object.

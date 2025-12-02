@@ -31,12 +31,11 @@ from sqlalchemy import (
     MetaData,
     PrimaryKeyConstraint,
     UniqueConstraint,
-    create_engine,
 )
 
 from felis import datamodel as dm
 from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
+from felis.db.database_context import create_database_context
 from felis.metadata import MetaDataBuilder, get_datatype_with_variants
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
@@ -47,8 +46,7 @@ class MetaDataTestCase(unittest.TestCase):
     """Test creation of SQLAlchemy metadata from a Felis schema."""
 
     def setUp(self) -> None:
-        """Create an in-memory SQLite database and load the test data."""
-        self.engine = create_engine("sqlite://")
+        """Load the YAML test data."""
         with open(TEST_YAML) as data:
             self.yaml_data = yaml.safe_load(data)
 
@@ -76,73 +74,73 @@ class MetaDataTestCase(unittest.TestCase):
         builder = MetaDataBuilder(schema)
         md = builder.build()
 
-        ctx = DatabaseContext(md, self.engine)
+        with create_database_context("sqlite:///:memory:", md) as db_ctx:
+            db_ctx.create_all()
 
-        ctx.create_all()
+            md_db = MetaData()
+            md_db.reflect(db_ctx.engine.connect(), schema=schema.name)
 
-        md_db = MetaData()
-        md_db.reflect(self.engine.connect(), schema=schema.name)
+            self.assertEqual(md_db.tables.keys(), md.tables.keys())
 
-        self.assertEqual(md_db.tables.keys(), md.tables.keys())
-
-        for md_table_name in md.tables.keys():
-            md_table = md.tables[md_table_name]
-            md_db_table = md_db.tables[md_table_name]
-            self.assertEqual(md_table.columns.keys(), md_db_table.columns.keys())
-            for md_column_name in md_table.columns.keys():
-                md_column = md_table.columns[md_column_name]
-                md_db_column = md_db_table.columns[md_column_name]
-                self.assertEqual(type(md_column.type), type(md_db_column.type))
-                self.assertEqual(md_column.nullable, md_db_column.nullable)
-                self.assertEqual(md_column.primary_key, md_db_column.primary_key)
-            self.assertTrue(
-                (md_table.constraints and md_db_table.constraints)
-                or (not md_table.constraints and not md_table.constraints),
-                "Constraints not created correctly",
-            )
-            if md_table.constraints:
-                self.assertEqual(len(md_table.constraints), len(md_db_table.constraints))
-                md_constraints = _sorted_constraints(md_table.constraints)
-                md_db_constraints = _sorted_constraints(md_db_table.constraints)
-                for md_constraint, md_db_constraint in zip(md_constraints, md_db_constraints):
-                    self.assertEqual(md_constraint.name, md_db_constraint.name)
-                    self.assertEqual(md_constraint.deferrable, md_db_constraint.deferrable)
-                    self.assertEqual(md_constraint.initially, md_db_constraint.initially)
-                    self.assertEqual(
-                        type(md_constraint), type(md_db_constraint), "Constraint types do not match"
-                    )
-                    if isinstance(md_constraint, ForeignKeyConstraint) and isinstance(
-                        md_db_constraint, ForeignKeyConstraint
-                    ):
-                        md_fk: ForeignKeyConstraint = md_constraint
-                        md_db_fk: ForeignKeyConstraint = md_db_constraint
-                        self.assertEqual(md_fk.referred_table.name, md_db_fk.referred_table.name)
-                        self.assertEqual(md_fk.column_keys, md_db_fk.column_keys)
-                        self.assertEqual(md_fk.ondelete, md_db_fk.ondelete)
-                        self.assertEqual(md_fk.onupdate, md_db_fk.onupdate)
-                    elif isinstance(md_constraint, UniqueConstraint) and isinstance(
-                        md_db_constraint, UniqueConstraint
-                    ):
-                        md_uniq: UniqueConstraint = md_constraint
-                        md_db_uniq: UniqueConstraint = md_db_constraint
-                        self.assertEqual(md_uniq.columns.keys(), md_db_uniq.columns.keys())
-                    elif isinstance(md_constraint, CheckConstraint) and isinstance(
-                        md_db_constraint, CheckConstraint
-                    ):
-                        md_check: CheckConstraint = md_constraint
-                        md_db_check: CheckConstraint = md_db_constraint
-                        self.assertEqual(str(md_check.sqltext), str(md_db_check.sqltext))
-            self.assertTrue(
-                (md_table.indexes and md_db_table.indexes) or (not md_table.indexes and not md_table.indexes),
-                "Indexes not created correctly",
-            )
-            if md_table.indexes:
-                md_indexes = _sorted_indexes(md_table.indexes)
-                md_db_indexes = _sorted_indexes(md_db_table.indexes)
-                self.assertEqual(len(md_indexes), len(md_db_indexes))
-                for md_index, md_db_index in zip(md_table.indexes, md_db_table.indexes):
-                    self.assertEqual(md_index.name, md_db_index.name)
-                    self.assertEqual(md_index.columns.keys(), md_db_index.columns.keys())
+            for md_table_name in md.tables.keys():
+                md_table = md.tables[md_table_name]
+                md_db_table = md_db.tables[md_table_name]
+                self.assertEqual(md_table.columns.keys(), md_db_table.columns.keys())
+                for md_column_name in md_table.columns.keys():
+                    md_column = md_table.columns[md_column_name]
+                    md_db_column = md_db_table.columns[md_column_name]
+                    self.assertEqual(type(md_column.type), type(md_db_column.type))
+                    self.assertEqual(md_column.nullable, md_db_column.nullable)
+                    self.assertEqual(md_column.primary_key, md_db_column.primary_key)
+                self.assertTrue(
+                    (md_table.constraints and md_db_table.constraints)
+                    or (not md_table.constraints and not md_table.constraints),
+                    "Constraints not created correctly",
+                )
+                if md_table.constraints:
+                    self.assertEqual(len(md_table.constraints), len(md_db_table.constraints))
+                    md_constraints = _sorted_constraints(md_table.constraints)
+                    md_db_constraints = _sorted_constraints(md_db_table.constraints)
+                    for md_constraint, md_db_constraint in zip(md_constraints, md_db_constraints):
+                        self.assertEqual(md_constraint.name, md_db_constraint.name)
+                        self.assertEqual(md_constraint.deferrable, md_db_constraint.deferrable)
+                        self.assertEqual(md_constraint.initially, md_db_constraint.initially)
+                        self.assertEqual(
+                            type(md_constraint), type(md_db_constraint), "Constraint types do not match"
+                        )
+                        if isinstance(md_constraint, ForeignKeyConstraint) and isinstance(
+                            md_db_constraint, ForeignKeyConstraint
+                        ):
+                            md_fk: ForeignKeyConstraint = md_constraint
+                            md_db_fk: ForeignKeyConstraint = md_db_constraint
+                            self.assertEqual(md_fk.referred_table.name, md_db_fk.referred_table.name)
+                            self.assertEqual(md_fk.column_keys, md_db_fk.column_keys)
+                            self.assertEqual(md_fk.ondelete, md_db_fk.ondelete)
+                            self.assertEqual(md_fk.onupdate, md_db_fk.onupdate)
+                        elif isinstance(md_constraint, UniqueConstraint) and isinstance(
+                            md_db_constraint, UniqueConstraint
+                        ):
+                            md_uniq: UniqueConstraint = md_constraint
+                            md_db_uniq: UniqueConstraint = md_db_constraint
+                            self.assertEqual(md_uniq.columns.keys(), md_db_uniq.columns.keys())
+                        elif isinstance(md_constraint, CheckConstraint) and isinstance(
+                            md_db_constraint, CheckConstraint
+                        ):
+                            md_check: CheckConstraint = md_constraint
+                            md_db_check: CheckConstraint = md_db_constraint
+                            self.assertEqual(str(md_check.sqltext), str(md_db_check.sqltext))
+                self.assertTrue(
+                    (md_table.indexes and md_db_table.indexes)
+                    or (not md_table.indexes and not md_table.indexes),
+                    "Indexes not created correctly",
+                )
+                if md_table.indexes:
+                    md_indexes = _sorted_indexes(md_table.indexes)
+                    md_db_indexes = _sorted_indexes(md_db_table.indexes)
+                    self.assertEqual(len(md_indexes), len(md_db_indexes))
+                    for md_index, md_db_index in zip(md_table.indexes, md_db_table.indexes):
+                        self.assertEqual(md_index.name, md_db_index.name)
+                        self.assertEqual(md_index.columns.keys(), md_db_index.columns.keys())
 
     def test_builder(self) -> None:
         """Test that the information in the metadata object created by the

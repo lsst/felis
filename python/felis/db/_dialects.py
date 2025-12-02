@@ -1,4 +1,4 @@
-"""Get SQLAlchemy dialects and their type modules."""
+"""Utilities for accessing SQLAlchemy dialects and their type modules."""
 
 # This file is part of felis.
 #
@@ -23,22 +23,27 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from types import MappingProxyType, ModuleType
 
-from sqlalchemy import dialects
+from sqlalchemy import dialects, types
 from sqlalchemy.engine import Dialect
 from sqlalchemy.engine.mock import create_mock_engine
+from sqlalchemy.types import TypeEngine
 
-from .sqltypes import MYSQL, POSTGRES, SQLITE
+from ._sqltypes import MYSQL, POSTGRES, SQLITE
 
-__all__ = ["get_dialect_module", "get_supported_dialects"]
+__all__ = ["get_dialect_module", "get_supported_dialects", "string_to_typeengine"]
 
 _DIALECT_NAMES = (MYSQL, POSTGRES, SQLITE)
 """List of supported dialect names.
 
 This list is used to create the dialect and module dictionaries.
 """
+
+_DATATYPE_REGEXP = re.compile(r"(\w+)(\((.*)\))?")
+"""Regular expression to match data types with parameters in parentheses."""
 
 
 def _dialect(dialect_name: str) -> Dialect:
@@ -114,3 +119,63 @@ def get_dialect_module(dialect_name: str) -> ModuleType:
     if dialect_name not in _DIALECT_MODULES:
         raise ValueError(f"Unsupported dialect: {dialect_name}")
     return _DIALECT_MODULES[dialect_name]
+
+
+def string_to_typeengine(
+    type_string: str, dialect: Dialect | None = None, length: int | None = None
+) -> TypeEngine:
+    """Convert a string representation of a datatype to a SQLAlchemy type.
+
+    Parameters
+    ----------
+    type_string
+        The string representation of the data type.
+    dialect
+        The SQLAlchemy dialect to use. If None, the default dialect will be
+        used.
+    length
+        The length of the data type. If the data type does not have a length
+        attribute, this parameter will be ignored.
+
+    Returns
+    -------
+    `sqlalchemy.types.TypeEngine`
+        The SQLAlchemy type engine object.
+
+    Raises
+    ------
+    ValueError
+        Raised if the type string is invalid or the type is not supported.
+
+    Notes
+    -----
+    This function is used when converting type override strings defined in
+    fields such as ``mysql:datatype`` in the schema data.
+    """
+    match = _DATATYPE_REGEXP.search(type_string)
+    if not match:
+        raise ValueError(f"Invalid type string: {type_string}")
+
+    type_name, _, params = match.groups()
+    if dialect is None:
+        type_class = getattr(types, type_name.upper(), None)
+    else:
+        try:
+            dialect_module = get_dialect_module(dialect.name)
+        except KeyError:
+            raise ValueError(f"Unsupported dialect: {dialect}")
+        type_class = getattr(dialect_module, type_name.upper(), None)
+
+    if not type_class:
+        raise ValueError(f"Unsupported type: {type_name.upper()}")
+
+    if params:
+        params = [int(param) if param.isdigit() else param for param in params.split(",")]
+        type_obj = type_class(*params)
+    else:
+        type_obj = type_class()
+
+    if hasattr(type_obj, "length") and getattr(type_obj, "length") is None and length is not None:
+        type_obj.length = length
+
+    return type_obj

@@ -26,7 +26,7 @@ import yaml
 from sqlalchemy import text
 
 from felis.datamodel import Schema
-from felis.db.utils import DatabaseContext
+from felis.db.database_context import PostgreSQLContext
 from felis.metadata import MetaDataBuilder
 from felis.tests.postgresql import TemporaryPostgresInstance, setup_postgres_test_db  # type: ignore
 
@@ -50,12 +50,13 @@ class TestPostgresql(unittest.TestCase):
         PostgreSQL.
         """
         # Create the schema and metadata
-        yaml_data = yaml.safe_load(open(TEST_YAML))
+        with open(TEST_YAML) as test_file:
+            yaml_data = yaml.safe_load(test_file)
         schema = Schema.model_validate(yaml_data)
         md = MetaDataBuilder(schema).build()
 
         # Initialize the database
-        ctx = DatabaseContext(md, self.postgresql.engine)
+        ctx = PostgreSQLContext(self.postgresql.engine.url, md)
         ctx.initialize()
         ctx.create_all()
 
@@ -93,28 +94,38 @@ class TestPostgresql(unittest.TestCase):
         creation.
         """
         # Load the schema
-        yaml_data = yaml.safe_load(open(TEST_YAML))
+        with open(TEST_YAML) as test_file:
+            yaml_data = yaml.safe_load(test_file)
         schema = Schema.model_validate(yaml_data)
 
         # Create metadata without indexes
         md_no_indexes = MetaDataBuilder(schema, skip_indexes=True).build()
 
         # Initialize the database and create tables (without indexes)
-        ctx = DatabaseContext(md_no_indexes, self.postgresql.engine)
+        ctx = PostgreSQLContext(self.postgresql.engine.url, md_no_indexes)
         ctx.initialize()
         ctx.create_all()
 
         # Create metadata with indexes to get the index definitions
         md_with_indexes = MetaDataBuilder(schema, skip_indexes=False).build()
-        ctx_with_indexes = DatabaseContext(md_with_indexes, self.postgresql.engine)
+        ctx_with_indexes = PostgreSQLContext(self.postgresql.engine.url, md_with_indexes)
 
         def check_indexes_exist(should_exist: bool, message: str) -> None:
             """Check if indexes exist or don't exist in the database."""
             with self.postgresql.begin() as conn:
+                from sqlalchemy import inspect
+
+                inspector = inspect(conn)
                 for table in md_with_indexes.tables.values():
+                    # Get existing indexes for this table
+                    existing_indexes = {
+                        ix["name"]
+                        for ix in inspector.get_indexes(table.name, schema=table.schema)
+                        if "name" in ix and ix["name"] is not None
+                    }
                     for index in table.indexes:
                         if index.name is not None:
-                            exists = DatabaseContext._index_exists(conn, table, index)
+                            exists = index.name in existing_indexes
                             if should_exist:
                                 self.assertTrue(
                                     exists,
@@ -144,5 +155,8 @@ class TestPostgresql(unittest.TestCase):
         # Check that indexes were dropped
         check_indexes_exist(False, "should not exist after dropping")
 
-        # Clean up: drop the schema
+        # Cleanup: drop the schema
         ctx.drop()
+
+        # Cleanup
+        ctx.close()
