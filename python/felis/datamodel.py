@@ -57,10 +57,13 @@ __all__ = (
     "BaseObject",
     "CheckConstraint",
     "Column",
+    "ColumnOverrides",
+    "ColumnResourceRef",
     "Constraint",
     "DataType",
     "ForeignKeyConstraint",
     "Index",
+    "Resource",
     "Schema",
     "SchemaVersion",
     "Table",
@@ -232,6 +235,9 @@ class Column(BaseObject):
 
     postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
     """PostgreSQL datatype override on the column."""
+
+    _is_resource_ref: bool = PrivateAttr(False)
+    """Whether this column is a resource reference column."""
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
@@ -810,6 +816,86 @@ class ColumnGroup(BaseObject):
         return [col if isinstance(col, str) else col.id for col in columns]
 
 
+class ColumnOverrides(BaseModel):
+    """Allowed overrides for a referenced column.
+
+    All fields are optional; missing values mean "inherit from the base
+    column".
+    """
+
+    datatype: DataType | None = None
+    """New datatype for the column."""
+
+    length: int | None = None
+    """New length for the column."""
+
+    description: str | None = None
+    """New description for the column."""
+
+    nullable: bool = True
+    """New nullable flag for the column."""
+
+    tap_principal: int | None = Field(default=None, alias="tap:principal")
+    """Override for the TAP_SCHEMA 'principal' flag."""
+
+    tap_column_index: int | None = Field(default=None, alias="tap:column_index")
+    """Override for the TAP_SCHEMA column index."""
+
+    @field_serializer("datatype")
+    def serialize_datatype(self, value: DataType | None) -> str | None:
+        """Convert `DataType` to string when serializing to JSON/YAML.
+
+        Parameters
+        ----------
+        value
+            The `DataType` value to serialize, or None.
+
+        Returns
+        -------
+        `str` | None
+            The serialized `DataType` value, or None if the input was None.
+        """
+        if value is None:
+            return None
+        return str(value)
+
+    @field_validator("datatype", mode="before")
+    @classmethod
+    def deserialize_datatype(cls, value: str | None) -> DataType | None:
+        """Convert string back into `DataType` when loading from JSON/YAML.
+
+        Parameters
+        ----------
+        value
+            The string value to deserialize, or None.
+
+        Returns
+        -------
+        `DataType` | None
+            The deserialized `DataType` value, or None if the input was None.
+        """
+        if value is None:
+            return None
+        return DataType(value)
+
+
+class ColumnResourceRef(BaseModel):
+    """A column which is dervived from an external resource."""
+
+    ref_name: str | None = None
+    """Name of the referenced column in the resource
+    (if different from the key)."""
+
+    overrides: ColumnOverrides | None = None
+    """Optional overrides of the referenced column's attributes."""
+
+
+# Type aliases for the nested mapping structure of referenced columns
+ResourceColumnMap: TypeAlias = dict[str, ColumnResourceRef | None]
+ResourceTableMap: TypeAlias = dict[str, ResourceColumnMap]
+ResourceMap: TypeAlias = dict[str, ResourceTableMap]
+
+
 class Table(BaseObject):
     """Table model."""
 
@@ -825,8 +911,11 @@ class Table(BaseObject):
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
 
-    columns: Sequence[Column]
+    columns: list[Column] = Field(default_factory=list)
     """Columns in the table."""
+
+    column_refs: ResourceMap = Field(default_factory=dict, alias="columnRefs")
+    """Referenced columns from external resources."""
 
     column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
     """Column groups in the table."""
@@ -938,6 +1027,12 @@ class Table(BaseObject):
                 return column
         raise KeyError(f"Column '{id}' not found in table '{self.name}'")
 
+    def _find_column_by_name(self, name: str) -> Column:
+        for column in self.columns:
+            if column.name == name:
+                return column
+        raise KeyError(f"Column '{name}' not found in table '{self.name}'")
+
     @model_validator(mode="after")
     def dereference_column_groups(self: Table) -> Table:
         """Dereference columns in column groups.
@@ -951,6 +1046,19 @@ class Table(BaseObject):
             group.table = self
             group._dereference_columns()
         return self
+
+    @field_serializer("columns")
+    def _serialize_columns(self, columns: list[Column]) -> list[dict[str, Any]]:
+        """Serialize only non-resource columns."""
+        return [
+            col.model_dump(
+                by_alias=True,
+                exclude_none=True,
+                exclude_defaults=True,
+            )
+            for col in columns
+            if not col._is_resource_ref
+        ]
 
 
 class SchemaVersion(BaseModel):
@@ -1106,6 +1214,14 @@ def _append_error(
     )
 
 
+class Resource(BaseModel):
+    """A resource definition referencing an external schema."""
+
+    uri: str = Field(..., description="Resource URI or path")
+    """URI of the schema resource which may be a local path, ``resource://``,
+    or remote URL."""
+
+
 class Schema(BaseObject, Generic[T]):
     """Database schema model.
 
@@ -1118,8 +1234,166 @@ class Schema(BaseObject, Generic[T]):
     tables: Sequence[Table]
     """The tables in the schema."""
 
+    resources: dict[str, Resource] = Field(default_factory=dict)
+    """External resources referenced by this schema."""
+
     _id_map: dict[str, Any] = PrivateAttr(default_factory=dict)
     """Map of IDs to objects."""
+
+    _resource_map: dict[str, Schema] = PrivateAttr(default_factory=dict)
+    """Map of resource names to loaded schemas."""
+
+    @model_validator(mode="after")
+    def _load_resources(self: Schema, info: ValidationInfo) -> Schema:
+        """Load external resources referenced by this schema into an internal
+        mapping of resource names to their `Schema` objects.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        ValueError
+            Raised if a resource cannot be loaded.
+        """
+        if info.context:
+            context = info.context.copy()
+            # Ignore this flag for loading the resources themselves
+            context.pop("dereference_resources", None)
+        else:
+            context = {}
+
+        for resource_name, resource in self.resources.items():
+            uri = resource.uri
+            try:
+                loaded_schema = Schema.from_uri(uri, context=context)
+                self._resource_map[resource_name] = loaded_schema
+                logger.debug(f"Loaded resource '{resource_name}' from URI '{uri}'")
+            except Exception as e:
+                raise ValueError(f"Failed to load resource '{resource_name}' from URI '{uri}': {e}") from e
+        return self
+
+    def _find_table_by_name(self, name: str) -> Table:
+        """Find a table by name.
+
+        Parameters
+        ----------
+        name
+            The name of the table to find.
+
+        Returns
+        -------
+        `Table`
+            The table with the given name.
+
+        Raises
+        ------
+        KeyError
+            Raised if the table is not found.
+        """
+        for table in self.tables:
+            if table.name == name:
+                return table
+        raise KeyError(f"Table '{name}' not found in schema '{self.name}'")
+
+    @model_validator(mode="after")
+    def _dereference_resource_columns(self: Schema, info: ValidationInfo) -> Schema:
+        """Dereference columns from external resources and add them to the
+        tables in this schema.
+        """
+        context = info.context
+        if context is not None and context.get("dereference_resources", False):
+            dereference_resources = True
+        else:
+            dereference_resources = False
+        for table in self.tables:
+            if column_refs := table.column_refs:
+                for resource_name, tables in column_refs.items():
+                    resource_schema = self._resource_map.get(resource_name)
+                    if resource_schema is None:
+                        raise ValueError(f"Schema resource '{resource_name}' was not found in resources")
+                    self._process_column_refs(
+                        table,
+                        tables,
+                        resource_schema,
+                        dereference_resources,
+                    )
+                if dereference_resources and len(table.column_refs) > 0:
+                    # Clear column refs in table if fully dereferencing
+                    logger.debug(
+                        f"Clearing columnRefs in table '{table.name}' after dereferencing resource columns"
+                    )
+                    table.column_refs = {}
+        return self
+
+    def _process_column_refs(
+        self,
+        table: Table,
+        ref_tables: ResourceTableMap,
+        resource_schema: Schema,
+        dereference_resources: bool = False,
+    ) -> None:
+        """Process column references from an external resource and add them
+        to the given table.
+        """
+        for table_name, columns in ref_tables.items():
+            try:
+                resource_table = resource_schema._find_table_by_name(table_name)
+            except KeyError as e:
+                raise ValueError(
+                    f"Table '{table_name}' not found in resource '{resource_schema.name}'"
+                ) from e
+            for local_column_name, column_ref in columns.items():
+                if column_ref is not None and column_ref.ref_name is not None:
+                    # Use specified ref_name
+                    ref_column_name = column_ref.ref_name
+                else:
+                    # Use the local column name if no ref_name
+                    # specified
+                    ref_column_name = local_column_name
+
+                    # Check if referenced column exists in resource
+                try:
+                    base_column = resource_table._find_column_by_name(ref_column_name)
+                except KeyError:
+                    # The ref_name is specified but column is not
+                    # found
+                    if column_ref is not None and column_ref.ref_name is not None:
+                        raise ValueError(
+                            f"Column '{ref_column_name}' not found in table '{table_name}' "
+                            f"from resource '{resource_schema.name}'"
+                        )
+                        # The ref_name is not specified and the local
+                        # column name is not found
+                    raise ValueError(
+                        f"Column '{local_column_name}' not found in table '{table_name}' "
+                        f"from resource '{resource_schema.name}' and no ref_name provided"
+                    )
+
+                # Create a copy of the base column and apply
+                # overrides
+                column_copy = base_column.model_copy()
+                # Set the local name (key from the mapping)
+                column_copy.name = local_column_name
+                if not dereference_resources:
+                    column_copy._is_resource_ref = True
+
+                if column_ref is not None and column_ref.overrides is not None:
+                    overrides = column_ref.overrides
+                    for field_name, override_value in overrides.model_dump().items():
+                        if override_value is not None:
+                            setattr(column_copy, field_name, override_value)
+
+                            # Manually set the ID of the copied column as
+                            # ID generation has already occurred
+                column_copy.id = f"{table.id}.{local_column_name}"
+                table.columns.append(column_copy)
+                logger.debug(
+                    f"Dereferenced column '{local_column_name}' from table '{table_name}' "
+                    f"in resource '{resource_schema.name}' into table '{table.name}'"
+                )
 
     @model_validator(mode="before")
     @classmethod

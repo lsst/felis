@@ -22,6 +22,7 @@
 import difflib
 import os
 import pathlib
+import shutil
 import tempfile
 import unittest
 from collections import defaultdict
@@ -790,6 +791,23 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Schema.from_uri("resource://felis/config/tap_schema/tap_schema_std.yaml")
 
+    def test_find_table_by_name(self) -> None:
+        """Test the ``_find_table_by_name`` method."""
+        # Create a simple schema with two tables
+        test_col1 = Column(name="test_column1", id="#test_tbl1.test_col1", datatype="int")
+        test_col2 = Column(name="test_column2", id="#test_tbl2.test_col2", datatype="string", length=256)
+        test_tbl1 = Table(name="test_table1", id="#test_tbl1", columns=[test_col1])
+        test_tbl2 = Table(name="test_table2", id="#test_tbl2", columns=[test_col2])
+        sch = Schema(name="testSchema", id="#test_sch_id", tables=[test_tbl1, test_tbl2])
+
+        # Test that the correct table is returned when searching by name
+        self.assertEqual(sch._find_table_by_name("test_table1"), test_tbl1)
+        self.assertEqual(sch._find_table_by_name("test_table2"), test_tbl2)
+
+        # Test that a KeyError is raised when the table is not found
+        with self.assertRaises(KeyError):
+            sch._find_table_by_name("nonexistent_table")
+
 
 class SchemaVersionTest(unittest.TestCase):
     """Test the schema version."""
@@ -1050,6 +1068,429 @@ class SchemaSerializationTest(unittest.TestCase):
             yaml.safe_load(deserialized_yaml_content),
             "The original and deserialized YAML contents should be the same",
         )
+
+
+class ResourceTestCase(unittest.TestCase):
+    """Test loading of column definitions from external schema resources."""
+
+    def setUp(self) -> None:
+        """Set up test resources."""
+        self.temp_dir = tempfile.mkdtemp()
+
+        # Write out source schema file
+        source_schema_content = """
+name: source_schema
+description: Test resource schema
+tables:
+- name: source_table
+  description: Source table
+  columns:
+  - name: test_column
+    datatype: int
+    description: "Test column"
+"""
+        self.source_schema_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(self.source_schema_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Write out referencing schema file
+        ref_schema_content = """
+name: ref_schema
+description: Test referencing schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: ref_table
+  description: Referencing table
+  columnRefs:
+    source_schema:
+      source_table:
+        test_column: null  # Explicit null = no overrides, use same name
+        renamed_column:
+          ref_name: test_column
+          overrides:
+            description: "Renamed test column"
+            datatype: short
+            tap:principal: 1
+            tap:column_index: 2
+"""
+        self.ref_schema_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        ref_content = ref_schema_content.format(resource_path=self.source_schema_path)
+        with open(self.ref_schema_path, "w") as f:
+            f.write(ref_content.strip())
+
+    def tearDown(self) -> None:
+        """Clean up test resources."""
+        shutil.rmtree(self.temp_dir)
+
+    def test_schema_resource(self) -> None:
+        """Test loading a schema as a resource with column references."""
+        # First test that the source schema loads correctly on its own
+        source_schema = Schema.from_uri(self.source_schema_path, context={"id_generation": True})
+        self.assertEqual(source_schema.name, "source_schema")
+        self.assertEqual(len(source_schema.tables), 1)
+        self.assertEqual(source_schema.tables[0].name, "source_table")
+
+        # Now test loading the ref schema
+        ref_schema = Schema.from_uri(self.ref_schema_path, context={"id_generation": True})
+        self.assertEqual(ref_schema.name, "ref_schema")
+
+        # Check that the resource was loaded
+        self.assertIn("source_schema", ref_schema._resource_map)
+
+        # Check that the referencing table has the expected columns
+        ref_table = ref_schema.tables[0]
+        self.assertEqual(ref_table.name, "ref_table")
+
+        # Check the column_refs structure
+        column_refs = ref_table.column_refs
+        self.assertIsNotNone(column_refs)
+        self.assertIsInstance(column_refs, dict)
+
+        # Check the schema resource reference
+        self.assertIn("source_schema", column_refs)
+        source_schema_refs = column_refs["source_schema"]
+        self.assertIsInstance(source_schema_refs, dict)
+
+        # Check the table reference
+        self.assertIn("source_table", source_schema_refs)
+        source_table_refs = source_schema_refs["source_table"]
+        self.assertIsInstance(source_table_refs, dict)
+
+        # Verify the column_refs structure details
+        # Should have 2 column references: test_column and renamed_column
+        self.assertEqual(len(source_table_refs), 2)
+
+        # Check test_column reference (null/no overrides)
+        self.assertIn("test_column", source_table_refs)
+        test_column_ref = source_table_refs["test_column"]
+        self.assertIsNone(test_column_ref)
+
+        # Check renamed_column reference (with ref_name and overrides)
+        self.assertIn("renamed_column", source_table_refs)
+        renamed_column_ref = source_table_refs["renamed_column"]
+        self.assertIsNotNone(renamed_column_ref)
+        self.assertEqual(renamed_column_ref.ref_name, "test_column")
+        self.assertIsNotNone(renamed_column_ref.overrides)
+        self.assertEqual(renamed_column_ref.overrides.description, "Renamed test column")
+        self.assertEqual(renamed_column_ref.overrides.tap_principal, 1)
+        self.assertEqual(renamed_column_ref.overrides.tap_column_index, 2)
+        self.assertEqual(renamed_column_ref.overrides.datatype.value, "short")
+
+        # Now check structure of dereferenced columns in the ref_table
+        self.assertEqual(len(ref_table.columns), 2)
+
+        # Check dereferenced test_column (no overrides)
+        test_col = next((col for col in ref_table.columns if col.name == "test_column"), None)
+        self.assertIsNotNone(test_col)
+        self.assertEqual(test_col.datatype, "int")
+        self.assertEqual(test_col.description, "Test column")
+
+        # Check dereferenced renamed_column (includes overrides)
+        renamed_col = next((col for col in ref_table.columns if col.name == "renamed_column"), None)
+        self.assertIsNotNone(renamed_col)
+        self.assertEqual(renamed_col.datatype, "short")  # Inherited from source
+        self.assertEqual(renamed_col.description, "Renamed test column")
+        self.assertEqual(renamed_col.tap_principal, 1)
+        self.assertEqual(renamed_col.tap_column_index, 2)
+
+        # Verify that the columns are present in the ID map
+        try:
+            ref_schema.find_object_by_id(test_col.id, Column)
+        except KeyError:
+            self.fail(f"Test column ID '{test_col.id}' not found in schema ID map.")
+        try:
+            ref_schema.find_object_by_id(renamed_col.id, Column)
+        except KeyError:
+            self.fail(f"Renamed column ID '{renamed_col.id}' not found in schema ID map.")
+
+    def test_schema_resource_missing_column_error(self) -> None:
+        """Test that referencing a non-existent column raises an error."""
+        error_ref_content = f"""
+name: error_ref_schema
+description: Test referencing schema with error
+resources:
+  source_schema:
+    uri: {self.source_schema_path}
+tables:
+- name: error_table
+  description: Table with bad reference
+  columnRefs:
+    source_schema:
+      source_table:
+        bad_column: null  # This column doesn't exist in source
+"""
+
+        error_ref_path = os.path.join(self.temp_dir, "error_ref_schema.yaml")
+        with open(error_ref_path, "w") as f:
+            f.write(error_ref_content.strip())
+
+        # This should raise a ValueError
+        with self.assertRaises(ValueError) as cm:
+            Schema.from_uri(error_ref_path, context={"id_generation": True})
+
+        self.assertIn("Column 'bad_column' not found", str(cm.exception))
+
+    def test_schema_resource_missing_ref_name_error(self) -> None:
+        """Test that using ref_name for non-existent column raises an error."""
+        # Create a ref schema with bad ref_name
+        error_ref_content = f"""
+name: error_ref_schema
+description: Test referencing schema with bad ref_name
+resources:
+  source_schema:
+    uri: {self.source_schema_path}
+tables:
+- name: error_table
+  description: Table with bad ref_name
+  columnRefs:
+    source_schema:
+      source_table:
+        some_column:
+          ref_name: nonexistent_column  # This column doesn't exist
+"""
+
+        error_ref_path = os.path.join(self.temp_dir, "error_ref_schema.yaml")
+        with open(error_ref_path, "w") as f:
+            f.write(error_ref_content.strip())
+
+        with self.assertRaises(ValueError) as cm:
+            Schema.from_uri(error_ref_path, context={"id_generation": True})
+        self.assertIn("Column 'nonexistent_column' not found", str(cm.exception))
+
+    def test_schema_resource_not_found_error(self) -> None:
+        """Test that referencing a non-existent schema resource raises an
+        error.
+        """
+        error_ref_content = f"""
+name: error_ref_schema
+description: Test referencing non-existent schema resource
+resources:
+  source_schema:
+    uri: {self.source_schema_path}
+tables:
+- name: error_table
+  description: Table with bad schema resource reference
+  columnRefs:
+    nonexistent_schema:  # This schema resource doesn't exist
+      some_table:
+        some_column: null
+"""
+
+        error_ref_path = os.path.join(self.temp_dir, "error_ref_schema.yaml")
+        with open(error_ref_path, "w") as f:
+            f.write(error_ref_content.strip())
+
+        with self.assertRaises(ValueError) as cm:
+            Schema.from_uri(error_ref_path, context={"id_generation": True})
+        self.assertIn("Schema resource 'nonexistent_schema' was not found in resources", str(cm.exception))
+
+    def test_schema_resource_table_not_found_error(self) -> None:
+        """Test that referencing a non-existent table in schema resource raises
+        an error.
+        """
+        error_ref_content = f"""
+name: error_ref_schema
+description: Test referencing non-existent table in schema resource
+resources:
+  source_schema:
+    uri: {self.source_schema_path}
+tables:
+- name: error_table
+  description: Table with bad table reference
+  columnRefs:
+    source_schema:
+      nonexistent_table:  # This table doesn't exist in source_schema
+        some_column: null
+"""
+
+        error_ref_path = os.path.join(self.temp_dir, "error_ref_schema.yaml")
+        with open(error_ref_path, "w") as f:
+            f.write(error_ref_content.strip())
+
+        with self.assertRaises(ValueError) as cm:
+            Schema.from_uri(error_ref_path, context={"id_generation": True})
+        self.assertIn("Table 'nonexistent_table' not found in resource 'source_schema'", str(cm.exception))
+
+    def test_schema_resource_bad_uri_error(self) -> None:
+        """Test that a bad URI in resource loading raises an error."""
+        error_ref_content = """
+name: error_ref_schema
+description: Test schema with bad resource URI
+resources:
+  bad_resource:
+    uri: /nonexistent/path/to/schema.yaml
+tables:
+- name: error_table
+  description: Table referencing bad resource
+  columnRefs:
+    bad_resource:
+      some_table:
+        some_column: null
+"""
+
+        error_ref_path = os.path.join(self.temp_dir, "error_ref_schema.yaml")
+        with open(error_ref_path, "w") as f:
+            f.write(error_ref_content.strip())
+
+        with self.assertRaises(ValueError) as cm:
+            Schema.from_uri(error_ref_path, context={"id_generation": True})
+        self.assertIn(
+            "Failed to load resource 'bad_resource' from URI '/nonexistent/path/to/schema.yaml'",
+            str(cm.exception),
+        )
+
+    def test_ref_schema_with_indexes(self) -> None:
+        """Test that indexes are properly handled when loading schema
+        resources.
+        """
+        # Write out referencing schema file
+        ref_schema_content_with_indexes = """
+name: ref_schema
+description: Test referencing schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: ref_table
+  description: Referencing table
+  columnRefs:
+    source_schema:
+      source_table:
+        test_column: null
+        renamed_column:
+          ref_name: test_column
+          overrides:
+            description: "Renamed test column"
+            tap:principal: 1
+            tap:column_index: 2
+  indexes:
+  - name: idx_test_column
+    columns:
+      - "#ref_table.test_column"
+  - name: idx_renamed_column
+    columns:
+      - "#ref_table.renamed_column"
+"""
+
+        source_schema_with_indexes_path = os.path.join(self.temp_dir, "source_schema_with_indexes.yaml")
+        ref_content = ref_schema_content_with_indexes.format(resource_path=self.source_schema_path)
+        with open(source_schema_with_indexes_path, "w") as f:
+            f.write(ref_content.strip())
+
+        ref_schema = Schema.from_uri(source_schema_with_indexes_path, context={"id_generation": True})
+
+        # Check index content; columns are not automatically resolved to
+        # objects by the validation.
+        indexes = ref_schema.tables[0].indexes
+        self.assertEqual(len(indexes), 2)
+        self.assertEqual(indexes[0].name, "idx_test_column")
+        self.assertEqual(indexes[0].columns, ["#ref_table.test_column"])
+        self.assertEqual(indexes[1].name, "idx_renamed_column")
+        self.assertEqual(indexes[1].columns, ["#ref_table.renamed_column"])
+
+    def test_ref_schema_with_foreign_key(self) -> None:
+        """Test that indexes are properly handled when loading schema
+        resources.
+        """
+        # Write out referencing schema file
+        ref_schema_content_with_foreign_key = """
+name: ref_schema
+description: Test referencing schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: src_table
+  description: Source table for foreign key
+  primaryKey: "#src_table.test_column"
+  columnRefs:
+    source_schema:
+      source_table:
+        test_column: null
+        renamed_column:
+          ref_name: test_column
+          overrides:
+            description: "Renamed test column"
+            tap:principal: 1
+            tap:column_index: 2
+- name: target_table
+  description: Target table for foreign key
+  columns:
+  - name: fk_column
+    datatype: int
+    description: "Foreign key column"
+  constraints:
+  - name: fk_src_table
+    '@type': ForeignKey
+    columns:
+    - "#target_table.fk_column"
+    referencedColumns:
+    - "#src_table.test_column"
+"""
+
+        source_schema_with_foreign_key_path = os.path.join(
+            self.temp_dir, "source_schema_with_foreign_key.yaml"
+        )
+        ref_content = ref_schema_content_with_foreign_key.format(resource_path=self.source_schema_path)
+        with open(source_schema_with_foreign_key_path, "w") as f:
+            f.write(ref_content.strip())
+
+        ref_schema = Schema.from_uri(source_schema_with_foreign_key_path, context={"id_generation": True})
+
+        # Check foreign key constraint content
+        fk_constraint = ref_schema.tables[1].constraints[0]
+        self.assertIsInstance(fk_constraint, ForeignKeyConstraint)
+        self.assertEqual(fk_constraint.name, "fk_src_table")
+        self.assertEqual(fk_constraint.columns, ["#target_table.fk_column"])
+        self.assertEqual(fk_constraint.referenced_columns, ["#src_table.test_column"])
+
+    def test_ref_schema_serialization(self) -> None:
+        """Test serialization of a reference schema."""
+        # Load the referencing schema and then serialize it back to YAML
+        ref_schema = Schema.from_uri(self.ref_schema_path, context={"id_generation": True})
+        yaml_data = ref_schema.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
+        serialized_schema_path = os.path.join(self.temp_dir, "serialized_ref_schema.yaml")
+        with open(serialized_schema_path, "w") as f:
+            yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
+
+        # Read back the serialized YAML data
+        with open(serialized_schema_path) as f:
+            serialized_yaml_data = yaml.safe_load(f)
+
+        # Ensure that columns were not serialized directly in the table
+        self.assertEqual(len(serialized_yaml_data["tables"][0]["columns"]), 0)
+
+        # Deserialize the schema and check that the expected columns are
+        # present
+        deserialized_schema = Schema.from_uri(serialized_schema_path, context={"id_generation": True})
+        self.assertEqual(len(deserialized_schema.tables[0].columns), 2)
+
+        # Check that the columnRefs structure is still present
+        try:
+            ref_columns = deserialized_schema.tables[0].column_refs["source_schema"]["source_table"]
+        except Exception:
+            self.fail("The column refs are missing after deserialization.")
+        self.assertEqual(len(ref_columns), 2)
+
+    def test_ref_schema_with_dereference_columns(self) -> None:
+        """Test loading a reference schema with dereferencing of columns so
+        that column_refs is set to empty after loading.
+        """
+        ref_schema = Schema.from_uri(
+            self.ref_schema_path, context={"id_generation": True, "dereference_resources": True}
+        )
+
+        # Check that the columns were dereferenced into the table
+        ref_table = ref_schema.tables[0]
+        self.assertEqual(len(ref_table.columns), 2)
+        col_names = {col.name for col in ref_table.columns}
+        self.assertIn("test_column", col_names)
+        self.assertIn("renamed_column", col_names)
+
+        # Check that column_refs is empty after dereferencing
+        self.assertEqual(len(ref_table.column_refs), 0)
 
 
 if __name__ == "__main__":
