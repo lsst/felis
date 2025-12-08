@@ -1,0 +1,1 @@
+Added support for column resource references using ``columnRefs`` in a table definition
