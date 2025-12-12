@@ -14,25 +14,26 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+    services:
+      mysql:
+        image: mariadb:10.6.8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: rubin
+          MYSQL_PASSWORD: rubin
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v6
         with:
           # Need to clone everything for the git tags.
           fetch-depth: 0
-
-      - name: Set up PostgreSQL
-        uses: Harmon758/postgresql-action@v1.0.0
-        with:
-          postgresql version: "16"
-
-      - name: Set up MySQL
-        uses: shogo82148/actions-setup-mysql@v1
-        with:
-          distribution: "mariadb"
-          mysql-version: "10.6"
-          user: rubin
-          password: rubin
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -63,6 +64,12 @@ jobs:
 
       - name: Check command-line help
         run: felis --help
+
+      - name: Grant privileges to MySQL user
+        run: >-
+          mysql -h 127.0.0.1 -P 3306 -u root -proot \
+            -e "GRANT ALL PRIVILEGES ON *.* TO 'rubin'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;" \
+            > /dev/null 2>&1
 
       - name: Run tests
         run: |

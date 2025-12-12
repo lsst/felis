@@ -569,11 +569,18 @@ def diff(
     help="Strip IDs from the output schema",
     default=False,
 )
+@click.option(
+    "--dereference-resources/--no-dereference-resources",
+    is_flag=True,
+    help="Remove any column references from resources and inline the full column definitions in the output",
+    default=False,
+)
 @click.argument("files", nargs=2, type=click.Path())
 @click.pass_context
 def dump(
     ctx: click.Context,
     strip_ids: bool,
+    dereference_resources: bool,
     files: list[str],
 ) -> None:
     if strip_ids:
@@ -584,7 +591,10 @@ def dump(
         format = "yaml"
     else:
         raise click.ClickException("Output file must have a .json or .yaml extension")
-    schema = Schema.from_uri(files[0], context={"id_generation": ctx.obj["id_generation"]})
+    schema = Schema.from_uri(
+        files[0],
+        context={"id_generation": ctx.obj["id_generation"], "dereference_resources": dereference_resources},
+    )
     with open(files[1], "w") as f:
         if format == "yaml":
             schema.dump_yaml(f, strip_ids=strip_ids)

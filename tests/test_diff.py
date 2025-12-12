@@ -162,7 +162,7 @@ class TestSchemaDiff(unittest.TestCase):
         )
         diff = self._diff(schema1, schema2)
         self.assertIn("dictionary_item_added", diff)
-        self.assertIn("root['tables'][0]['columns'][0]['ivoa_ucd']", diff["dictionary_item_added"])
+        self.assertIn("root['tables'][0]['columns'][0]['ivoa:ucd']", diff["dictionary_item_added"])
 
         # Call formatted handler function
         FormattedSchemaDiff(schema1, schema2)._handle_dictionary_item_added(diff["dictionary_item_added"])
@@ -187,7 +187,7 @@ class TestSchemaDiff(unittest.TestCase):
         )
         diff = self._diff(schema1, schema2)
         self.assertIn("dictionary_item_removed", diff)
-        self.assertIn("root['tables'][0]['columns'][0]['ivoa_ucd']", diff["dictionary_item_removed"])
+        self.assertIn("root['tables'][0]['columns'][0]['ivoa:ucd']", diff["dictionary_item_removed"])
 
         # Call formatted handler function
         FormattedSchemaDiff(schema1, schema2)._handle_dictionary_item_removed(diff["dictionary_item_removed"])
@@ -233,9 +233,9 @@ class TestSchemaDiff(unittest.TestCase):
         FormattedSchemaDiff(schema1, schema2).print()
 
     def test_parse_deepdiff_path(self) -> None:
-        path = "root['tables'][0]['columns'][0]['ivoa_ucd']"
+        path = "root['tables'][0]['columns'][0]['ivoa:ucd']"
         keys = FormattedSchemaDiff._parse_deepdiff_path(path)
-        self.assertListEqual(keys, ["tables", 0, "columns", 0, "ivoa_ucd"])
+        self.assertListEqual(keys, ["tables", 0, "columns", 0, "ivoa:ucd"])
 
     def test_get_id_error(self) -> None:
         id_dict = {"tables": [{"indexes": [{"columns": [{"name": "column1"}, {"name": "column2"}]}]}]}

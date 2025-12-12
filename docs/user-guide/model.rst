@@ -117,6 +117,171 @@ In addition to the standard column attributes, column groups have the following 
 
 The functionality of column groups is currently limited but may be expanded in future versions of Felis, in particular to support VOTable ``GROUP`` elements.
 
+*****************
+Column References
+*****************
+
+Felis supports column references, allowing schemas to import and reference
+columns from external schema files.
+This feature enables modular schema design and reuse of common logical column
+definitions across multiple schemas.
+The motivation for this in the Rubin Observatory context is that we have many
+schemas with a large amount of commonality between the defined tables and
+columns, so obtaining the details of common columns from a single source of
+truth avoids a great deal of labor-intensive and error-prone parallel editing
+of multiple schema files.
+
+These references are defined at the schema level and processed when the
+schema is loaded.
+The referenced external schemas are loaded and their column definitions become
+available for use in the importing schema.
+
+To use column references, define a ``resources`` section in your schema and use
+it as follows:
+
+.. code-block:: yaml
+
+   name: my_schema
+   description: "My schema that uses column references"
+
+   resources:
+     some_schema:
+       uri: "file:///path/to/some_schema.yaml"
+
+   tables:
+     - name: my_table
+       columnRefs:
+         some_schema:         # Reference to the external schema from 'resources'
+           some_table:        # Name of the table in the external schema
+             some_column:     # Name of the column to import as-is into this table
+             renamed_column:  # New name for the imported column (requires ref_name)
+               ref_name: "another_column"  # Column name from the external schema
+               overrides:  # Attribute overrides
+                 datatype: "string"  # Override an allowed attribute
+
+The ``resources`` section maps resource names, e.g., ``some_schema``, to their
+locations.
+The ``uri`` field specifies the location of the external schema file containing
+the column definitions and may point to a local file path, URL, or other
+supported scheme such as a ``resource://`` URI.
+(A ``resource://`` URI can read YAML files from a Python package installed in
+the current environment.)
+
+The ``columnRefs`` structure in the referencing schema has a hierarchy of keys
+which is organized as follows:
+
+.. code-block:: yaml
+
+   columnRefs:
+     resource_name:    # Name of the resource from the 'resources' section
+       table_name:     # Name of the table in the external schema
+         column_name:  # Reference to a column in the external table
+           # Empty key imports the column as-is
+         local_name:   # New name for a column in the local schema (requires ref_name)
+           ref_name: "some_column_from_resource"  # Column name in the external schema
+           overrides:  # Optional overrides for column attributes
+             description: "Custom description"  # Override description
+             datatype: "char"  # Override datatype
+             length: 50  # Override length
+             tap:principal: 1  # Override TAP principal flag
+             tap:column_index: 2  # Override TAP column index
+
+As show above, when importing columns, you may override specific properties
+using the ``overrides`` subsection of the column reference.
+
+The following fields can be overridden from the original column definition:
+
+- ``datatype``: Change the column's data type
+- ``length``: Modify the length constraint
+- ``description``: Provide a different description
+- ``nullable``: Change the nullability constraint
+- ``tap:principal``: Override the TAP principal flag
+- ``tap:column_index``: Override the TAP column index
+
+The value of the ``dereference_resources`` context parameter controls the
+processing behavior when resources are referenced in a schema and the data
+model is loaded:
+
+- **False** (default): References are preserved in ``columnRefs`` and the derived
+  columns are flagged as references
+- **True**: References are resolved, the ``columnRefs`` section is set to
+  empty, and the columns are added to the table's ``columns`` list
+
+Setting ``dereference_resources`` to ``True`` may be useful for producing a
+fully self-contained schema without any external references.
+
+Here is example Python code showing how to load a schema with and without
+dereferencing:
+
+.. code-block:: python
+
+   from felis import Schema
+
+   # Load with references preserved
+   schema = Schema.from_uri("my_schema.yaml")
+
+   # Load with references fully resolved
+   schema = Schema.from_uri("my_schema.yaml",
+                           context={"dereference_resources": True})
+
+The ``felis dump`` command-line tool also supports a corresponding
+``--dereference-resources`` flag to control this behavior when serializing
+schemas using the CLI.
+
+If the schema is dereferenced, the ``columnsRefs`` section will not be written
+out when the schema is serialized.
+Instead, all of the referenced columns will be included in the ``columns`` list
+of the respective tables as regular column definitions.
+By default, the ``columnsRefs`` section will be preserved when serializing and
+the referenced columns will not be duplicated in the ``columns`` list.
+
+Below are two example YAML schema files demonstrating the use of column
+references and the features described above.
+
+**some_schema.yaml:**
+
+.. code-block:: yaml
+
+   name: some_schema
+   description: "Some schema with column definitions"
+
+   tables:
+     - name: some_table
+       columns:
+         - name: id
+           datatype: "long"
+           description: "Unique identifier"
+         - name: created_at
+           datatype: "timestamp"
+           description: "Creation timestamp"
+
+**my_schema.yaml:**
+
+.. code-block:: yaml
+
+   name: my_schema
+   description: "My schema which will reference external columns"
+
+   resources:
+     some_schema:
+       uri: "file:///path/to/some_schema.yaml"
+
+   tables:
+     - name: users
+       description: "Application users"
+       columns:
+         # Regular column definitions may also be included alongside references
+         - name: username
+           datatype: "string"
+           description: "User login name"
+       columnRefs:
+         some_schema:
+           some_table:
+             id:  # Import as-is (empty key)
+             created_at:
+               overrides:
+                 description: "When the user was created"  # Override description
+
 .. _Constraint:
 
 **********
