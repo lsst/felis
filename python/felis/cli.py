@@ -65,19 +65,46 @@ loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
     help="Generate IDs for all objects that do not have them",
     default=True,
 )
+@click.option(
+    "--column-ref-index-increment",
+    type=int,
+    help="Automatically set 'tap:column_index' on column references, using the specified increment "
+    "(must be at least 1)",
+    default=None,
+)
 @click.pass_context
-def cli(ctx: click.Context, log_level: str, log_file: str | None, id_generation: bool) -> None:
+def cli(
+    ctx: click.Context,
+    log_level: str,
+    log_file: str | None,
+    id_generation: bool,
+    column_ref_index_increment: int | None,
+) -> None:
     """Felis command line tools"""
     ctx.ensure_object(dict)
+
+    # Configure logging (must come first)
+    if log_file:
+        logging.basicConfig(filename=log_file, level=log_level)
+    else:
+        logging.basicConfig(level=log_level)
+
+    # Configure ID generation (flag can only turn it off)
     ctx.obj["id_generation"] = id_generation
     if ctx.obj["id_generation"]:
         logger.info("ID generation is enabled")
     else:
         logger.info("ID generation is disabled")
-    if log_file:
-        logging.basicConfig(filename=log_file, level=log_level)
-    else:
-        logging.basicConfig(level=log_level)
+
+    # Configure automatic indexing of column references (optional)
+    if column_ref_index_increment is not None and column_ref_index_increment < 1:
+        raise click.ClickException("column_ref_index_increment must be at least 1")
+    ctx.obj["column_ref_index_increment"] = column_ref_index_increment
+    if ctx.obj["column_ref_index_increment"] is not None:
+        logger.info(
+            f"Automatic indexing of column references is enabled with increment "
+            f"{ctx.obj['column_ref_index_increment']}"
+        )
 
 
 @cli.command("create", help="Create database objects from the Felis file")
@@ -322,6 +349,7 @@ def load_tap_schema(
             file,
             context={
                 "id_generation": ctx.obj["id_generation"],
+                "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
                 "force_unbounded_arraysize": force_unbounded_arraysize,
             },
         )
@@ -471,8 +499,10 @@ def validate(
                     "check_tap_table_indexes": check_tap_table_indexes,
                     "check_tap_principal": check_tap_principal,
                     "id_generation": ctx.obj["id_generation"],
+                    "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
                 },
             )
+            logger.info(f"Successfully validated {file_name}")
         except ValidationError as e:
             logger.error(e)
             rc = 1

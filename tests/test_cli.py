@@ -358,5 +358,118 @@ class CliTestCase(unittest.TestCase):
             self.fail(f"Test failed with exception: {e}")
 
 
+class ColumnRefsTestCase(unittest.TestCase):
+    """Test handling of column references in CLI."""
+
+    def setUp(self) -> None:
+        """Set up a temporary directory for tests."""
+        self.temp_dir = tempfile.mkdtemp(dir=TEST_DIR)
+        self.sqlite_url = f"sqlite:///{self.temp_dir}/db.sqlite3"
+
+        # Write out source schema file
+        source_schema_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: ref_col1
+    datatype: int
+  - name: ref_col2
+    datatype: string
+    length: 64
+  - name: ref_col3
+    datatype: float
+"""
+        source_schema_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(source_schema_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Write out referencing schema file
+        ref_schema_content = """
+name: ref_schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        ref_col1:
+        ref_col2:
+          overrides:
+            tap:column_index: 15
+        col3:
+          ref_name: ref_col3
+"""
+        self.ref_schema_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        ref_content = ref_schema_content.format(resource_path=source_schema_path)
+        with open(self.ref_schema_path, "w") as f:
+            f.write(ref_content.strip())
+
+    def tearDown(self) -> None:
+        """Clean up temporary directory."""
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_validate_with_column_ref_index_increment(self) -> None:
+        """Test that passing a valid value for column reference index increment
+        works.
+        """
+        run_cli(
+            [
+                "--column-ref-index-increment=1",
+                "validate",
+                self.ref_schema_path,
+            ]
+        )
+
+    def test_validate_with_column_ref_index_increment_error(self) -> None:
+        """Test that passing an invalid value for column reference index raises
+        an error.
+        """
+        run_cli(
+            [
+                "--column-ref-index-increment=-1",
+                "validate",
+                self.ref_schema_path,
+            ],
+            expect_error=True,
+        )
+
+    def test_load_tap_schema_with_column_refs(self) -> None:
+        """Test load-tap-schema command with column reference index
+        increment.
+        """
+        # Create the TAP_SCHEMA database
+        run_cli(["init-tap-schema", f"--engine-url={self.sqlite_url}"])
+
+        # Load the TAP_SCHEMA data that includes column references
+        run_cli(
+            [
+                "load-tap-schema",
+                f"--engine-url={self.sqlite_url}",
+                self.ref_schema_path,
+            ]
+        )
+
+    def test_load_tap_schema_with_column_ref_index_increment(self) -> None:
+        """Test load-tap-schema command with column reference index
+        increment.
+        """
+        # Create the TAP_SCHEMA database
+        run_cli(["init-tap-schema", f"--engine-url={self.sqlite_url}"])
+
+        # Load the TAP_SCHEMA data that includes column reference index
+        # increment
+        run_cli(
+            [
+                "--column-ref-index-increment=1",
+                "load-tap-schema",
+                f"--engine-url={self.sqlite_url}",
+                self.ref_schema_path,
+            ]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

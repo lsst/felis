@@ -1492,6 +1492,64 @@ tables:
         # Check that column_refs is empty after dereferencing
         self.assertEqual(len(ref_table.column_refs), 0)
 
+    def test_tap_column_index_with_overrides(self) -> None:
+        """Test that TAP column index is correctly assigned when an override
+        of that field is present in the column ref.
+        """
+        # Write out source schema file
+        source_schema_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: col1
+    datatype: int
+  - name: col2
+    datatype: int
+  - name: col3
+    datatype: int
+"""
+        source_schema_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(source_schema_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Write out referencing schema file
+        ref_schema_content = """
+name: ref_schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        col1:
+        col2:
+          overrides:
+            tap:column_index: 15
+        col3:
+"""
+        ref_schema_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        ref_content = ref_schema_content.format(resource_path=source_schema_path)
+        with open(ref_schema_path, "w") as f:
+            f.write(ref_content.strip())
+
+        ref_schema = Schema.from_uri(
+            ref_schema_path,
+            context={"id_generation": True, "column_ref_index_increment": 10},
+        )
+
+        for column in ref_schema.tables[0].columns:
+            if column.name == "col1":
+                self.assertEqual(column.tap_column_index, 10)
+            elif column.name == "col2":
+                self.assertEqual(column.tap_column_index, 15)
+            elif column.name == "col3":
+                self.assertEqual(column.tap_column_index, 20)
+            else:
+                self.fail(f"Unexpected column name: {column.name}")
+
 
 if __name__ == "__main__":
     unittest.main()
