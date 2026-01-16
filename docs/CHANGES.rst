@@ -1,3 +1,63 @@
+v30.0.0 (2026-01-16)
+====================
+
+New Features
+------------
+
+- Automatically set ``votable_xtype`` on timestamp columns to "timestamp", following the documentation in the VOTable REC on Extended Type (xtype). (`DM-45133 <https://jira.lsstcorp.org/browse/DM-45133>`_)
+- Added optional generation of unique key_id values when loading data into the TAP_SCHEMA keys and key_columns tables.
+  This feature can be activated using the ``-u`` or ``--unique-keys`` flag of the ``load-tap-schema`` command. (`DM-45619 <https://jira.lsstcorp.org/browse/DM-45619>`_)
+- Added insertion of TAP_SCHEMA self-description records when initializing the database. (`DM-48167 <https://jira.lsstcorp.org/browse/DM-48167>`_)
+- Add support in the data model for optionally setting the ``ON UPDATE`` or ``ON DELETE`` actions of a foreign key constraint,
+  corresponding to the ``on_update`` and ``on_delete`` properties in the YAML file.
+  Valid values for these properties are covered in the `SQLAlchemy documentation <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__. (`DM-48204 <https://jira.lsstcorp.org/browse/DM-48204>`_)
+- Added support for serializing schemas back to YAML.
+  Fixed multiple issues with classes in the data model which were preventing this from working, previously.
+  Added a test case that "round trips" a test YAML file and verifies that it is the same as the original data.
+  Added a ``dump`` command to the CLI which can be used to dump a schema to a YAML or JSON file. (`DM-48925 <https://jira.lsstcorp.org/browse/DM-48925>`_)
+- Added a feature flag ``--force-unbounded-arraysize`` to the ``load-tap-schema`` command for working around
+  `Astropy issue #18099 <https://github.com/astropy/astropy/issues/18099>`_. (`DM-50914 <https://jira.lsstcorp.org/browse/DM-50914>`_)
+- Add option to strip IDs from output YAML when dumping a schema to YAML.
+  The command ``felis dump --strip-ids`` can be used to activate this behavior. (`DM-51376 <https://jira.lsstcorp.org/browse/DM-51376>`_)
+- Added schema-level checks of constraints to validate their column references.
+  These will be reported as proper Pydantic validation errors if the column data is bad. (`DM-51502 <https://jira.lsstcorp.org/browse/DM-51502>`_)
+- Added support for managing indexes in the database.
+
+  - Added ``--skip-indexes`` option to ``create`` command for skipping index
+    creation when initializing a schema in a database.
+  - Added index management commands to the CLI including ``create-indexes``
+    for creating indexes from a schema in a database and ``drop-indexes``
+    for dropping them. (`DM-52344 <https://jira.lsstcorp.org/browse/DM-52344>`_)
+- Added Docker support.
+
+  - Added Dockerfile to build image with the felis cli available.
+  - Added github workflow to build and push image to ghcr. (`DM-52910 <https://jira.lsstcorp.org/browse/DM-52910>`_)
+- Add option to instantiate TAP_SCHEMA with extensions to table columns. (`DM-53031 <https://jira.lsstcorp.org/browse/DM-53031>`_)
+- Add view_target to tap_schema extensions for the tables table. (`DM-53338 <https://jira.lsstcorp.org/browse/DM-53338>`_)
+
+
+API Changes
+-----------
+
+- By default, generate the ``@id`` field for any schema object if it is missing.
+  To turn this off, use ``felis --no-id-generation [command]``. (`DM-46240 <https://jira.lsstcorp.org/browse/DM-46240>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed the generation of TAP_SCHEMA data for composite keys. (`DM-51707 <https://jira.lsstcorp.org/browse/DM-51707>`_)
+- Add MetadataInserter to export list. (`DM-53083 <https://jira.lsstcorp.org/browse/DM-53083>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Added a ``tests.run_cli`` utility module for running CLI commands in tests.
+  Refactored the tests in ``tests_cli`` to use the new utility function. (`DM-47602 <https://jira.lsstcorp.org/browse/DM-47602>`_)
+- Refactored modules, classes and functions used for database operations. (`DM-53293 <https://jira.lsstcorp.org/browse/DM-53293>`_)
+
+
 v29.0.0 (2025-03-26)
 ====================
 
