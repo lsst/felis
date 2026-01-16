@@ -1,1 +1,0 @@
-Added insertion of TAP_SCHEMA self-description records when initializing the database.

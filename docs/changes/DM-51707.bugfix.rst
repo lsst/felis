@@ -1,1 +1,0 @@
-Fixed the generation of TAP_SCHEMA data for composite keys.
