@@ -1304,10 +1304,12 @@ class Schema(BaseObject, Generic[T]):
         tables in this schema.
         """
         context = info.context
-        if context is not None and context.get("dereference_resources", False):
-            dereference_resources = True
-        else:
-            dereference_resources = False
+        column_ref_index_increment: int | None = None
+        dereference_resources = False
+        if context is not None:
+            dereference_resources = context.get("dereference_resources", False)
+            column_ref_index_increment = context.get("column_ref_index_increment", None)
+
         for table in self.tables:
             if column_refs := table.column_refs:
                 for resource_name, tables in column_refs.items():
@@ -1319,6 +1321,7 @@ class Schema(BaseObject, Generic[T]):
                         tables,
                         resource_schema,
                         dereference_resources,
+                        column_ref_index_increment,
                     )
                 if dereference_resources and len(table.column_refs) > 0:
                     # Clear column refs in table if fully dereferencing
@@ -1334,10 +1337,13 @@ class Schema(BaseObject, Generic[T]):
         ref_tables: ResourceTableMap,
         resource_schema: Schema,
         dereference_resources: bool = False,
+        column_ref_index_increment: int | None = None,
     ) -> None:
         """Process column references from an external resource and add them
         to the given table.
         """
+        current_column_index = column_ref_index_increment if column_ref_index_increment is not None else -1
+
         for table_name, columns in ref_tables.items():
             try:
                 resource_table = resource_schema._find_table_by_name(table_name)
@@ -1375,20 +1381,46 @@ class Schema(BaseObject, Generic[T]):
                 # Create a copy of the base column and apply
                 # overrides
                 column_copy = base_column.model_copy()
+
                 # Set the local name (key from the mapping)
                 column_copy.name = local_column_name
+
                 if not dereference_resources:
+                    # Flag the column as a resource reference so it will not be
+                    # written out during serialization
                     column_copy._is_resource_ref = True
 
+                # Apply overrides to the original column definition
+                overrides: ColumnOverrides | None = None
                 if column_ref is not None and column_ref.overrides is not None:
                     overrides = column_ref.overrides
                     for field_name, override_value in overrides.model_dump().items():
                         if override_value is not None:
                             setattr(column_copy, field_name, override_value)
 
-                            # Manually set the ID of the copied column as
-                            # ID generation has already occurred
+                # Manually set the ID of the copied column as ID generation has
+                # already occurred by now
                 column_copy.id = f"{table.id}.{local_column_name}"
+
+                # Apply automatic assignment of 'tap:column_index', if enabled
+                if column_ref_index_increment is not None:
+                    if (not overrides) or (overrides.tap_column_index is None):
+                        column_copy.tap_column_index = current_column_index
+                        current_column_index += column_ref_index_increment
+                        logger.debug(
+                            f"Automatically assigned 'tap:column_index' {column_copy.tap_column_index} to "
+                            f"column '{local_column_name}' in table '{table_name}' from resource "
+                            f"'{resource_schema.name}'"
+                        )
+                    else:
+                        # Skip automatic assignment of 'tap:column_index' if it
+                        # is already overridden
+                        logger.debug(
+                            f"Skipping automatic assignment of 'tap:column_index' for column "
+                            f"'{local_column_name}' in table '{table_name}' from resource "
+                            f"'{resource_schema.name}' as it is already overridden to "
+                            f"{column_copy.tap_column_index}"
+                        )
                 table.columns.append(column_copy)
                 logger.debug(
                     f"Dereferenced column '{local_column_name}' from table '{table_name}' "
@@ -1839,7 +1871,6 @@ class Schema(BaseObject, Generic[T]):
         pydantic.ValidationError
             Raised if the schema fails validation.
         """
-        logger.debug(f"Loading schema from: '{resource_path}'")
         try:
             rp_stream = ResourcePath(resource_path).read()
         except Exception as e:

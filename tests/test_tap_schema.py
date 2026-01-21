@@ -484,6 +484,85 @@ class CompositeKeysTestCase(unittest.TestCase):
         )
 
 
+class ColumnRefsTestCase(unittest.TestCase):
+    """Test case that column references are applied correctly in TAP_SCHEMA."""
+
+    def setUp(self) -> None:
+        """Set up the test case."""
+        self.temp_dir = tempfile.mkdtemp()
+
+        # Write out source schema file
+        source_schema_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: ref_col1
+    datatype: int
+  - name: ref_col2
+    datatype: string
+    length: 64
+  - name: ref_col3
+    datatype: float
+"""
+        source_schema_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(source_schema_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Write out referencing schema file
+        ref_schema_content = """
+name: ref_schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        ref_col1:
+        ref_col2:
+        col3:
+          ref_name: ref_col3
+"""
+        ref_schema_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        ref_content = ref_schema_content.format(resource_path=source_schema_path)
+        with open(ref_schema_path, "w") as f:
+            f.write(ref_content.strip())
+
+        self.tap_schema_setup = TapSchemaSqliteSetup(
+            ref_schema_path, context={"id_generation": True, "column_ref_index_increment": 1}
+        )
+
+    def test_column_refs(self) -> None:
+        """Test that column references are processed correctly."""
+        with create_database_context("sqlite:///:memory:", self.tap_schema_setup.metadata) as db_ctx:
+            # Create the TAP_SCHEMA database and load the data
+            self.tap_schema_setup.mgr.initialize_database(db_ctx)
+            loader = DataLoader(
+                self.tap_schema_setup.schema, self.tap_schema_setup.mgr, db_context=db_ctx, tap_schema_index=2
+            )
+            loader.load()
+
+            columns_table = self.tap_schema_setup.mgr["columns"]
+            with db_ctx.engine.connect() as connection:
+                result = connection.execute(select(columns_table))
+                rows = [row._asdict() for row in result]
+                self.assertEqual(len(rows), 3)
+                column_names = [column_data["column_name"] for column_data in rows]
+                self.assertEqual(set(column_names), {"ref_col1", "ref_col2", "col3"})
+                for column_data in rows:
+                    # Check the generated indices of the referenced columns
+                    if column_data["column_name"] == "ref_col1":
+                        self.assertEqual(column_data["column_index"], 1)
+                    elif column_data["column_name"] == "ref_col2":
+                        self.assertEqual(column_data["column_index"], 2)
+                    elif column_data["column_name"] == "col3":
+                        self.assertEqual(column_data["column_index"], 3)
+                    else:
+                        self.fail(f"Unexpected column name: {column_data['column_name']}")
+
+
 class TableManagerExtensionsTestCase(unittest.TestCase):
     """Test the `TableManager` class with extensions."""
 
