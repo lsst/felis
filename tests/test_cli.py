@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import logging
 import os
 import shutil
 import tempfile
@@ -46,6 +47,11 @@ class CliTestCase(unittest.TestCase):
         self.tmpdir = tempfile.mkdtemp(dir=TEST_DIR)
         self.sqlite_url = f"sqlite:///{self.tmpdir}/db.sqlite3"
         print(f"Using temporary directory: {self.tmpdir}")
+
+        # Clear any existing logging handlers to ensure fresh configuration for
+        # each test
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
 
     def tearDown(self) -> None:
         """Clean up temporary directory."""
@@ -87,6 +93,15 @@ class CliTestCase(unittest.TestCase):
     def test_validate(self) -> None:
         """Test validate command."""
         run_cli(["validate", TEST_YAML])
+
+    def test_validate_with_log_file(self) -> None:
+        """Test validate command with log file."""
+        log_file = os.path.join(self.tmpdir, "validate.log")
+        run_cli([f"--log-file={log_file}", "validate", TEST_YAML], log_level=logging.DEBUG, print_cmd=True)
+        if not os.path.exists(log_file):
+            self.fail("Log file was not created")
+        if os.path.getsize(log_file) == 0:
+            self.fail("Log file is empty")
 
     def test_validate_with_id_generation(self) -> None:
         """Test that loading a schema with IDs works if ID generation is
