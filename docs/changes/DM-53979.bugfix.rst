@@ -1,0 +1,1 @@
+Fixed an issue when copying column ref overrides to the target column
