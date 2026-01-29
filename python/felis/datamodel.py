@@ -1331,8 +1331,24 @@ class Schema(BaseObject, Generic[T]):
                     table.column_refs = {}
         return self
 
+    @classmethod
+    def _copy_overrides_to_column(
+        cls, column_ref: ColumnResourceRef, column_copy: Column
+    ) -> ColumnOverrides | None:
+        """Copy overrides from a column ref to a column."""
+        if column_ref.overrides is not None:
+            overrides = column_ref.overrides
+            override_fields = overrides.model_fields_set
+            for field_name in override_fields:
+                if hasattr(column_copy, field_name):
+                    # Use attribute assignment to avoid type conversion issues
+                    # which can occur with using model_dump and model_copy
+                    setattr(column_copy, field_name, getattr(overrides, field_name))
+        return column_ref.overrides
+
+    @classmethod
     def _process_column_refs(
-        self,
+        cls,
         table: Table,
         ref_tables: ResourceTableMap,
         resource_schema: Schema,
@@ -1340,7 +1356,7 @@ class Schema(BaseObject, Generic[T]):
         column_ref_index_increment: int | None = None,
     ) -> None:
         """Process column references from an external resource and add them
-        to the given table.
+        to the given table as columns.
         """
         current_column_index = column_ref_index_increment if column_ref_index_increment is not None else -1
 
@@ -1392,11 +1408,8 @@ class Schema(BaseObject, Generic[T]):
 
                 # Apply overrides to the original column definition
                 overrides: ColumnOverrides | None = None
-                if column_ref is not None and column_ref.overrides is not None:
-                    overrides = column_ref.overrides
-                    for field_name, override_value in overrides.model_dump().items():
-                        if override_value is not None:
-                            setattr(column_copy, field_name, override_value)
+                if column_ref is not None:
+                    overrides = cls._copy_overrides_to_column(column_ref, column_copy)
 
                 # Manually set the ID of the copied column as ID generation has
                 # already occurred by now
