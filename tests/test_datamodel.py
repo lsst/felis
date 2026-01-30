@@ -22,6 +22,7 @@
 import difflib
 import os
 import pathlib
+import re
 import shutil
 import tempfile
 import unittest
@@ -35,6 +36,7 @@ from felis.datamodel import (
     CheckConstraint,
     Column,
     ColumnGroup,
+    ColumnOverrides,
     Constraint,
     DataType,
     ForeignKeyConstraint,
@@ -1549,6 +1551,206 @@ tables:
                 self.assertEqual(column.tap_column_index, 20)
             else:
                 self.fail(f"Unexpected column name: {column.name}")
+
+
+class ColumnOverridesTestCase(unittest.TestCase):
+    """Test application of overrides to a column, setting all allowed
+    fields.
+    """
+
+    def test_all_override_fields_exist_on_column(self) -> None:
+        """Ensure every ColumnOverrides field corresponds to an attribute on
+        Column.
+        """
+        override_fields = set(ColumnOverrides.model_fields)
+        column_fields = set(Column.model_fields)
+
+        missing = override_fields - column_fields
+
+        self.assertFalse(
+            missing,
+            f"Column is missing attributes for override fields: {sorted(missing)}",
+        )
+
+    def test_overrides_all(self) -> None:
+        """Test updating all allowed column fields from overrides."""
+        # Create a base column
+        base_column = Column(
+            name="base_column",
+            id="#base_column",
+            description="Base column",
+            datatype="char",
+            length=64,
+            nullable=False,
+            tap_principal=1,
+            tap_column_index=10,
+        )
+
+        # Override all allowed fields with different values
+        overrides = ColumnOverrides(
+            description="Ref column",
+            datatype="string",
+            length=256,
+            nullable=True,
+            tap_principal=0,
+            tap_column_index=100,
+        )
+
+        # Apply overrides
+        base_column._update_from_overrides(overrides)
+
+        # Check that the attributes were updated correctly
+        self.assertEqual(base_column.description, "Ref column")
+        self.assertEqual(base_column.datatype, "string")
+        self.assertEqual(base_column.length, 256)
+        self.assertEqual(base_column.nullable, True)
+        self.assertEqual(base_column.tap_principal, 0)
+        self.assertEqual(base_column.tap_column_index, 100)
+
+    def test_overrides_subset(self) -> None:
+        """Test updating a subset of allowed column fields from overrides."""
+        # Create a base column
+        base_column = Column(
+            name="base_column",
+            id="#base_column",
+            description="Base column",
+            datatype="char",
+            length=64,
+            nullable=False,
+            tap_principal=1,
+            tap_column_index=10,
+        )
+
+        # Override all allowed fields with different values
+        overrides = ColumnOverrides(
+            description="Ref column",
+            tap_column_index=100,
+        )
+
+        # Apply overrides
+        base_column._update_from_overrides(overrides)
+
+        # Check that the attributes were updated correctly
+        self.assertEqual(base_column.description, "Ref column")
+        self.assertEqual(base_column.datatype, "char")
+        self.assertEqual(base_column.length, 64)
+        self.assertEqual(base_column.nullable, False)
+        self.assertEqual(base_column.tap_principal, 1)
+        self.assertEqual(base_column.tap_column_index, 100)
+
+    def test_overrides_default(self) -> None:
+        """Test that applying the default overrides is a no-op."""
+        # Create a base column
+        base_column = Column(
+            name="base_column",
+            id="#base_column",
+            description="Base column",
+            datatype="char",
+            length=64,
+            nullable=False,
+            tap_principal=1,
+            tap_column_index=10,
+        )
+
+        # Apply overrides
+        base_column._update_from_overrides(ColumnOverrides())
+
+        # Check that the attributes remain unchanged
+        self.assertEqual(base_column.description, "Base column")
+        self.assertEqual(base_column.datatype, "char")
+        self.assertEqual(base_column.length, 64)
+        self.assertEqual(base_column.nullable, False)
+        self.assertEqual(base_column.tap_principal, 1)
+        self.assertEqual(base_column.tap_column_index, 10)
+
+    def test_overrides_with_explicit_none_values(self) -> None:
+        """Test that passing explicit None values in overrides does update
+        the column attributes where allowed and raises errors if it is not.
+        """
+        # Create a base column
+        base_column = Column(
+            name="base_column",
+            id="#base_column",
+            description="Base column",
+            datatype="int",
+            length=64,
+            nullable=False,
+            tap_principal=1,
+            tap_column_index=10,
+        )
+
+        # Create overrides with explicit None values for nullable fields
+        overrides = ColumnOverrides(
+            description=None,
+            tap_column_index=None,
+        )
+
+        # Apply overrides
+        base_column._update_from_overrides(overrides)
+
+        # Check that the attributes were updated to None where allowed
+        self.assertIsNone(base_column.description)
+        self.assertIsNone(base_column.tap_column_index)
+
+        # Check that setting non-nullable fields to None raise a specific
+        # ValueError on ColumnOverrides creation
+        for non_nullable_field in ("datatype", "length", "nullable", "tap_principal"):
+            with self.assertRaisesRegex(
+                ValueError,
+                re.escape(f"The '{non_nullable_field}' field cannot be overridden to null"),
+            ):
+                ColumnOverrides(**{non_nullable_field: None})
+
+    def test_extra_fields_in_overrides(self) -> None:
+        """Test that extra fields in ColumnOverrides raise a
+        ValidationError.
+        """
+        with self.assertRaises(ValidationError) as cm:
+            ColumnOverrides(
+                description="Test column",
+                extra_field="This should not be allowed",
+            )
+
+        self.assertIn("Extra inputs are not permitted", str(cm.exception))
+
+    def test_overrides_accept_alias_keys(self) -> None:
+        """Test that alias keys for TAP fields are accepted and populate the
+        corresponding model fields.
+        """
+        overrides = ColumnOverrides(**{"tap:principal": 1, "tap:column_index": 42})
+
+        self.assertEqual(overrides.tap_principal, 1)
+        self.assertEqual(overrides.tap_column_index, 42)
+
+        # Ensure these count as explicitly provided (for model_fields_set
+        # logic).
+        self.assertIn("tap_principal", overrides.model_fields_set)
+        self.assertIn("tap_column_index", overrides.model_fields_set)
+
+    def test_datatype_deserialize_and_serialize(self) -> None:
+        """Test that datatype is deserialized from a string to DataType and
+        serialized back to a string.
+        """
+        overrides = ColumnOverrides(datatype="char")
+
+        # Deserialization should yield a DataType instance (not a raw str).
+        self.assertIsInstance(overrides.datatype, DataType)
+        self.assertEqual(str(overrides.datatype), "char")
+
+        # Serialization should produce a JSON-friendly string value.
+        dumped = overrides.model_dump(mode="json")
+        self.assertEqual(dumped["datatype"], "char")
+
+        # None should remain None on serialization.
+        overrides_none = ColumnOverrides()
+        dumped_none = overrides_none.model_dump(mode="json")
+        self.assertIsNone(dumped_none["datatype"])
+
+    def test_non_nullable_overrides_data_is_none(self) -> None:
+        """Test that passing None to ``_check_non_nullable_overrides`` does not
+        raise an error.
+        """
+        ColumnOverrides()._check_non_nullable_overrides(None)
 
 
 if __name__ == "__main__":

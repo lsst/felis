@@ -541,6 +541,25 @@ class Column(BaseObject):
             self.votable_xtype = "timestamp"
         return self
 
+    def _update_from_overrides(self, overrides: ColumnOverrides) -> None:
+        """Update the column attributes from the given overrides.
+
+        Parameters
+        ----------
+        overrides
+            The column overrides to apply or `None` to skip applying overrides.
+
+        Notes
+        -----
+        Using ``model_fields_set`` allows updating only the fields that are
+        explicitly set in the `overrides` object. This prevents overwriting
+        existing column attributes which were not explicitly provided.
+        """
+        if overrides.model_fields_set:
+            logger.debug("Applying overrides to column '%s': %s", self.id, overrides.model_fields_set)
+            for field in overrides.model_fields_set:
+                setattr(self, field, getattr(overrides, field))
+
 
 class Constraint(BaseObject):
     """Table constraint model."""
@@ -819,9 +838,14 @@ class ColumnGroup(BaseObject):
 class ColumnOverrides(BaseModel):
     """Allowed overrides for a referenced column.
 
-    All fields are optional; missing values mean "inherit from the base
-    column".
+    Notes
+    -----
+    All of these fields are optional. Values of None may be explicitly set to
+    override the corresponding attribute in the referenced column but only
+    for certain fields (see validation in `_check_non_nullable_overrides`).
     """
+
+    model_config = CONFIG.copy()
 
     datatype: DataType | None = None
     """New datatype for the column."""
@@ -832,7 +856,7 @@ class ColumnOverrides(BaseModel):
     description: str | None = None
     """New description for the column."""
 
-    nullable: bool = True
+    nullable: bool | None = None
     """New nullable flag for the column."""
 
     tap_principal: int | None = Field(default=None, alias="tap:principal")
@@ -840,6 +864,18 @@ class ColumnOverrides(BaseModel):
 
     tap_column_index: int | None = Field(default=None, alias="tap:column_index")
     """Override for the TAP_SCHEMA column index."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _check_non_nullable_overrides(cls, data: Any) -> Any:
+        """Check that certain fields are not overridden to null."""
+        if not isinstance(data, dict):
+            return data
+        non_nullable_fields = ("datatype", "length", "nullable", "tap_principal")
+        for name in non_nullable_fields:
+            if name in data and data[name] is None:
+                raise ValueError(f"The '{name}' field cannot be overridden to null")
+        return data
 
     @field_serializer("datatype")
     def serialize_datatype(self, value: DataType | None) -> str | None:
@@ -1332,21 +1368,6 @@ class Schema(BaseObject, Generic[T]):
         return self
 
     @classmethod
-    def _copy_overrides_to_column(
-        cls, column_ref: ColumnResourceRef, column_copy: Column
-    ) -> ColumnOverrides | None:
-        """Copy overrides from a column ref to a column."""
-        if column_ref.overrides is not None:
-            overrides = column_ref.overrides
-            override_fields = overrides.model_fields_set
-            for field_name in override_fields:
-                if hasattr(column_copy, field_name):
-                    # Use attribute assignment to avoid type conversion issues
-                    # which can occur with using model_dump and model_copy
-                    setattr(column_copy, field_name, getattr(overrides, field_name))
-        return column_ref.overrides
-
-    @classmethod
     def _process_column_refs(
         cls,
         table: Table,
@@ -1394,8 +1415,7 @@ class Schema(BaseObject, Generic[T]):
                         f"from resource '{resource_schema.name}' and no ref_name provided"
                     )
 
-                # Create a copy of the base column and apply
-                # overrides
+                # Create a copy of the base column
                 column_copy = base_column.model_copy()
 
                 # Set the local name (key from the mapping)
@@ -1406,10 +1426,10 @@ class Schema(BaseObject, Generic[T]):
                     # written out during serialization
                     column_copy._is_resource_ref = True
 
-                # Apply overrides to the original column definition
-                overrides: ColumnOverrides | None = None
-                if column_ref is not None:
-                    overrides = cls._copy_overrides_to_column(column_ref, column_copy)
+                # Apply overrides to the referenced column definition
+                overrides = column_ref.overrides if column_ref is not None else None
+                if overrides is not None:
+                    column_copy._update_from_overrides(overrides)
 
                 # Manually set the ID of the copied column as ID generation has
                 # already occurred by now
