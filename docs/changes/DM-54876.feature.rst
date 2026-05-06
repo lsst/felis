@@ -1,0 +1,1 @@
+Added support to the ``dump`` command for sorting output columns alphabetically
