@@ -46,8 +46,9 @@ test = [
     "pytest >= 3.2"
 ]
 dev = [
-    "documenteer[guide] < 2",
+    "documenteer[guide]<2",
     "autodoc_pydantic",
+    "setuptools<82",
     "sphinx-click",
 ]
 

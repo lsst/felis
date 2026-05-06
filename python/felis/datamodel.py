@@ -28,6 +28,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from enum import StrEnum, auto
+from operator import itemgetter
 from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar
 
 import yaml
@@ -1938,7 +1939,7 @@ class Schema(BaseObject, Generic[T]):
         yaml_data = yaml.safe_load(source)
         return Schema.model_validate(yaml_data, context=context)
 
-    def _model_dump(self, strip_ids: bool = False) -> dict[str, Any]:
+    def _model_dump(self, strip_ids: bool = False, sort_columns: bool = False) -> dict[str, Any]:
         """Dump the schema as a dictionary with some default arguments
         applied.
 
@@ -1946,6 +1947,9 @@ class Schema(BaseObject, Generic[T]):
         ----------
         strip_ids
             Whether to strip the IDs from the dumped data. Defaults to `False`.
+        sort_columns
+            Whether to sort columns alphabetically by name. Defaults to
+            `False`.
 
         Returns
         -------
@@ -1955,9 +1959,14 @@ class Schema(BaseObject, Generic[T]):
         data = self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
         if strip_ids:
             data = _strip_ids(data)
+        if sort_columns:
+            for table in data.get("tables", []):
+                table["columns"] = sorted(table.get("columns", []), key=itemgetter("name"))
         return data
 
-    def dump_yaml(self, stream: IO[str] = sys.stdout, strip_ids: bool = False) -> None:
+    def dump_yaml(
+        self, stream: IO[str] = sys.stdout, strip_ids: bool = False, sort_columns: bool = False
+    ) -> None:
         """Pretty print the schema as YAML.
 
         Parameters
@@ -1966,8 +1975,11 @@ class Schema(BaseObject, Generic[T]):
             The stream to write the YAML data to.
         strip_ids
             Whether to strip the IDs from the dumped data. Defaults to `False`.
+        sort_columns
+            Whether to sort columns alphabetically by name. Defaults to
+            `False`.
         """
-        data = self._model_dump(strip_ids=strip_ids)
+        data = self._model_dump(strip_ids=strip_ids, sort_columns=sort_columns)
         yaml.safe_dump(
             data,
             stream,
@@ -1975,7 +1987,9 @@ class Schema(BaseObject, Generic[T]):
             sort_keys=False,
         )
 
-    def dump_json(self, stream: IO[str] = sys.stdout, strip_ids: bool = False) -> None:
+    def dump_json(
+        self, stream: IO[str] = sys.stdout, strip_ids: bool = False, sort_columns: bool = False
+    ) -> None:
         """Pretty print the schema as JSON.
 
         Parameters
@@ -1984,8 +1998,11 @@ class Schema(BaseObject, Generic[T]):
             The stream to write the JSON data to.
         strip_ids
             Whether to strip the IDs from the dumped data. Defaults to `False`.
+        sort_columns
+            Whether to sort columns alphabetically by name. Defaults to
+            `False`.
         """
-        data = self._model_dump(strip_ids=strip_ids)
+        data = self._model_dump(strip_ids=strip_ids, sort_columns=sort_columns)
         json.dump(
             data,
             stream,

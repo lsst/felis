@@ -605,16 +605,25 @@ def diff(
     help="Remove any column references from resources and inline the full column definitions in the output",
     default=False,
 )
+@click.option(
+    "--sort-columns/--no-sort-columns",
+    is_flag=True,
+    help="Sort columns alphabetically by name in the output",
+    default=False,
+)
 @click.argument("files", nargs=2, type=click.Path())
 @click.pass_context
 def dump(
     ctx: click.Context,
     strip_ids: bool,
     dereference_resources: bool,
+    sort_columns: bool,
     files: list[str],
 ) -> None:
     if strip_ids:
         logger.info("Stripping IDs from the output schema")
+    if sort_columns:
+        logger.info("Sorting output columns alphabetically")
     if files[1].endswith(".json"):
         format = "json"
     elif files[1].endswith(".yaml"):
@@ -627,9 +636,10 @@ def dump(
     )
     with open(files[1], "w") as f:
         if format == "yaml":
-            schema.dump_yaml(f, strip_ids=strip_ids)
+            schema.dump_yaml(f, strip_ids=strip_ids, sort_columns=sort_columns)
         elif format == "json":
-            schema.dump_json(f, strip_ids=strip_ids)
+            schema.dump_json(f, strip_ids=strip_ids, sort_columns=sort_columns)
+    logger.info(f"Dumped {files[0]} to {files[1]}")
 
 
 if __name__ == "__main__":
