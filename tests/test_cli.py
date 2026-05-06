@@ -275,6 +275,68 @@ class CliTestCase(unittest.TestCase):
         with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
             run_cli(["dump", TEST_YAML, temp_file.name], print_output=True)
 
+    def test_dump_with_dereference_resources_and_sort_columns(self) -> None:
+        """Test dump with both --dereference-resources and --sort-columns."""
+        # Define a source schema with columns in non-alphabetical order
+        source_schema_content = """
+name: base_schema
+tables:
+- name: base_table
+  columns:
+  - name: zebra_col
+    datatype: string
+    length: 32
+  - name: alpha_col
+    datatype: int
+  - name: middle_col
+    datatype: float
+"""
+        source_path = os.path.join(self.tmpdir, "base_schema.yaml")
+        with open(source_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Define a referencing schema that pulls columns via columnRefs
+        ref_schema_content = f"""
+name: derived_schema
+resources:
+  base_schema:
+    uri: {source_path}
+tables:
+- name: derived_table
+  columnRefs:
+    base_schema:
+      base_table:
+        zebra_col:
+        alpha_col:
+        middle_col:
+"""
+        ref_path = os.path.join(self.tmpdir, "derived_schema.yaml")
+        with open(ref_path, "w") as f:
+            f.write(ref_schema_content.strip())
+
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".yaml", dir=self.tmpdir) as temp_file:
+            run_cli(
+                [
+                    "dump",
+                    "--dereference-resources",
+                    "--sort-columns",
+                    ref_path,
+                    temp_file.name,
+                ],
+                print_output=True,
+            )
+            dumped_data = temp_file.read().decode("utf-8")
+            data = yaml.safe_load(dumped_data)
+
+            # Verify resources are dereferenced (no columnRefs remain)
+            for table in data.get("tables", []):
+                self.assertNotIn("columnRefs", table)
+                # Verify columns are present and sorted alphabetically
+                columns = table.get("columns", [])
+                self.assertGreater(len(columns), 0)
+                names = [col["name"] for col in columns]
+                self.assertEqual(names, sorted(names))
+
     def test_dump_json_with_strip_ids(self) -> None:
         """Test for ``dump`` command with JSON output."""
         with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
@@ -286,6 +348,32 @@ class CliTestCase(unittest.TestCase):
                 self._check_strip_ids(data)
             except ValueError:
                 self.fail("Dumped YAML contains forbidden key '@id'")
+
+    @classmethod
+    def _check_columns_sorted(cls, data: dict[str, Any]) -> None:
+        """Check that columns in each table are sorted alphabetically by
+        name.
+        """
+        for table in data.get("tables", []):
+            columns = table.get("columns", [])
+            names = [col["name"] for col in columns]
+            assert names == sorted(names), f"Columns not sorted in table {table.get('name')}: {names}"
+
+    def test_dump_yaml_with_sort_columns(self) -> None:
+        """Test for ``dump`` command with YAML output and sorted columns."""
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".yaml") as temp_file:
+            run_cli(["dump", "--sort-columns", TEST_YAML, temp_file.name], print_output=True)
+            dumped_data = temp_file.read().decode("utf-8")
+            data = yaml.safe_load(dumped_data)
+            self._check_columns_sorted(data)
+
+    def test_dump_json_with_sort_columns(self) -> None:
+        """Test for ``dump`` command with JSON output and sorted columns."""
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
+            run_cli(["dump", "--sort-columns", TEST_YAML, temp_file.name], print_output=True)
+            dumped_data = temp_file.read().decode("utf-8")
+            data = yaml.safe_load(dumped_data)
+            self._check_columns_sorted(data)
 
     def test_dump_with_invalid_file_extension_error(self) -> None:
         """Test for ``dump`` command with JSON output."""
