@@ -125,7 +125,7 @@ def cli(
 )
 @click.option("--ignore-constraints", is_flag=True, help="Ignore constraints when creating tables")
 @click.option("--skip-indexes", is_flag=True, help="Skip creating indexes when building metadata")
-@click.argument("file", type=click.File())
+@click.argument("uri", type=str)
 @click.pass_context
 def create(
     ctx: click.Context,
@@ -138,7 +138,7 @@ def create(
     output_file: IO[str] | None,
     ignore_constraints: bool,
     skip_indexes: bool,
-    file: IO[str],
+    uri: str,
 ) -> None:
     """Create database objects from the Felis file.
 
@@ -162,13 +162,14 @@ def create(
         Ignore constraints when creating tables.
     skip_indexes
         Skip creating indexes when building metadata.
-    file
-        Felis file to read.
+    uri
+        URI of Felis file to read.
     """
     try:
+        schema = Schema.from_uri(uri, context={"id_generation": ctx.obj["id_generation"]})
+
         metadata = create_metadata(
-            file,
-            id_generation=ctx.obj["id_generation"],
+            schema,
             schema_name=schema_name,
             ignore_constraints=ignore_constraints,
             skip_indexes=skip_indexes,
@@ -204,13 +205,13 @@ def create(
 @cli.command("create-indexes", help="Create database indexes defined in the Felis file")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
-@click.argument("file", type=click.File())
+@click.argument("uri", type=str)
 @click.pass_context
 def create_indexes(
     ctx: click.Context,
     engine_url: str,
     schema_name: str | None,
-    file: IO[str],
+    uri: str,
 ) -> None:
     """Create indexes from a Felis YAML file in a target database.
 
@@ -222,9 +223,10 @@ def create_indexes(
         Felis file to read.
     """
     try:
-        metadata = create_metadata(
-            file, id_generation=ctx.obj["id_generation"], schema_name=schema_name, engine_url=engine_url
-        )
+        schema = Schema.from_uri(uri, context={"id_generation": ctx.obj["id_generation"]})
+
+        metadata = create_metadata(schema, schema_name=schema_name, engine_url=engine_url)
+
         with create_database_context(engine_url, metadata) as db_ctx:
             db_ctx.create_indexes()
     except Exception as e:
@@ -235,13 +237,13 @@ def create_indexes(
 @cli.command("drop-indexes", help="Drop database indexes defined in the Felis file")
 @click.option("--engine-url", envvar="FELIS_ENGINE_URL", help="SQLAlchemy Engine URL", default="sqlite://")
 @click.option("--schema-name", help="Alternate schema name to override Felis file")
-@click.argument("file", type=click.File())
+@click.argument("uri", type=str)
 @click.pass_context
 def drop_indexes(
     ctx: click.Context,
     engine_url: str,
     schema_name: str | None,
-    file: IO[str],
+    uri: str,
 ) -> None:
     """Drop indexes from a Felis YAML file in a target database.
 
@@ -255,9 +257,9 @@ def drop_indexes(
         Felis file to read.
     """
     try:
-        metadata = create_metadata(
-            file, id_generation=ctx.obj["id_generation"], schema_name=schema_name, engine_url=engine_url
-        )
+        schema = Schema.from_uri(uri, context={"id_generation": ctx.obj["id_generation"]})
+
+        metadata = create_metadata(schema, schema_name=schema_name, engine_url=engine_url)
         with create_database_context(engine_url, metadata) as db:
             db.drop_indexes()
     except Exception as e:
@@ -295,7 +297,7 @@ def drop_indexes(
     help="Generate unique key_id values for keys and key_columns tables by prepending the schema name",
     default=False,
 )
-@click.argument("file", type=click.File())
+@click.argument("uri", type=str)
 @click.pass_context
 def load_tap_schema(
     ctx: click.Context,
@@ -308,7 +310,7 @@ def load_tap_schema(
     output_file: IO[str] | None,
     force_unbounded_arraysize: bool,
     unique_keys: bool,
-    file: IO[str],
+    uri: str,
 ) -> None:
     """Load TAP metadata from a Felis file.
 
@@ -345,8 +347,8 @@ def load_tap_schema(
     with create_database_context(
         engine_url, mgr.metadata, echo=echo, dry_run=dry_run, output_file=output_file
     ) as db_ctx:
-        schema = Schema.from_stream(
-            file,
+        schema = Schema.from_uri(
+            uri,
             context={
                 "id_generation": ctx.obj["id_generation"],
                 "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
@@ -449,7 +451,7 @@ def init_tap_schema(
     help="Check that at least one column per table is flagged as TAP principal",
     default=False,
 )
-@click.argument("files", nargs=-1, type=click.File())
+@click.argument("uris", nargs=-1, type=str)
 @click.pass_context
 def validate(
     ctx: click.Context,
@@ -457,7 +459,7 @@ def validate(
     check_redundant_datatypes: bool,
     check_tap_table_indexes: bool,
     check_tap_principal: bool,
-    files: Iterable[IO[str]],
+    uris: Iterable[str],
 ) -> None:
     """Validate one or more felis YAML files.
 
@@ -471,8 +473,10 @@ def validate(
         Check that every table has a unique TAP table index.
     check_tap_principal
         Check that at least one column per table is flagged as TAP principal.
-    files
-        The Felis YAML files to validate.
+    uris
+        A list of URIs representing the Felis YAML files to validate. These can
+        be relative or absolute file paths or a URI with a supported scheme
+        such as ``resource://`` for package resources.
 
     Raises
     ------
@@ -487,12 +491,11 @@ def validate(
     optional validations controlled by the Pydantic context.
     """
     rc = 0
-    for file in files:
-        file_name = getattr(file, "name", None)
-        logger.info(f"Validating {file_name}")
+    for uri in uris:
+        logger.info(f"Validating schema at '{uri}'")
         try:
-            Schema.from_stream(
-                file,
+            Schema.from_uri(
+                uri,
                 context={
                     "check_description": check_description,
                     "check_redundant_datatypes": check_redundant_datatypes,
@@ -502,7 +505,7 @@ def validate(
                     "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
                 },
             )
-            logger.info(f"Successfully validated {file_name}")
+            logger.info(f"Successfully validated schema at '{uri}'")
         except ValidationError as e:
             logger.error(e)
             rc = 1
@@ -533,27 +536,21 @@ def validate(
     default="deepdiff",
 )
 @click.option("-E", "--error-on-change", is_flag=True, help="Exit with error code if schemas are different")
-@click.argument("files", nargs=-1, type=click.File())
+@click.argument("uris", nargs=-1, type=str)
 @click.pass_context
 def diff(
     ctx: click.Context,
     engine_url: str | None,
     comparator: str,
     error_on_change: bool,
-    files: Iterable[IO[str]],
+    uris: Iterable[str],
 ) -> None:
-    files_list = list(files)
-    schemas = [
-        Schema.from_stream(file, context={"id_generation": ctx.obj["id_generation"]}) for file in files_list
-    ]
+    uri_list = list(uris)
+    schemas = [Schema.from_uri(uri, context={"id_generation": ctx.obj["id_generation"]}) for uri in uri_list]
     diff: SchemaDiff
     if len(schemas) == 2:
         if comparator == "alembic":
-            # Reset file stream to beginning before re-reading
-            files_list[0].seek(0)
-            metadata = create_metadata(
-                files_list[0], id_generation=ctx.obj["id_generation"], engine_url=engine_url
-            )
+            metadata = create_metadata(schemas[0], engine_url=engine_url)
             with create_database_context(
                 engine_url if engine_url else "sqlite:///:memory:", metadata
             ) as db_ctx:
@@ -611,35 +608,35 @@ def diff(
     help="Sort columns alphabetically by name in the output",
     default=False,
 )
-@click.argument("files", nargs=2, type=click.Path())
+@click.argument("uris", nargs=2, type=str)
 @click.pass_context
 def dump(
     ctx: click.Context,
     strip_ids: bool,
     dereference_resources: bool,
     sort_columns: bool,
-    files: list[str],
+    uris: list[str],
 ) -> None:
     if strip_ids:
         logger.info("Stripping IDs from the output schema")
     if sort_columns:
         logger.info("Sorting output columns alphabetically")
-    if files[1].endswith(".json"):
+    if uris[1].endswith(".json"):
         format = "json"
-    elif files[1].endswith(".yaml"):
+    elif uris[1].endswith(".yaml"):
         format = "yaml"
     else:
         raise click.ClickException("Output file must have a .json or .yaml extension")
     schema = Schema.from_uri(
-        files[0],
+        uris[0],
         context={"id_generation": ctx.obj["id_generation"], "dereference_resources": dereference_resources},
     )
-    with open(files[1], "w") as f:
+    with open(uris[1], "w") as f:
         if format == "yaml":
             schema.dump_yaml(f, strip_ids=strip_ids, sort_columns=sort_columns)
         elif format == "json":
             schema.dump_json(f, strip_ids=strip_ids, sort_columns=sort_columns)
-    logger.info(f"Dumped {files[0]} to {files[1]}")
+    logger.info(f"Dumped '{uris[0]}' to '{uris[1]}'")
 
 
 if __name__ == "__main__":

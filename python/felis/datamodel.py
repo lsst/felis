@@ -1302,20 +1302,33 @@ class Schema(BaseObject, Generic[T]):
         else:
             context = {}
 
+        # Get the base URI for resolving relative resource paths from the
+        # validation context, if available.
         resource_path = context.pop("resource_path", None)
+        base_uri = None
+        if resource_path is not None:
+            base_uri = resource_path.parent()
 
         for resource_name, resource in self.resources.items():
             uri = resource.uri
-            if resource_path is not None:
-                uri = resource_path.parent().join(uri)
-                logger.info(
-                    f"Resolved resource URI for '{resource_name}' to '{uri}' "
-                    f"using base path '{resource_path.parent()}'"
-                )
+
+            # Apply the base URI to the resource URI, if available.
+            if base_uri is not None:
+                orig_uri = uri
+                uri = base_uri.join(uri, forceDirectory=False)
+                if uri != orig_uri:
+                    logger.debug(
+                        "Resolved relative URI '%s' for resource '%s' to '%s' using base URI '%s'",
+                        resource.uri,
+                        resource_name,
+                        uri,
+                        base_uri,
+                    )
+
             try:
                 loaded_schema = Schema.from_uri(uri, context=context)
                 self._resource_map[resource_name] = loaded_schema
-                logger.debug(f"Loaded resource '{resource_name}' from URI '{uri}'")
+                logger.debug("Loaded resource '%s' from URI '%s'", resource_name, uri)
             except Exception as e:
                 raise ValueError(f"Failed to load resource '{resource_name}' from URI '{uri}': {e}") from e
         return self
@@ -1914,7 +1927,7 @@ class Schema(BaseObject, Generic[T]):
             Raised if the schema fails validation.
         """
         try:
-            rp = ResourcePath(resource_path, forceAbsolute=False)
+            rp = ResourcePath(resource_path, forceAbsolute=False, forceDirectory=False)
             rp_data = rp.read()
         except Exception as e:
             raise ValueError(f"Error reading resource from '{resource_path}' : {e}") from e
