@@ -1302,8 +1302,16 @@ class Schema(BaseObject, Generic[T]):
         else:
             context = {}
 
+        resource_path = context.pop("resource_path", None)
+
         for resource_name, resource in self.resources.items():
             uri = resource.uri
+            if resource_path is not None:
+                uri = resource_path.parent().join(uri)
+                logger.info(
+                    f"Resolved resource URI for '{resource_name}' to '{uri}' "
+                    f"using base path '{resource_path.parent()}'"
+                )
             try:
                 loaded_schema = Schema.from_uri(uri, context=context)
                 self._resource_map[resource_name] = loaded_schema
@@ -1906,10 +1914,14 @@ class Schema(BaseObject, Generic[T]):
             Raised if the schema fails validation.
         """
         try:
-            rp_stream = ResourcePath(resource_path).read()
+            rp = ResourcePath(resource_path, forceAbsolute=False)
+            rp_data = rp.read()
         except Exception as e:
             raise ValueError(f"Error reading resource from '{resource_path}' : {e}") from e
-        yaml_data = yaml.safe_load(rp_stream)
+        yaml_data = yaml.safe_load(rp_data)
+        context = dict(context)
+        # Append the resource path to the context for resolving resource URLs.
+        context["resource_path"] = rp
         return Schema.model_validate(yaml_data, context=context)
 
     @classmethod
