@@ -39,7 +39,7 @@ from .tap_schema import DataLoader, MetadataInserter, TableManager
 
 __all__ = ["cli"]
 
-logger = logging.getLogger("felis")
+logger = logging.getLogger(__name__)
 
 loglevel_choices = ["CRITICAL", "FATAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 

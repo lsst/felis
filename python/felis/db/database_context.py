@@ -65,7 +65,7 @@ __all__ = [
     "create_database_context",
 ]
 
-logger = logging.getLogger("felis")
+logger = logging.getLogger(__name__)
 
 SQLStatement = str | Executable | TextClause
 
