@@ -260,14 +260,14 @@ class DatabaseContext(AbstractContextManager):
         ...
 
     @abstractmethod
-    def execute(self, statement: SQLStatement, parameters: dict[str, Any] | None = None) -> Result:
+    def execute(self, statement: SQLStatement, params: dict[str, Any] | None = None) -> Result:
         """Execute a SQL statement and return the result.
 
         Parameters
         ----------
         statement
             The SQL statement to execute.
-        parameters
+        params
             Optional parameters to use for the SQL statement.
 
         Returns
@@ -393,13 +393,13 @@ class _BaseContext(DatabaseContext):
         with self.engine.connect() as connection:
             yield connection
 
-    def execute(self, statement: SQLStatement, parameters: dict[str, Any] | None = None) -> Result:
+    def execute(self, statement: SQLStatement, params: dict[str, Any] | None = None) -> Result:
         statement = _normalize_statement(statement)
         try:
             with self.connect() as conn:
                 with conn.begin():
-                    if parameters:
-                        result = conn.execute(statement, parameters)
+                    if params:
+                        result = conn.execute(statement, params)
                     else:
                         result = conn.execute(statement)
                     return result
@@ -835,10 +835,10 @@ class MockContext(DatabaseContext):
         # Mock connection can't drop indexes.
         pass
 
-    def execute(self, statement: SQLStatement, parameters: dict[str, Any] | None = None) -> Result:
+    def execute(self, statement: SQLStatement, params: dict[str, Any] | None = None) -> Result:
         statement = _normalize_statement(statement)
-        if parameters:
-            return self._connection.connect().execute(statement, parameters)
+        if params:
+            return self._connection.connect().execute(statement, params)
         else:
             return self._connection.connect().execute(statement)
 
