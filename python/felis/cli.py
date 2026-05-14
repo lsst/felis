@@ -83,11 +83,18 @@ def cli(
     """Felis command line tools"""
     ctx.ensure_object(dict)
 
-    # Configure logging (must come first)
+    # Configure logging on the felis package logger directly.
+    # Do not use basicConfig() as it is a no-op when handlers already exist
+    # (e.g., when running under pytest).
+    felis_logger = logging.getLogger("felis")
+    felis_logger.setLevel(log_level)
     if log_file:
-        logging.basicConfig(filename=log_file, level=log_level)
+        handler: logging.Handler = logging.FileHandler(log_file)
     else:
-        logging.basicConfig(level=log_level)
+        handler = logging.StreamHandler()
+    handler.setLevel(log_level)
+    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    felis_logger.addHandler(handler)
 
     # Configure ID generation (flag can only turn it off)
     ctx.obj["id_generation"] = id_generation

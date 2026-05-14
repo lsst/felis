@@ -32,7 +32,7 @@ __all__ = ["run_cli"]
 
 def run_cli(
     cmd: list[str],
-    log_level: int = logging.WARNING,
+    log_level: int = logging.DEBUG,
     expect_error: bool = False,
     print_cmd: bool = False,
     print_output: bool = False,
@@ -45,7 +45,8 @@ def run_cli(
     cmd : list[str]
         The command to run.
     log_level : int
-        The logging level to use, by default logging.WARNING.
+        The logging level to use, by default logging.DEBUG so that all messages
+        are emitted.
     expect_error : bool
         Whether to expect an error, by default False.
     print_cmd : bool
