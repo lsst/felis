@@ -48,11 +48,6 @@ class CliTestCase(unittest.TestCase):
         self.sqlite_url = f"sqlite:///{self.tmpdir}/db.sqlite3"
         print(f"Using temporary directory: {self.tmpdir}")
 
-        # Clear any existing logging handlers to ensure fresh configuration for
-        # each test
-        for handler in logging.root.handlers[:]:
-            logging.root.removeHandler(handler)
-
     def tearDown(self) -> None:
         """Clean up temporary directory."""
         shutil.rmtree(self.tmpdir, ignore_errors=True)
