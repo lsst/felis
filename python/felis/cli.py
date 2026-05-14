@@ -102,8 +102,8 @@ def cli(
     ctx.obj["column_ref_index_increment"] = column_ref_index_increment
     if ctx.obj["column_ref_index_increment"] is not None:
         logger.info(
-            f"Automatic indexing of column references is enabled with increment "
-            f"{ctx.obj['column_ref_index_increment']}"
+            "Automatic indexing of column references is enabled with increment %s",
+            ctx.obj["column_ref_index_increment"],
         )
 
 
@@ -492,7 +492,7 @@ def validate(
     """
     rc = 0
     for uri in uris:
-        logger.info(f"Validating schema at '{uri}'")
+        logger.info("Validating schema at '%s'", uri)
         try:
             Schema.from_uri(
                 uri,
@@ -505,7 +505,7 @@ def validate(
                     "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
                 },
             )
-            logger.info(f"Successfully validated schema at '{uri}'")
+            logger.info("Successfully validated schema at '%s'", uri)
         except ValidationError as e:
             logger.error(e)
             rc = 1
@@ -636,7 +636,7 @@ def dump(
             schema.dump_yaml(f, strip_ids=strip_ids, sort_columns=sort_columns)
         elif format == "json":
             schema.dump_json(f, strip_ids=strip_ids, sort_columns=sort_columns)
-    logger.info(f"Dumped '{uris[0]}' to '{uris[1]}'")
+    logger.info("Dumped '%s' to '%s'", uris[0], uris[1])
 
 
 if __name__ == "__main__":

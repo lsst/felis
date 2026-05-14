@@ -163,8 +163,8 @@ class FormattedSchemaDiff(SchemaDiff):
         last_id = None
 
         for key in keys:
-            logger.debug(f"Processing key <{key}> with type {type(key)}")
-            logger.debug(f"Type of value: {type(value)}")
+            logger.debug("Processing key <%s> with type %s", key, type(key))
+            logger.debug("Type of value: %s", type(value))
             if isinstance(value, dict) and "id" in value:
                 last_id = value["id"]
             elif isinstance(value, list) and isinstance(key, int):

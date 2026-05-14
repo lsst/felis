@@ -283,7 +283,7 @@ class MetaDataBuilder:
                 server_default = text(server_default)
 
         if server_default is not None:
-            logger.debug(f"Column '{id}' has default value: {server_default}")
+            logger.debug("Column '%s' has default value: %s", id, server_default)
 
         column: Column = Column(
             name,
@@ -430,7 +430,7 @@ def create_metadata(
         The SQLAlchemy metadata object with proper schema handling.
     """
     if schema_name:
-        logger.info(f"Overriding schema name with: {schema_name}")
+        logger.info("Overriding schema name with: %s", schema_name)
         schema.name = schema_name
 
     # Determine if we need SQLite-specific handling
