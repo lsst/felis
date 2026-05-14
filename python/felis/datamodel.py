@@ -948,11 +948,11 @@ class Table(BaseObject):
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
 
-    columns: list[Column] = Field(default_factory=list)
-    """Columns in the table."""
-
     column_refs: ResourceMap = Field(default_factory=dict, alias="columnRefs")
     """Referenced columns from external resources."""
+
+    columns: list[Column] = Field(default_factory=list)
+    """Columns in the table."""
 
     column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
     """Column groups in the table."""
@@ -1268,11 +1268,11 @@ class Schema(BaseObject, Generic[T]):
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
-    tables: Sequence[Table]
-    """The tables in the schema."""
-
     resources: dict[str, Resource] = Field(default_factory=dict)
     """External resources referenced by this schema."""
+
+    tables: Sequence[Table]
+    """The tables in the schema."""
 
     _id_map: dict[str, Any] = PrivateAttr(default_factory=dict)
     """Map of IDs to objects."""
