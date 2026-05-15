@@ -32,8 +32,7 @@ __all__ = ["run_cli"]
 
 def run_cli(
     cmd: list[str],
-    log_level: int = logging.WARNING,
-    catch_exceptions: bool = False,
+    log_level: int = logging.DEBUG,
     expect_error: bool = False,
     print_cmd: bool = False,
     print_output: bool = False,
@@ -46,9 +45,8 @@ def run_cli(
     cmd : list[str]
         The command to run.
     log_level : int
-        The logging level to use, by default logging.WARNING.
-    catch_exceptions : bool
-        Whether to catch exceptions, by default False.
+        The logging level to use, by default logging.DEBUG so that all messages
+        are emitted.
     expect_error : bool
         Whether to expect an error, by default False.
     print_cmd : bool
@@ -69,11 +67,11 @@ def run_cli(
     result = runner.invoke(
         cli,
         full_cmd,
-        catch_exceptions=catch_exceptions,
+        catch_exceptions=expect_error,
     )
     if print_output:
         print(result.output)
     if expect_error:
         assert result.exit_code != 0
     else:
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output

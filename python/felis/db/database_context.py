@@ -65,7 +65,7 @@ __all__ = [
     "create_database_context",
 ]
 
-logger = logging.getLogger("felis")
+logger = logging.getLogger(__name__)
 
 SQLStatement = str | Executable | TextClause
 
@@ -260,13 +260,15 @@ class DatabaseContext(AbstractContextManager):
         ...
 
     @abstractmethod
-    def execute(self, statement: SQLStatement, parameters: dict[str, Any] | None = None) -> Result:
+    def execute(self, statement: SQLStatement, params: dict[str, Any] | None = None) -> Result:
         """Execute a SQL statement and return the result.
 
         Parameters
         ----------
         statement
             The SQL statement to execute.
+        params
+            Optional parameters to use for the SQL statement.
 
         Returns
         -------
@@ -391,13 +393,13 @@ class _BaseContext(DatabaseContext):
         with self.engine.connect() as connection:
             yield connection
 
-    def execute(self, statement: SQLStatement, parameters: dict[str, Any] | None = None) -> Result:
+    def execute(self, statement: SQLStatement, params: dict[str, Any] | None = None) -> Result:
         statement = _normalize_statement(statement)
         try:
             with self.connect() as conn:
                 with conn.begin():
-                    if parameters:
-                        result = conn.execute(statement, parameters)
+                    if params:
+                        result = conn.execute(statement, params)
                     else:
                         result = conn.execute(statement)
                     return result
@@ -436,23 +438,24 @@ class _BaseContext(DatabaseContext):
                         for index in table.indexes:
                             if index.name is None:
                                 # Anonymous indexes can't be checked by name
-                                logger.warning(f"Skipping anonymous index on table '{table.name}'")
+                                logger.warning("Skipping anonymous index on table '%s'", table.name)
                                 continue
 
                             if action == "create":
                                 if index.name in existing_indexes:
                                     logger.warning(
-                                        f"Skipping creation of index '{index.name}' which already exists"
+                                        "Skipping creation of index '%s' which already exists",
+                                        index.name,
                                     )
                                     continue
                                 index.create(bind=conn, checkfirst=False)  # We already checked
-                                logger.info(f"Created index '{index.name}'")
+                                logger.info("Created index '%s'", index.name)
                             elif action == "drop":
                                 if index.name not in existing_indexes:
-                                    logger.warning(f"Skipping index '{index.name}' which does not exist")
+                                    logger.warning("Skipping index '%s' which does not exist", index.name)
                                     continue
                                 index.drop(bind=conn, checkfirst=False)  # We already checked
-                                logger.info(f"Dropped index '{index.name}'")
+                                logger.info("Dropped index '%s'", index.name)
                             else:
                                 raise ValueError(f"Invalid action '{action}'. Must be 'create' or 'drop'.")
                 except SQLAlchemyError as e:
@@ -677,7 +680,7 @@ class PostgreSQLContext(_BaseContext):
     def initialize(self) -> None:
         schema_name = self._required_schema_name()
         try:
-            logger.debug(f"Checking if PG schema exists: {schema_name}")
+            logger.debug("Checking if PG schema exists: %s", schema_name)
             result = self.execute(
                 """
                 SELECT schema_name
@@ -688,7 +691,7 @@ class PostgreSQLContext(_BaseContext):
             )
             if result.fetchone():
                 return
-            logger.debug(f"Creating PG schema: {schema_name}")
+            logger.debug("Creating PG schema: %s", schema_name)
             self.execute(CreateSchema(schema_name))
         except SQLAlchemyError as e:
             raise DatabaseContextError(f"Error initializing Postgres schema: {e}") from e
@@ -696,7 +699,7 @@ class PostgreSQLContext(_BaseContext):
     def drop(self) -> None:
         schema_name = self._required_schema_name()
         try:
-            logger.debug(f"Dropping PostgreSQL schema if exists: {schema_name}")
+            logger.debug("Dropping PostgreSQL schema if exists: %s", schema_name)
             self.execute(DropSchema(schema_name, if_exists=True, cascade=True))
         except SQLAlchemyError as e:
             raise DatabaseContextError(f"Error dropping Postgres database: {e}") from e
@@ -724,11 +727,11 @@ class MySQLContext(_BaseContext):
         # distinct schema concept, unlike Postgres.
         schema_name = self._required_schema_name()
         try:
-            logger.debug(f"Checking if MySQL database exists: {schema_name}")
+            logger.debug("Checking if MySQL database exists: %s", schema_name)
             result = self.execute("SHOW DATABASES LIKE :schema_name", {"schema_name": schema_name})
             if result.fetchone():
                 return
-            logger.debug(f"Creating MySQL database: {schema_name}")
+            logger.debug("Creating MySQL database: %s", schema_name)
             from sqlalchemy import DDL
 
             create_stmt = DDL(f"CREATE DATABASE {quoted_name(schema_name, quote=True)}")
@@ -739,7 +742,7 @@ class MySQLContext(_BaseContext):
     def drop(self) -> None:
         schema_name = self._required_schema_name()
         try:
-            logger.debug(f"Dropping MySQL database if exists: {schema_name}")
+            logger.debug("Dropping MySQL database if exists: %s", schema_name)
             from sqlalchemy import DDL
 
             drop_stmt = DDL(f"DROP DATABASE IF EXISTS {quoted_name(schema_name, quote=True)}")
@@ -832,10 +835,10 @@ class MockContext(DatabaseContext):
         # Mock connection can't drop indexes.
         pass
 
-    def execute(self, statement: SQLStatement, parameters: dict[str, Any] | None = None) -> Result:
+    def execute(self, statement: SQLStatement, params: dict[str, Any] | None = None) -> Result:
         statement = _normalize_statement(statement)
-        if parameters:
-            return self._connection.connect().execute(statement, parameters)
+        if params:
+            return self._connection.connect().execute(statement, params)
         else:
             return self._connection.connect().execute(statement)
 

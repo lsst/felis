@@ -347,10 +347,10 @@ class Column(BaseObject):
                 + (f" in column '{values['@id']}'" if "@id" in values else "")
             )
         elif not felis_type.is_sized and length is not None:
-            logger.warning(
-                f"The datatype '{datatype}' does not support a specified length"
-                + (f" in column '{values['@id']}'" if "@id" in values else "")
-            )
+            msg = f"The datatype '{datatype}' does not support a specified length"
+            if "@id" in values:
+                msg += f" in column '{values['@id']}'"
+            logger.warning("%s", msg)
         return values
 
     @model_validator(mode="after")
@@ -407,10 +407,14 @@ class Column(BaseObject):
                     )
                 else:
                     logger.debug(
-                        f"Type override of 'datatype: {self.datatype}' "
-                        f"with '{db_annotation}: {datatype_string}' in column '{self.id}' "
-                        f"compiled to '{datatype_obj.compile(dialect)}' and "
-                        f"'{db_datatype_obj.compile(dialect)}'"
+                        "Type override of 'datatype: %s' with '%s: %s' in column '%s' "
+                        "compiled to '%s' and '%s'",
+                        self.datatype,
+                        db_annotation,
+                        datatype_string,
+                        self.id,
+                        datatype_obj.compile(dialect),
+                        db_datatype_obj.compile(dialect),
                     )
         return self
 
@@ -466,8 +470,11 @@ class Column(BaseObject):
                     if context.get("force_unbounded_arraysize", False):
                         arraysize = "*"
                         logger.debug(
-                            f"Forced VOTable's 'arraysize' to '*' on column '{values['name']}' with datatype "
-                            + f"'{values['datatype']}' and length '{length}'"
+                            "Forced VOTable's 'arraysize' to '*' on column '%s' with datatype "
+                            "'%s' and length '%s'",
+                            values["name"],
+                            values["datatype"],
+                            length,
                         )
                     else:
                         arraysize = f"{length}*"
@@ -476,15 +483,21 @@ class Column(BaseObject):
             if arraysize is not None:
                 values["votable:arraysize"] = arraysize
                 logger.debug(
-                    f"Set default 'votable:arraysize' to '{arraysize}' on column '{values['name']}'"
-                    + f" with datatype '{values['datatype']}' and length '{values.get('length', None)}'"
+                    "Set default 'votable:arraysize' to '%s' on column '%s'"
+                    " with datatype '%s' and length '%s'",
+                    arraysize,
+                    values["name"],
+                    values["datatype"],
+                    values.get("length", None),
                 )
         else:
-            logger.debug(f"Using existing 'votable:arraysize' of '{arraysize}' on column '{values['name']}'")
+            logger.debug(
+                "Using existing 'votable:arraysize' of '%s' on column '%s'", arraysize, values["name"]
+            )
             if isinstance(values["votable:arraysize"], int):
                 logger.warning(
-                    f"Usage of an integer value for 'votable:arraysize' in column '{values['name']}' is "
-                    + "deprecated"
+                    "Usage of an integer value for 'votable:arraysize' in column '%s' is deprecated",
+                    values["name"],
                 )
                 values["votable:arraysize"] = str(arraysize)
         return values
@@ -948,11 +961,11 @@ class Table(BaseObject):
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
 
-    columns: list[Column] = Field(default_factory=list)
-    """Columns in the table."""
-
     column_refs: ResourceMap = Field(default_factory=dict, alias="columnRefs")
     """Referenced columns from external resources."""
+
+    columns: list[Column] = Field(default_factory=list)
+    """Columns in the table."""
 
     column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
     """Column groups in the table."""
@@ -1268,11 +1281,11 @@ class Schema(BaseObject, Generic[T]):
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
-    tables: Sequence[Table]
-    """The tables in the schema."""
-
     resources: dict[str, Resource] = Field(default_factory=dict)
     """External resources referenced by this schema."""
+
+    tables: Sequence[Table]
+    """The tables in the schema."""
 
     _id_map: dict[str, Any] = PrivateAttr(default_factory=dict)
     """Map of IDs to objects."""
@@ -1302,12 +1315,33 @@ class Schema(BaseObject, Generic[T]):
         else:
             context = {}
 
+        # Get the base URI for resolving relative resource paths from the
+        # validation context, if available.
+        resource_path = context.pop("resource_path", None)
+        base_uri = None
+        if resource_path is not None:
+            base_uri = resource_path.parent()
+
         for resource_name, resource in self.resources.items():
             uri = resource.uri
+
+            # Apply the base URI to the resource URI, if available.
+            if base_uri is not None:
+                orig_uri = uri
+                uri = base_uri.join(uri, forceDirectory=False)
+                if uri != orig_uri:
+                    logger.info(
+                        "Resolved relative URI '%s' for resource '%s' to '%s' using base URI '%s'",
+                        resource.uri,
+                        resource_name,
+                        uri,
+                        base_uri,
+                    )
+
             try:
                 loaded_schema = Schema.from_uri(uri, context=context)
                 self._resource_map[resource_name] = loaded_schema
-                logger.debug(f"Loaded resource '{resource_name}' from URI '{uri}'")
+                logger.debug("Loaded resource '%s' from URI '%s'", resource_name, uri)
             except Exception as e:
                 raise ValueError(f"Failed to load resource '{resource_name}' from URI '{uri}': {e}") from e
         return self
@@ -1363,7 +1397,8 @@ class Schema(BaseObject, Generic[T]):
                 if dereference_resources and len(table.column_refs) > 0:
                     # Clear column refs in table if fully dereferencing
                     logger.debug(
-                        f"Clearing columnRefs in table '{table.name}' after dereferencing resource columns"
+                        "Clearing columnRefs in table '%s' after dereferencing resource columns",
+                        table.name,
                     )
                     table.column_refs = {}
         return self
@@ -1442,23 +1477,31 @@ class Schema(BaseObject, Generic[T]):
                         column_copy.tap_column_index = current_column_index
                         current_column_index += column_ref_index_increment
                         logger.debug(
-                            f"Automatically assigned 'tap:column_index' {column_copy.tap_column_index} to "
-                            f"column '{local_column_name}' in table '{table_name}' from resource "
-                            f"'{resource_schema.name}'"
+                            "Automatically assigned 'tap:column_index' %s to "
+                            "column '%s' in table '%s' from resource '%s'",
+                            column_copy.tap_column_index,
+                            local_column_name,
+                            table_name,
+                            resource_schema.name,
                         )
                     else:
                         # Skip automatic assignment of 'tap:column_index' if it
                         # is already overridden
                         logger.debug(
-                            f"Skipping automatic assignment of 'tap:column_index' for column "
-                            f"'{local_column_name}' in table '{table_name}' from resource "
-                            f"'{resource_schema.name}' as it is already overridden to "
-                            f"{column_copy.tap_column_index}"
+                            "Skipping automatic assignment of 'tap:column_index' for column "
+                            "'%s' in table '%s' from resource '%s' as it is already overridden to %s",
+                            local_column_name,
+                            table_name,
+                            resource_schema.name,
+                            column_copy.tap_column_index,
                         )
                 table.columns.append(column_copy)
                 logger.debug(
-                    f"Dereferenced column '{local_column_name}' from table '{table_name}' "
-                    f"in resource '{resource_schema.name}' into table '{table.name}'"
+                    "Dereferenced column '%s' from table '%s' in resource '%s' into table '%s'",
+                    local_column_name,
+                    table_name,
+                    resource_schema.name,
+                    table.name,
                 )
 
     @model_validator(mode="before")
@@ -1485,37 +1528,40 @@ class Schema(BaseObject, Generic[T]):
         schema_name = values["name"]
         if "@id" not in values:
             values["@id"] = f"#{schema_name}"
-            logger.debug(f"Generated ID '{values['@id']}' for schema '{schema_name}'")
+            logger.debug("Generated ID '%s' for schema '%s'", values["@id"], schema_name)
         if "tables" in values:
             for table in values["tables"]:
                 if "@id" not in table:
                     table["@id"] = f"#{table['name']}"
-                    logger.debug(f"Generated ID '{table['@id']}' for table '{table['name']}'")
+                    logger.debug("Generated ID '%s' for table '%s'", table["@id"], table["name"])
                 if "columns" in table:
                     for column in table["columns"]:
                         if "@id" not in column:
                             column["@id"] = f"#{table['name']}.{column['name']}"
-                            logger.debug(f"Generated ID '{column['@id']}' for column '{column['name']}'")
+                            logger.debug("Generated ID '%s' for column '%s'", column["@id"], column["name"])
                 if "columnGroups" in table:
                     for column_group in table["columnGroups"]:
                         if "@id" not in column_group:
                             column_group["@id"] = f"#{table['name']}.{column_group['name']}"
                             logger.debug(
-                                f"Generated ID '{column_group['@id']}' for column group "
-                                f"'{column_group['name']}'"
+                                "Generated ID '%s' for column group '%s'",
+                                column_group["@id"],
+                                column_group["name"],
                             )
                 if "constraints" in table:
                     for constraint in table["constraints"]:
                         if "@id" not in constraint:
                             constraint["@id"] = f"#{constraint['name']}"
                             logger.debug(
-                                f"Generated ID '{constraint['@id']}' for constraint '{constraint['name']}'"
+                                "Generated ID '%s' for constraint '%s'",
+                                constraint["@id"],
+                                constraint["name"],
                             )
                 if "indexes" in table:
                     for index in table["indexes"]:
                         if "@id" not in index:
                             index["@id"] = f"#{index['name']}"
-                            logger.debug(f"Generated ID '{index['@id']}' for index '{index['name']}'")
+                            logger.debug("Generated ID '%s' for index '%s'", index["@id"], index["name"])
         return values
 
     @field_validator("tables", mode="after")
@@ -1906,10 +1952,14 @@ class Schema(BaseObject, Generic[T]):
             Raised if the schema fails validation.
         """
         try:
-            rp_stream = ResourcePath(resource_path).read()
+            rp = ResourcePath(resource_path, forceAbsolute=False, forceDirectory=False)
+            rp_data = rp.read()
         except Exception as e:
             raise ValueError(f"Error reading resource from '{resource_path}' : {e}") from e
-        yaml_data = yaml.safe_load(rp_stream)
+        yaml_data = yaml.safe_load(rp_data)
+        context = dict(context)
+        # Append the resource path to the context for resolving resource URLs.
+        context["resource_path"] = rp
         return Schema.model_validate(yaml_data, context=context)
 
     @classmethod

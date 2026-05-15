@@ -1339,7 +1339,7 @@ tables:
         with self.assertRaises(ValueError) as cm:
             Schema.from_uri(error_ref_path, context={"id_generation": True})
         self.assertIn(
-            "Failed to load resource 'bad_resource' from URI '/nonexistent/path/to/schema.yaml'",
+            "Failed to load resource 'bad_resource' from URI 'file:///nonexistent/path/to/schema.yaml'",
             str(cm.exception),
         )
 
@@ -1551,6 +1551,141 @@ tables:
                 self.assertEqual(column.tap_column_index, 20)
             else:
                 self.fail(f"Unexpected column name: {column.name}")
+
+    def test_from_uri_with_relative_resource_uri(self) -> None:
+        """Test that from_uri resolves a relative resource URI using the
+        schema's resource_path context.
+        """
+        source_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: test_column
+    datatype: int
+"""
+        source_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(source_path, "w") as f:
+            f.write(source_content.strip())
+
+        # Write referencing schema using a relative URI.
+        ref_content = """
+name: ref_schema
+resources:
+  source_schema:
+    uri: source_schema.yaml
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        test_column:
+"""
+        ref_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        with open(ref_path, "w") as f:
+            f.write(ref_content.strip())
+
+        base_rp = ResourcePath(ref_path)
+        resolved_rp = base_rp.parent().join("source_schema.yaml")
+        self.assertEqual(resolved_rp.ospath, source_path)
+
+        # Load via from_uri; the relative resource URI should be resolved
+        # against the referencing schema's directory.
+        schema = Schema.from_uri(ref_path, context={"id_generation": True})
+
+        # Verify the resource was found and loaded without errors
+        self.assertIn("source_schema", schema._resource_map)
+
+    def test_from_uri_with_absolute_resource_uri(self) -> None:
+        """Test that from_uri works with an absolute resource URI."""
+        source_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: test_column
+    datatype: int
+"""
+        source_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(source_path, "w") as f:
+            f.write(source_content.strip())
+
+        # Write referencing schema that uses an absolute URI for the resource
+        ref_content = f"""
+name: ref_schema
+resources:
+  source_schema:
+    uri: {source_path}
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        test_column:
+"""
+        ref_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        with open(ref_path, "w") as f:
+            f.write(ref_content.strip())
+
+        # Verify the expected resolved path from joining absolute URI.
+        from lsst.resources import ResourcePath
+
+        base_rp = ResourcePath(ref_path)
+        resolved_rp = base_rp.join(source_path)
+        self.assertEqual(resolved_rp.ospath, source_path)
+
+        # Load via from_uri with an absolute resource URI.
+        schema = Schema.from_uri(ref_path, context={"id_generation": True})
+
+        # Verify the resource was found and loaded without errors.
+        self.assertIn("source_schema", schema._resource_map)
+
+    def test_absolute_resource_uri_ignores_ref_schema_directory(self) -> None:
+        """Test that an absolute resource URI is not resolved relative to
+        the referencing schema's directory.
+        """
+        # Put the source schema in its own subdirectory.
+        source_dir = os.path.join(self.temp_dir, "source_dir")
+        os.makedirs(source_dir)
+
+        source_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: test_column
+    datatype: int
+"""
+        source_path = os.path.join(source_dir, "source_schema.yaml")
+        with open(source_path, "w") as f:
+            f.write(source_content.strip())
+
+        # Put the referencing schema in a different subdirectory.
+        ref_dir = os.path.join(self.temp_dir, "ref_dir")
+        os.makedirs(ref_dir)
+
+        ref_content = f"""
+name: ref_schema
+resources:
+  source_schema:
+    uri: {source_path}
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        test_column:
+"""
+        ref_path = os.path.join(ref_dir, "ref_schema.yaml")
+        with open(ref_path, "w") as f:
+            f.write(ref_content.strip())
+
+        # Load via from_uri. The absolute URI should resolve directly,
+        # ignoring the referencing schema's directory.
+        schema = Schema.from_uri(ref_path, context={"id_generation": True})
+
+        # Verify the resource was found and loaded without errors.
+        self.assertIn("source_schema", schema._resource_map)
 
 
 class ColumnOverridesTestCase(unittest.TestCase):

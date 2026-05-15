@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import logging
-from typing import IO, Any, Literal
+from typing import Any, Literal
 
 from lsst.utils.iteration import ensure_iterable
 from sqlalchemy import (
@@ -283,7 +283,7 @@ class MetaDataBuilder:
                 server_default = text(server_default)
 
         if server_default is not None:
-            logger.debug(f"Column '{id}' has default value: {server_default}")
+            logger.debug("Column '%s' has default value: %s", id, server_default)
 
         column: Column = Column(
             name,
@@ -403,24 +403,20 @@ class MetaDataBuilder:
 
 
 def create_metadata(
-    felis_file: IO[str],
+    schema: Schema,
     schema_name: str | None = None,
-    id_generation: bool = True,
     ignore_constraints: bool = False,
     skip_indexes: bool = False,
     engine_url: str | None = None,
 ) -> MetaData:
-    """Create SQLAlchemy metadata from a Felis schema file.
+    """Create SQLAlchemy metadata from a Felis schema object.
 
     Parameters
     ----------
-    felis_file
-        The Felis schema file to read.
+    schema
+        The Felis schema object.
     schema_name
         Optional schema name to override the one in the file.
-    id_generation
-        Whether to generate IDs for all objects in the schema that do not have
-        them.
     ignore_constraints
         Whether to ignore constraints when building metadata.
     skip_indexes
@@ -433,9 +429,8 @@ def create_metadata(
     MetaData
         The SQLAlchemy metadata object with proper schema handling.
     """
-    schema = Schema.from_stream(felis_file, context={"id_generation": id_generation})
     if schema_name:
-        logger.info(f"Overriding schema name with: {schema_name}")
+        logger.info("Overriding schema name with: %s", schema_name)
         schema.name = schema_name
 
     # Determine if we need SQLite-specific handling
