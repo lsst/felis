@@ -25,12 +25,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
+from pathlib import Path
 from typing import IO
 
 import click
 from pydantic import ValidationError
 
 from . import __version__
+from .browser import render_static_site
 from .datamodel import Schema
 from .db.database_context import create_database_context
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
@@ -644,6 +646,63 @@ def dump(
         elif format == "json":
             schema.dump_json(f, strip_ids=strip_ids, sort_columns=sort_columns)
     logger.info("Dumped '%s' to '%s'", uris[0], uris[1])
+
+
+@cli.command("browser", help="Generate a static schema browser site from YAML files")
+@click.option(
+    "--output-dir",
+    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+    required=True,
+    help="Output directory for generated static HTML",
+)
+@click.argument(
+    "files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    required=True,
+)
+@click.pass_context
+def browser(
+    ctx: click.Context,
+    output_dir: Path,
+    files: tuple[Path, ...],
+) -> None:
+    """Generate a static HTML browser for one or more YAML schema files."""
+    paths = sorted(files)
+
+    for path in paths:
+        if path.suffix.lower() not in {".yaml", ".yml"}:
+            raise click.ClickException(f"Input file must be .yaml or .yml: {path}")
+
+    schemas: list[Schema] = []
+    source_paths: list[str] = []
+    for path in paths:
+        try:
+            schema = Schema.from_uri(
+                str(path),
+                context={
+                    "id_generation": ctx.obj["id_generation"],
+                    "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
+                },
+            )
+        except ValidationError as e:
+            raise click.ClickException(f"Schema validation failed for '{path}': {e}") from e
+        except Exception as e:
+            raise click.ClickException(f"Failed loading schema '{path}': {e}") from e
+        schemas.append(schema)
+        source_paths.append(str(path))
+
+    try:
+        render_static_site(
+            schemas=schemas,
+            source_paths=source_paths,
+            output_dir=output_dir,
+        )
+    except Exception as e:
+        raise click.ClickException(f"Failed rendering browser site: {e}") from e
+
+    click.echo(f"Generated browser site at: {output_dir}")
+    click.echo(f"Loaded {len(paths)} file(s), rendered {len(schemas)} schema page(s)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,54 @@
+{# Macro for rendering tree sections (Columns, Indexes, Constraints) in the sidebar #}
+
+{# Render columns tree section #}
+{% macro render_tree_columns(table) %}
+<div class="tree-section tree-columns">
+  <a class="tree-section-heading" href="{{ table.page_filename }}#{{ table.anchor }}-columns">Columns</a>
+  <ul>
+    {% for column in table.columns %}
+    <li>
+      <a href="{{ table.page_filename }}#{{ column.anchor }}"{% if column.description %} title="{{ column.description }}"{% endif %}>{{ column.name }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endmacro %}
+
+{# Render indexes tree section #}
+{% macro render_tree_indexes(table) %}
+{% if table.indexes %}
+<div class="tree-section tree-indexes">
+  <a class="tree-section-heading" href="{{ table.page_filename }}#{{ table.anchor }}-indexes">Indexes</a>
+  <ul>
+    {% for index in table.indexes %}
+    <li>
+      <a href="{{ table.page_filename }}#{{ index.anchor }}"{% if index.description %} title="{{ index.description }}"{% endif %}>{{ index.name }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# Render constraints tree section #}
+{% macro render_tree_constraints(table) %}
+{% if table.constraints %}
+<div class="tree-section tree-constraints">
+  <a class="tree-section-heading" href="{{ table.page_filename }}#{{ table.anchor }}-constraints">Constraints</a>
+  <ul>
+    {% for constraint in table.constraints %}
+    <li>
+      <a href="{{ table.page_filename }}#{{ constraint.anchor }}"{% if constraint.description %} title="{{ constraint.description }}"{% endif %}>{{ constraint.name }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# Render all tree sections for a table #}
+{% macro render_tree_table_sections(table) %}
+{{ render_tree_columns(table) }}
+{{ render_tree_indexes(table) }}
+{{ render_tree_constraints(table) }}
+{% endmacro %}
