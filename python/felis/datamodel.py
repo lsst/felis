@@ -81,12 +81,6 @@ CONFIG = ConfigDict(
 https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
 """
 
-DESCR_MIN_LENGTH = 3
-"""Minimum length for a description field."""
-
-DescriptionStr: TypeAlias = Annotated[str, Field(min_length=DESCR_MIN_LENGTH)]
-"""Type for a description, which must be three or more characters long."""
-
 
 class BaseObject(BaseModel):
     """Base model.
@@ -104,7 +98,7 @@ class BaseObject(BaseModel):
     id: str = Field(alias="@id")
     """Unique identifier of the database object."""
 
-    description: DescriptionStr | None = None
+    description: str | None = None
     """Description of the database object."""
 
     votable_utype: str | None = Field(None, alias="votable:utype")
@@ -112,7 +106,9 @@ class BaseObject(BaseModel):
 
     @model_validator(mode="after")
     def check_description(self, info: ValidationInfo) -> BaseObject:
-        """Check that the description is present if required.
+        """Check that the description is present and contains at least one
+        non-whitespace character, if the validation context indicates that this
+        check is enabled. By default, descriptions may be omitted or empty.
 
         Parameters
         ----------
@@ -129,8 +125,6 @@ class BaseObject(BaseModel):
             return self
         if self.description is None or self.description == "":
             raise ValueError("Description is required and must be non-empty")
-        if len(self.description) < DESCR_MIN_LENGTH:
-            raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
         return self
 
 
