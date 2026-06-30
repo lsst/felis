@@ -122,40 +122,145 @@ class ColumnTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Column(**units_data)
 
-    def test_description(self) -> None:
-        """Test Pydantic validation of the ``description`` attribute."""
+    def test_description_unchecked(self) -> None:
+        """Test that the ``description`` attribute is optional when the
+        ``check_description`` flag is disabled (the default).
+        """
+        # A missing description should be allowed.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+            }
+        )
+        self.assertIsNone(col.description)
+
+        # An explicit 'None' description should be allowed.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+                "description": None,
+            }
+        )
+        self.assertIsNone(col.description)
+
+        # An empty description should be allowed.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+                "description": "",
+            }
+        )
+        self.assertEqual(col.description, "")
+
+        # A description with only whitespace should be allowed.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+                "description": "   ",
+            }
+        )
+
+        # Pydantic will strip this automatically.
+        self.assertEqual(col.description, "")
+
+        # A description with one or more non-whitespace characters should be
+        # allowed.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+                "description": "x",
+            }
+        )
+        self.assertEqual(col.description, "x")
+
+    def test_description_checked(self) -> None:
+        """Test Pydantic validation of the ``description`` attribute when the
+        ``check_description`` flag is enabled.
+        """
+        cxt = {"check_description": True}
+
         # Creating a column with a description of 'None' should throw.
-        with self.assertRaises(ValueError):
-            Column(
-                **{
+        with self.assertRaises(ValidationError):
+            Column.model_validate(
+                {
                     "name": "testColumn",
                     "@id": "#test_col_id",
                     "datatype": "string",
+                    "length": 256,
                     "description": None,
-                }
+                },
+                context=cxt,
             )
 
         # Creating a column with an empty description should throw.
-        with self.assertRaises(ValueError):
-            Column(
-                **{
+        with self.assertRaises(ValidationError):
+            Column.model_validate(
+                {
                     "name": "testColumn",
                     "@id": "#test_col_id",
                     "datatype": "string",
+                    "length": 256,
                     "description": "",
-                }
+                },
+                context=cxt,
             )
 
-        # Creating a column with a description that is too short should throw.
+        # Creating a column with a whitespace-only description should throw,
+        # since whitespace is stripped before validation.
         with self.assertRaises(ValidationError):
-            Column(
-                **{
+            Column.model_validate(
+                {
                     "name": "testColumn",
                     "@id": "#test_col_id",
                     "datatype": "string",
-                    "description": "xy",
-                }
+                    "length": 256,
+                    "description": "   ",
+                },
+                context=cxt,
             )
+
+        # Creating a column with a single non-whitespace character in the
+        # description should not throw.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+                "description": "x",
+            },
+            context=cxt,
+        )
+        self.assertEqual(col.description, "x")
+
+        # Creating a column with more than one non-whitespace character in the
+        # description should not throw.
+        col = Column.model_validate(
+            {
+                "name": "testColumn",
+                "@id": "#test_col_id",
+                "datatype": "string",
+                "length": 256,
+                "description": "test description",
+            },
+            context=cxt,
+        )
+        self.assertEqual(col.description, "test description")
 
     def test_values(self) -> None:
         """Test Pydantic validation of the ``value`` attribute."""
