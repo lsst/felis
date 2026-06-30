@@ -823,7 +823,7 @@ class ColumnGroup(BaseObject):
             if isinstance(col, str):
                 # Dereference ColumnRef to Column object
                 try:
-                    col_obj = self.table._find_column_by_id(col)
+                    col_obj = self.table._find_column(col)
                 except KeyError as e:
                     raise ValueError(f"Column '{col}' not found in table '{self.table.name}'") from e
                 dereferenced_columns.append(col_obj)
@@ -1074,6 +1074,12 @@ class Table(BaseObject):
         """
         for column in self.columns:
             if column.id == id:
+                logger.warning(
+                    "Lookup by column ID '%s' in table '%s' is deprecated; use column name '%s' instead",
+                    id,
+                    self.name,
+                    column.name,
+                )
                 return column
         raise KeyError(f"Column '{id}' not found in table '{self.name}'")
 
@@ -1082,6 +1088,33 @@ class Table(BaseObject):
             if column.name == name:
                 return column
         raise KeyError(f"Column '{name}' not found in table '{self.name}'")
+
+    def _find_column(self, ref: str) -> Column:
+        """Find a column in this table by name, falling back to ID if not
+        found.
+
+        Parameters
+        ----------
+        ref
+            Reference to a column in this table. It is resolved by column name
+            first and, if no matching name is found, by column ID for backward
+            compatibility.
+
+        Returns
+        -------
+        `Column`
+            The referenced column in this table.
+
+        Raises
+        ------
+        KeyError
+            Raised if no column in this table matches the reference by name or
+            by ID.
+        """
+        try:
+            return self._find_column_by_name(ref)
+        except KeyError:
+            return self._find_column_by_id(ref)
 
     @model_validator(mode="after")
     def dereference_column_groups(self: Table) -> Table:
@@ -1734,37 +1767,6 @@ class Schema(BaseObject, Generic[T]):
                 f"ID '{column_id}' does not refer to a Column object",
             )
 
-    def _validate_foreign_key_column(
-        self: Schema,
-        column_id: str,
-        table: Table,
-        loc: tuple,
-        errors: list[InitErrorDetails],
-    ) -> None:
-        """Validate a foreign key column ID from a constraint and append errors
-        if invalid.
-
-        Parameters
-        ----------
-        schema : Schema
-            The schema being validated.
-        column_id : str
-            The foreign key column ID to validate.
-        loc : tuple
-            The location of the error in the schema.
-        errors : list[InitErrorDetails]
-            The list of errors to append to.
-        """
-        try:
-            table._find_column_by_id(column_id)
-        except KeyError:
-            _append_error(
-                errors,
-                loc,
-                column_id,
-                f"Column '{column_id}' not found in table '{table.name}'",
-            )
-
     @model_validator(mode="after")
     def check_constraints(self: Schema) -> Schema:
         """Check constraint objects for validity. This needs to be deferred
@@ -1794,35 +1796,26 @@ class Schema(BaseObject, Generic[T]):
                     column_ids += constraint.columns
                 # No extra checks are required on CheckConstraint objects.
 
-                # Validate the foreign key columns
+                # Validate the source columns, which must be found within the
+                # constraint's own table, by name (preferred) or by ID for
+                # backward compatibility.
                 for column_id in column_ids:
-                    self._validate_column_id(
-                        column_id,
-                        (
-                            "tables",
-                            table_index,
-                            "constraints",
-                            constraint_index,
-                            "columns",
+                    try:
+                        table._find_column(column_id)
+                    except KeyError:
+                        _append_error(
+                            errors,
+                            (
+                                "tables",
+                                table_index,
+                                "constraints",
+                                constraint_index,
+                                "columns",
+                                column_id,
+                            ),
                             column_id,
-                        ),
-                        errors,
-                    )
-                    # Check that the foreign key column is within the source
-                    # table.
-                    self._validate_foreign_key_column(
-                        column_id,
-                        table,
-                        (
-                            "tables",
-                            table_index,
-                            "constraints",
-                            constraint_index,
-                            "columns",
-                            column_id,
-                        ),
-                        errors,
-                    )
+                            f"Column '{column_id}' not found in table '{table.name}'",
+                        )
 
                 # Validate the primary key (reference) columns
                 for referenced_column_id in referenced_column_ids:

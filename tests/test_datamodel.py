@@ -272,6 +272,45 @@ class TableTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Table(name="testTable", id="#test_id", columns=[testCol, testCol])
 
+    def test_column_group_lookup_by_name(self) -> None:
+        """Test that a column group resolves its column references by name,
+        with a fallback to ID lookup for backward compatibility.
+        """
+        col_a = Column(name="colA", id="#col_a", datatype="int")
+        col_b = Column(name="colB", id="#col_b", datatype="int")
+
+        def build_table(group_refs: list[str]) -> Table:
+            """Build a table with a column group referencing the given
+            columns.
+            """
+            return Table(
+                name="testTable",
+                id="#test_table",
+                columns=[col_a, col_b],
+                column_groups=[ColumnGroup(name="testGroup", id="#test_group", columns=group_refs)],
+            )
+
+        # Referencing the columns by name should dereference to the column
+        # objects.
+        table = build_table(["colA", "colB"])
+        self.assertEqual(
+            [col_a, col_b],
+            table.column_groups[0].columns,
+            "column group should dereference columns by name",
+        )
+
+        # Referencing the columns by ID should still work as a fallback.
+        table = build_table(["#col_a", "#col_b"])
+        self.assertEqual(
+            [col_a, col_b],
+            table.column_groups[0].columns,
+            "column group should dereference columns by ID",
+        )
+
+        # Referencing an unknown column should raise.
+        with self.assertRaises(ValidationError):
+            build_table(["bad_column"])
+
 
 class ColumnGroupTestCase(unittest.TestCase):
     """Test Pydantic validation of the ``ColumnGroup`` class."""
@@ -710,6 +749,38 @@ class SchemaTestCase(unittest.TestCase):
         test_tbl.indexes = [test_idx, test_idx2]
         with self.assertRaises(ValidationError):
             Schema(name="test_schema", id="#test-schema", tables=[test_tbl])
+
+    def test_foreign_key_lookup_by_name(self) -> None:
+        """Test that the source columns of a foreign key constraint are
+        resolved by name within their own table, with a fallback to ID lookup
+        for backward compatibility.
+        """
+
+        def build_schema(columns: list[str], referenced_columns: list[str]) -> Schema:
+            """Build a schema with a source table whose foreign key references
+            a column in a second table.
+            """
+            fk = ForeignKeyConstraint(
+                name="testForeignKey",
+                id="#test_fk",
+                columns=columns,
+                referenced_columns=referenced_columns,
+            )
+            src_col = Column(name="srcColumn", id="#src_col", datatype="int")
+            ref_col = Column(name="refColumn", id="#ref_col", datatype="int")
+            src_tbl = Table(name="srcTable", id="#src_tbl", columns=[src_col], constraints=[fk])
+            ref_tbl = Table(name="refTable", id="#ref_tbl", columns=[ref_col])
+            return Schema(name="testSchema", id="#test_schema", tables=[src_tbl, ref_tbl])
+
+        # Referencing the source column by name should validate.
+        build_schema(["srcColumn"], ["#ref_col"])
+
+        # Referencing the source column by ID should still work as a fallback.
+        build_schema(["#src_col"], ["#ref_col"])
+
+        # An unknown source column should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(["bad_column"], ["#ref_col"])
 
     def test_model_validate(self) -> None:
         """Load a YAML test file and validate the schema data model."""
