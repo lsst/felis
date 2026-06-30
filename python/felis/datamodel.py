@@ -63,6 +63,7 @@ __all__ = (
     "Constraint",
     "DataType",
     "ForeignKeyConstraint",
+    "ForeignKeyReference",
     "Index",
     "Resource",
     "Schema",
@@ -652,13 +653,33 @@ class UniqueConstraint(Constraint):
         return value
 
 
+class ForeignKeyReference(BaseModel):
+    """Reference target of a foreign key constraint.
+
+    This is used by the name-based style of foreign key, which names the
+    referenced table and its columns directly rather than using global column
+    IDs.
+    """
+
+    model_config = CONFIG
+    """Pydantic model configuration."""
+
+    table: str
+    """Name of the referenced table."""
+
+    columns: list[str] = Field(min_length=1)
+    """Names of the referenced columns in the referenced table."""
+
+
 class ForeignKeyConstraint(Constraint):
     """Table foreign key constraint model.
 
     This constraint is used to define a foreign key relationship between two
     tables in the schema. There must be at least one column in the
-    `columns` list, and at least one column in the `referenced_columns` list
-    or a validation error will be raised.
+    `columns` list, and the reference target must be specified using either
+    `referenced_columns` (a list of global column IDs) or `reference` (the
+    name of the referenced table and its columns). Exactly one of these must
+    be provided or a validation error will be raised.
 
     Notes
     -----
@@ -672,8 +693,17 @@ class ForeignKeyConstraint(Constraint):
     columns: list[str] = Field(min_length=1)
     """The columns comprising the foreign key."""
 
-    referenced_columns: list[str] = Field(alias="referencedColumns", min_length=1)
-    """The columns referenced by the foreign key."""
+    referenced_columns: list[str] | None = Field(None, alias="referencedColumns", min_length=1)
+    """The columns referenced by the foreign key, given as global column IDs.
+
+    This is the original, ID-based style. Mutually exclusive with `reference`.
+    """
+
+    reference: ForeignKeyReference | None = None
+    """The reference target given as a table name and column names.
+
+    This is the name-based style. Mutually exclusive with `referenced_columns`.
+    """
 
     on_delete: Literal["CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT", "NO ACTION"] | None = None
     """Action to take when the referenced row is deleted."""
@@ -699,8 +729,8 @@ class ForeignKeyConstraint(Constraint):
 
     @model_validator(mode="after")
     def check_column_lengths(self) -> ForeignKeyConstraint:
-        """Check that the `columns` and `referenced_columns` lists have the
-        same length.
+        """Check that the foreign key specifies a reference target and that it
+        references the same number of columns as it has source columns.
 
         Returns
         -------
@@ -710,12 +740,18 @@ class ForeignKeyConstraint(Constraint):
         Raises
         ------
         ValueError
-            Raised if the `columns` and `referenced_columns` lists do not have
-            the same length.
+            Raised if no reference target is specified, or if the number of
+            source columns and referenced columns differ.
         """
-        if len(self.columns) != len(self.referenced_columns):
+        if self.reference is not None:
+            referenced_length = len(self.reference.columns)
+        elif self.referenced_columns is not None:
+            referenced_length = len(self.referenced_columns)
+        else:
+            raise ValueError("A ForeignKey constraint must specify either 'referencedColumns' or 'reference'")
+        if len(self.columns) != referenced_length:
             raise ValueError(
-                "Columns and referencedColumns must have the same length for a ForeignKey constraint"
+                "Columns and referenced columns must have the same length for a ForeignKey constraint"
             )
         return self
 
@@ -1128,6 +1164,34 @@ class Table(BaseObject):
         for group in self.column_groups:
             group.table = self
             group._dereference_columns()
+        return self
+
+    @model_validator(mode="after")
+    def check_foreign_key_references(self: Table) -> Table:
+        """Check that foreign key constraints do not specify both the ID-based
+        ``referencedColumns`` and the name-based ``reference`` styles.
+
+        Returns
+        -------
+        `Table`
+            The table being validated.
+
+        Raises
+        ------
+        ValueError
+            Raised if a foreign key constraint specifies both
+            ``referencedColumns`` and ``reference``.
+        """
+        for constraint in self.constraints:
+            if (
+                isinstance(constraint, ForeignKeyConstraint)
+                and constraint.referenced_columns is not None
+                and constraint.reference is not None
+            ):
+                raise ValueError(
+                    f"Foreign key constraint '{constraint.name}' must not specify both "
+                    "'referencedColumns' and 'reference'"
+                )
         return self
 
     @field_serializer("columns")
@@ -1786,22 +1850,36 @@ class Schema(BaseObject, Generic[T]):
 
         for table_index, table in enumerate(self.tables):
             for constraint_index, constraint in enumerate(table.constraints):
-                column_ids: list[str] = []
-                referenced_column_ids: list[str] = []
-
-                if isinstance(constraint, ForeignKeyConstraint):
-                    column_ids += constraint.columns
-                    referenced_column_ids += constraint.referenced_columns
-                elif isinstance(constraint, UniqueConstraint):
-                    column_ids += constraint.columns
-                # No extra checks are required on CheckConstraint objects.
+                if isinstance(constraint, (ForeignKeyConstraint, UniqueConstraint)):
+                    source_columns = constraint.columns
+                else:
+                    # No checks are required on CheckConstraint objects.
+                    continue
 
                 # Validate the source columns, which must be found within the
                 # constraint's own table, by name (preferred) or by ID for
                 # backward compatibility.
-                for column_id in column_ids:
+                for column_id in source_columns:
                     try:
                         table._find_column(column_id)
+                    except KeyError:
+                        _append_error(
+                            errors,
+                            ("tables", table_index, "constraints", constraint_index, "columns", column_id),
+                            column_id,
+                            f"Column '{column_id}' not found in table '{table.name}'",
+                        )
+
+                if not isinstance(constraint, ForeignKeyConstraint):
+                    continue
+
+                if constraint.reference is not None:
+                    # Name-based style: resolve the referenced table by
+                    # name, then each referenced column by name (with ID
+                    # fallback) within that table.
+                    reference = constraint.reference
+                    try:
+                        referenced_table = self._find_table_by_name(reference.table)
                     except KeyError:
                         _append_error(
                             errors,
@@ -1810,27 +1888,49 @@ class Schema(BaseObject, Generic[T]):
                                 table_index,
                                 "constraints",
                                 constraint_index,
-                                "columns",
-                                column_id,
+                                "reference",
+                                "table",
                             ),
-                            column_id,
-                            f"Column '{column_id}' not found in table '{table.name}'",
+                            reference.table,
+                            f"Referenced table '{reference.table}' not found in schema",
                         )
-
-                # Validate the primary key (reference) columns
-                for referenced_column_id in referenced_column_ids:
-                    self._validate_column_id(
-                        referenced_column_id,
-                        (
-                            "tables",
-                            table_index,
-                            "constraints",
-                            constraint_index,
-                            "referenced_columns",
+                        referenced_table = None
+                    if referenced_table is not None:
+                        for referenced_column in reference.columns:
+                            try:
+                                referenced_table._find_column(referenced_column)
+                            except KeyError:
+                                _append_error(
+                                    errors,
+                                    (
+                                        "tables",
+                                        table_index,
+                                        "constraints",
+                                        constraint_index,
+                                        "reference",
+                                        "columns",
+                                        referenced_column,
+                                    ),
+                                    referenced_column,
+                                    f"Column '{referenced_column}' not found in table "
+                                    f"'{referenced_table.name}'",
+                                )
+                else:
+                    # ID-based style: validate the referenced columns against
+                    # the global ID map.
+                    for referenced_column_id in constraint.referenced_columns or []:
+                        self._validate_column_id(
                             referenced_column_id,
-                        ),
-                        errors,
-                    )
+                            (
+                                "tables",
+                                table_index,
+                                "constraints",
+                                constraint_index,
+                                "referenced_columns",
+                                referenced_column_id,
+                            ),
+                            errors,
+                        )
 
         if errors:
             raise ValidationError.from_exception_data("Schema validation failed", errors)

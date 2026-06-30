@@ -40,6 +40,7 @@ from felis.datamodel import (
     Constraint,
     DataType,
     ForeignKeyConstraint,
+    ForeignKeyReference,
     Index,
     Schema,
     SchemaVersion,
@@ -489,6 +490,69 @@ class ConstraintTestCase(unittest.TestCase):
                 referenced_columns=["test_column"],
             )
 
+    def test_foreign_key_reference(self) -> None:
+        """Test the name-based ``reference`` style of foreign key
+        constraint.
+        """
+        # Creating a foreign key using the name-based reference style should
+        # load data correctly.
+        constraint = ForeignKeyConstraint(
+            name="fk_test",
+            id="#fk_test",
+            columns=["visit"],
+            reference=ForeignKeyReference(table="Visit", columns=["visit"]),
+        )
+        self.assertIsNone(constraint.referenced_columns)
+        self.assertEqual(constraint.reference.table, "Visit")
+        self.assertEqual(constraint.reference.columns, ["visit"])
+
+        # Creating from a data dictionary should also work.
+        data = {
+            "name": "fk_test",
+            "@id": "#fk_test",
+            "@type": "ForeignKey",
+            "columns": ["visit"],
+            "reference": {"table": "Visit", "columns": ["visit"]},
+        }
+        constraint = ForeignKeyConstraint.model_validate(data)
+        self.assertIsNone(constraint.referenced_columns)
+        self.assertEqual(constraint.reference.table, "Visit")
+        self.assertEqual(constraint.reference.columns, ["visit"])
+
+        # A foreign key specifying neither referenced columns nor a reference
+        # should raise.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(name="fk_test", id="#fk_test", columns=["visit"])
+
+        # A reference whose column count differs from the source columns should
+        # raise.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(
+                name="fk_test",
+                id="#fk_test",
+                columns=["visit"],
+                reference=ForeignKeyReference(table="Visit", columns=["visit", "extra"]),
+            )
+
+        # Specifying both referenced columns and a reference should raise when
+        # the constraint is validated as part of a table.
+        col = Column(name="visit", id="#Source.visit", datatype="int")
+        with self.assertRaises(ValidationError):
+            Table(
+                name="Source",
+                id="#Source",
+                columns=[col],
+                constraints=[
+                    ForeignKeyConstraint(
+                        name="fk_test",
+                        id="#fk_test",
+                        columns=["visit"],
+                        referenced_columns=["#Visit.visit"],
+                        reference=ForeignKeyReference(table="Visit", columns=["visit"]),
+                    )
+                ],
+            )
+
     def test_check_constraint(self) -> None:
         """Test validation of check constraints."""
         # Setting name and id should throw an exception from missing
@@ -781,6 +845,39 @@ class SchemaTestCase(unittest.TestCase):
         # An unknown source column should raise.
         with self.assertRaises(ValidationError):
             build_schema(["bad_column"], ["#ref_col"])
+
+    def test_foreign_key_reference_lookup(self) -> None:
+        """Test that the name-based ``reference`` style of foreign key resolves
+        the referenced table and columns by name, with a fallback to ID lookup
+        for backward compatibility.
+        """
+
+        def build_schema(reference: ForeignKeyReference) -> Schema:
+            """Build a schema with a source table whose foreign key references
+            a column in a second table by name.
+            """
+            fk = ForeignKeyConstraint(
+                name="testForeignKey", id="#test_fk", columns=["srcColumn"], reference=reference
+            )
+            src_col = Column(name="srcColumn", id="#src_col", datatype="int")
+            ref_col = Column(name="refColumn", id="#ref_col", datatype="int")
+            src_tbl = Table(name="srcTable", id="#src_tbl", columns=[src_col], constraints=[fk])
+            ref_tbl = Table(name="refTable", id="#ref_tbl", columns=[ref_col])
+            return Schema(name="testSchema", id="#test_schema", tables=[src_tbl, ref_tbl])
+
+        # Referencing the table and column by name should validate.
+        build_schema(ForeignKeyReference(table="refTable", columns=["refColumn"]))
+
+        # Referencing the column by ID should still work as a fallback.
+        build_schema(ForeignKeyReference(table="refTable", columns=["#ref_col"]))
+
+        # An unknown referenced table should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(ForeignKeyReference(table="missingTable", columns=["refColumn"]))
+
+        # An unknown referenced column should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(ForeignKeyReference(table="refTable", columns=["bad_column"]))
 
     def test_model_validate(self) -> None:
         """Load a YAML test file and validate the schema data model."""
