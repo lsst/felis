@@ -879,6 +879,31 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             build_schema(ForeignKeyReference(table="refTable", columns=["bad_column"]))
 
+    def test_index_lookup_by_name(self) -> None:
+        """Test that an index resolves its column references by name within its
+        table, with a fallback to ID lookup for backward compatibility.
+        """
+
+        def build_schema(columns: list[str]) -> Schema:
+            """Build a schema with a table whose index references the given
+            columns.
+            """
+            col_a = Column(name="colA", id="#col_a", datatype="int")
+            col_b = Column(name="colB", id="#col_b", datatype="int")
+            idx = Index(name="idx_test", id="#idx_test", columns=columns)
+            tbl = Table(name="testTable", id="#test_tbl", columns=[col_a, col_b], indexes=[idx])
+            return Schema(name="testSchema", id="#test_schema", tables=[tbl])
+
+        # Referencing the columns by name should validate.
+        build_schema(["colA", "colB"])
+
+        # Referencing the columns by ID should still work as a fallback.
+        build_schema(["#col_a", "#col_b"])
+
+        # An unknown column should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(["bad_column"])
+
     def test_model_validate(self) -> None:
         """Load a YAML test file and validate the schema data model."""
         with open(TEST_YAML) as test_yaml:

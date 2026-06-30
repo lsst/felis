@@ -1937,6 +1937,53 @@ class Schema(BaseObject, Generic[T]):
 
         return self
 
+    @model_validator(mode="after")
+    def check_indexes(self: Schema) -> Schema:
+        """Check that index column references resolve within their table.
+
+        Index columns are resolved by name first, falling back to ID for
+        backward compatibility.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        pydantic.ValidationError
+            Raised if any index references a column that is not found in its
+            table.
+        """
+        errors: list[InitErrorDetails] = []
+
+        for table_index, table in enumerate(self.tables):
+            for index_index, index in enumerate(table.indexes):
+                if not index.columns:
+                    continue
+                for column_ref in index.columns:
+                    try:
+                        table._find_column(column_ref)
+                    except KeyError:
+                        _append_error(
+                            errors,
+                            (
+                                "tables",
+                                table_index,
+                                "indexes",
+                                index_index,
+                                "columns",
+                                column_ref,
+                            ),
+                            column_ref,
+                            f"Column '{column_ref}' not found in table '{table.name}'",
+                        )
+
+        if errors:
+            raise ValidationError.from_exception_data("Schema validation failed", errors)
+
+        return self
+
     def __getitem__(self, id: str) -> BaseObject:
         """Get an object by its ID.
 
