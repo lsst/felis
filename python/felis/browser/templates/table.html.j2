@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ current_table.name }} - {{ current_schema.name }} - Felis Browser</title>
+    <link rel="stylesheet" href="{{ stylesheet_href }}" />
+  </head>
+  <body>
+    {%- import "tree_section_macro.j2" as tree_macros -%}
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-expanded="true" title="Toggle sidebar">
+            <svg viewBox="0 0 24 24" class="sidebar-toggle-icon" aria-hidden="true" focusable="false">
+              <rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M9 5.2v13.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <nav>
+          <ul class="tree">
+            {% for schema in schemas %}
+            <li>
+              <details class="tree-node"{% if schema.filename == current_schema.filename %} open{% endif %}>
+                <summary>
+                  <a href="{{ schema.filename }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+                </summary>
+                <ul>
+                  {% for table in schema.tables %}
+                  <li>
+                    <details class="tree-node"{% if table.page_filename == current_table.page_filename %} open{% endif %}>
+                      <summary>
+                        <a href="{{ table.page_filename }}"{% if table.description %} title="{{ table.description }}"{% endif %}>{{ table.name }}</a>
+                      </summary>
+                      {{ tree_macros.render_tree_table_sections(table) }}
+                    </details>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </details>
+            </li>
+            {% endfor %}
+          </ul>
+        </nav>
+      </aside>
+      <div class="sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
+
+      <main class="content">
+        <header class="content-header">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="{{ home_href }}">schemas</a>
+            <span class="breadcrumb-separator" aria-hidden="true">
+              <svg viewBox="0 0 16 16" class="breadcrumb-separator-icon" focusable="false">
+                <path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <a href="{{ current_schema.filename }}">{{ current_schema.name }}</a>
+            <span class="breadcrumb-separator" aria-hidden="true">
+              <svg viewBox="0 0 16 16" class="breadcrumb-separator-icon" focusable="false">
+                <path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <a href="{{ current_table.page_filename }}">{{ current_table.name }}</a>
+          </nav>
+        </header>
+        <div class="content-body">
+          <section class="panel panel-plain" id="{{ current_table.anchor }}">
+          {% if current_table.description %}
+          <p>{{ current_table.description }}</p>
+          {% endif %}
+          {% if current_table.primary_key %}
+          <h3 id="{{ current_table.anchor }}-primary-key">Primary Key</h3>
+          <p>
+            {% for key_column in current_table.primary_key -%}
+            {%- if not loop.first %}, {% endif -%}
+            {%- if key_column.anchor -%}
+            <a href="#{{ key_column.anchor }}">{{ key_column.name }}</a>
+            {%- else -%}
+            {{ key_column.name }}
+            {%- endif -%}
+            {%- endfor %}
+          </p>
+          {% endif %}
+          <h3 id="{{ current_table.anchor }}-columns">Columns</h3>
+          <div class="column-details-actions" role="group" aria-label="Column details controls">
+            <button type="button" class="tree-action-button" data-column-details-action="expand-all">Show all details</button>
+            <button type="button" class="tree-action-button" data-column-details-action="collapse-all">Hide all details</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Datatype</th>
+                <th>UCD</th>
+                <th>Unit</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for column in current_table.columns %}
+              <tr id="{{ column.anchor }}">
+                <td
+                  {% if column.has_details %}
+                  class="column-details-toggle-cell"
+                  data-column-details-target="{{ column.details_anchor }}"
+                  aria-expanded="false"
+                  title="Click to show details."
+                  tabindex="0"
+                  role="button"
+                  {% endif %}
+                >
+                  {{ column.name }}
+                </td>
+                <td>{{ column.datatype }}</td>
+                <td>{{ column.ucd }}</td>
+                <td>{{ column.unit }}</td>
+                <td>{{ column.description }}</td>
+              </tr>
+              {% if column.has_details %}
+              <tr id="{{ column.details_anchor }}" class="column-details-row" hidden>
+                <td colspan="5">
+                  <table class="column-details-table">
+                    <tbody>
+                      {% for field in column.details_fields %}
+                      <tr>
+                        <th class="field-key">{{ field.key }}</th>
+                        <td class="field-value">{{ field.display_value }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if current_table.indexes %}
+          <h3 id="{{ current_table.anchor }}-indexes">Indexes</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Index</th>
+                <th>Type</th>
+                <th>Definition</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for index in current_table.indexes %}
+              <tr id="{{ index.anchor }}">
+                <td>{{ index.name }}</td>
+                <td>{{ index.definition_kind }}</td>
+                <td>
+                  {% if index.definition_kind == "columns" %}
+                  {%- for col in index.definition_values -%}
+                  {%- if not loop.first %}, {% endif -%}
+                  {%- if col.anchor -%}
+                  <a href="#{{ col.anchor }}">{{ col.name }}</a>
+                  {%- else -%}
+                  {{ col.name }}
+                  {%- endif -%}
+                  {%- endfor -%}
+                  {% else %}
+                  {{ index.definition_values | join(', ') }}
+                  {% endif %}
+                </td>
+                <td>{{ index.description }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+          {% if current_table.constraints %}
+          <h3 id="{{ current_table.anchor }}-constraints">Constraints</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Constraint</th>
+                <th>Type</th>
+                <th>Definition</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for constraint in current_table.constraints %}
+              <tr id="{{ constraint.anchor }}">
+                <td>{{ constraint.name }}</td>
+                <td>{{ constraint.type }}</td>
+                <td>
+                  {% if constraint.type == "Check" %}
+                  <code>{{ constraint.expression }}</code>
+                  {% elif constraint.type == "Unique" %}
+                  {%- for col in constraint.columns -%}
+                  {%- if not loop.first %}, {% endif -%}
+                  {%- if col.anchor -%}
+                  <a href="#{{ col.anchor }}">{{ col.name }}</a>
+                  {%- else -%}
+                  {{ col.name }}
+                  {%- endif -%}
+                  {%- endfor -%}
+                  {% elif constraint.type == "ForeignKey" %}
+                  <div>
+                    <strong>Columns:</strong>&#32;
+                    {%- for col in constraint.columns -%}
+                    {%- if not loop.first %}, {% endif -%}
+                    {%- if col.anchor -%}
+                    <a href="#{{ col.anchor }}">{{ col.name }}</a>
+                    {%- else -%}
+                    {{ col.name }}
+                    {%- endif -%}
+                    {%- endfor -%}
+                  </div>
+                  <div>
+                    <strong>References:</strong>&#32;
+                    {%- for ref_col in constraint.referenced_columns -%}
+                    {%- if not loop.first %}, {% endif -%}
+                    {%- if ref_col.table_page_filename -%}
+                    <a href="{{ ref_col.table_page_filename }}">{{ ref_col.table_name }}</a>.{% if ref_col.anchor %}<a href="{{ ref_col.table_page_filename }}#{{ ref_col.anchor }}">{{ ref_col.name }}</a>{% else %}{{ ref_col.name }}{% endif %}
+                    {%- else -%}
+                    {{ ref_col.id }}
+                    {%- endif -%}
+                    {%- endfor -%}
+                  </div>
+                  {% if constraint.on_delete %}
+                  <div><strong>On Delete:</strong> {{ constraint.on_delete }}</div>
+                  {% endif %}
+                  {% if constraint.on_update %}
+                  <div><strong>On Update:</strong> {{ constraint.on_update }}</div>
+                  {% endif %}
+                  {% endif %}
+                  {% if constraint.deferrable %}
+                  <div><strong>Deferrable:</strong> true</div>
+                  {% if constraint.initially %}
+                  <div><strong>Initially:</strong> {{ constraint.initially }}</div>
+                  {% endif %}
+                  {% endif %}
+                </td>
+                <td>{{ constraint.description }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+          </section>
+        </div>
+      </main>
+    </div>
+    <script src="{{ script_href }}"></script>
+  </body>
+</html>
