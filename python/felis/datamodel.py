@@ -867,6 +867,9 @@ class ColumnOverrides(BaseModel):
     nullable: bool | None = None
     """New nullable flag for the column."""
 
+    ivoa_ucd: str | None = Field(default=None, alias="ivoa:ucd")
+    """New IVOA UCD for the column."""
+
     tap_principal: int | None = Field(default=None, alias="tap:principal")
     """Override for the TAP_SCHEMA 'principal' flag."""
 

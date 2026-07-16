@@ -1219,6 +1219,7 @@ tables:
           overrides:
             description: "Renamed test column"
             datatype: short
+            ivoa:ucd: "meta.id;meta.main"
             tap:principal: 1
             tap:column_index: 2
 """
@@ -1281,6 +1282,7 @@ tables:
         self.assertEqual(renamed_column_ref.ref_name, "test_column")
         self.assertIsNotNone(renamed_column_ref.overrides)
         self.assertEqual(renamed_column_ref.overrides.description, "Renamed test column")
+        self.assertEqual(renamed_column_ref.overrides.ivoa_ucd, "meta.id;meta.main")
         self.assertEqual(renamed_column_ref.overrides.tap_principal, 1)
         self.assertEqual(renamed_column_ref.overrides.tap_column_index, 2)
         self.assertEqual(renamed_column_ref.overrides.datatype.value, "short")
