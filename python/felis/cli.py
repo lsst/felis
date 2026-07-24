@@ -636,7 +636,11 @@ def dump(
         raise click.ClickException("Output file must have a .json or .yaml extension")
     schema = Schema.from_uri(
         uris[0],
-        context={"id_generation": ctx.obj["id_generation"], "dereference_resources": dereference_resources},
+        context={
+            "id_generation": ctx.obj["id_generation"],
+            "dereference_resources": dereference_resources,
+            "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
+        },
     )
     with open(uris[1], "w") as f:
         if format == "yaml":
