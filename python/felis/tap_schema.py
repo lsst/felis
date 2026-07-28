@@ -318,7 +318,7 @@ class TableManager:
             )
             for table_name in TableManager.get_table_names_std()
         }
-        logger.debug(f"Created TAP_SCHEMA table map: {self._table_map}")
+        logger.debug("Created TAP_SCHEMA table map: %s", self._table_map)
 
     def _check_tables(self) -> None:
         """Check that there is a valid mapping to each standard table.

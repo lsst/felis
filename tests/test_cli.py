@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import logging
 import os
 import shutil
 import tempfile
@@ -87,6 +88,15 @@ class CliTestCase(unittest.TestCase):
     def test_validate(self) -> None:
         """Test validate command."""
         run_cli(["validate", TEST_YAML])
+
+    def test_validate_with_log_file(self) -> None:
+        """Test validate command with log file."""
+        log_file = os.path.join(self.tmpdir, "validate.log")
+        run_cli([f"--log-file={log_file}", "validate", TEST_YAML], log_level=logging.DEBUG, print_cmd=True)
+        if not os.path.exists(log_file):
+            self.fail("Log file was not created")
+        if os.path.getsize(log_file) == 0:
+            self.fail("Log file is empty")
 
     def test_validate_with_id_generation(self) -> None:
         """Test that loading a schema with IDs works if ID generation is
@@ -260,6 +270,68 @@ class CliTestCase(unittest.TestCase):
         with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
             run_cli(["dump", TEST_YAML, temp_file.name], print_output=True)
 
+    def test_dump_with_dereference_resources_and_sort_columns(self) -> None:
+        """Test dump with both --dereference-resources and --sort-columns."""
+        # Define a source schema with columns in non-alphabetical order
+        source_schema_content = """
+name: base_schema
+tables:
+- name: base_table
+  columns:
+  - name: zebra_col
+    datatype: string
+    length: 32
+  - name: alpha_col
+    datatype: int
+  - name: middle_col
+    datatype: float
+"""
+        source_path = os.path.join(self.tmpdir, "base_schema.yaml")
+        with open(source_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Define a referencing schema that pulls columns via columnRefs
+        ref_schema_content = f"""
+name: derived_schema
+resources:
+  base_schema:
+    uri: {source_path}
+tables:
+- name: derived_table
+  columnRefs:
+    base_schema:
+      base_table:
+        zebra_col:
+        alpha_col:
+        middle_col:
+"""
+        ref_path = os.path.join(self.tmpdir, "derived_schema.yaml")
+        with open(ref_path, "w") as f:
+            f.write(ref_schema_content.strip())
+
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".yaml", dir=self.tmpdir) as temp_file:
+            run_cli(
+                [
+                    "dump",
+                    "--dereference-resources",
+                    "--sort-columns",
+                    ref_path,
+                    temp_file.name,
+                ],
+                print_output=True,
+            )
+            dumped_data = temp_file.read().decode("utf-8")
+            data = yaml.safe_load(dumped_data)
+
+            # Verify resources are dereferenced (no columnRefs remain)
+            for table in data.get("tables", []):
+                self.assertNotIn("columnRefs", table)
+                # Verify columns are present and sorted alphabetically
+                columns = table.get("columns", [])
+                self.assertGreater(len(columns), 0)
+                names = [col["name"] for col in columns]
+                self.assertEqual(names, sorted(names))
+
     def test_dump_json_with_strip_ids(self) -> None:
         """Test for ``dump`` command with JSON output."""
         with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
@@ -271,6 +343,32 @@ class CliTestCase(unittest.TestCase):
                 self._check_strip_ids(data)
             except ValueError:
                 self.fail("Dumped YAML contains forbidden key '@id'")
+
+    @classmethod
+    def _check_columns_sorted(cls, data: dict[str, Any]) -> None:
+        """Check that columns in each table are sorted alphabetically by
+        name.
+        """
+        for table in data.get("tables", []):
+            columns = table.get("columns", [])
+            names = [col["name"] for col in columns]
+            assert names == sorted(names), f"Columns not sorted in table {table.get('name')}: {names}"
+
+    def test_dump_yaml_with_sort_columns(self) -> None:
+        """Test for ``dump`` command with YAML output and sorted columns."""
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".yaml") as temp_file:
+            run_cli(["dump", "--sort-columns", TEST_YAML, temp_file.name], print_output=True)
+            dumped_data = temp_file.read().decode("utf-8")
+            data = yaml.safe_load(dumped_data)
+            self._check_columns_sorted(data)
+
+    def test_dump_json_with_sort_columns(self) -> None:
+        """Test for ``dump`` command with JSON output and sorted columns."""
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".json") as temp_file:
+            run_cli(["dump", "--sort-columns", TEST_YAML, temp_file.name], print_output=True)
+            dumped_data = temp_file.read().decode("utf-8")
+            data = yaml.safe_load(dumped_data)
+            self._check_columns_sorted(data)
 
     def test_dump_with_invalid_file_extension_error(self) -> None:
         """Test for ``dump`` command with JSON output."""
@@ -356,6 +454,119 @@ class CliTestCase(unittest.TestCase):
 
         except Exception as e:
             self.fail(f"Test failed with exception: {e}")
+
+
+class ColumnRefsTestCase(unittest.TestCase):
+    """Test handling of column references in CLI."""
+
+    def setUp(self) -> None:
+        """Set up a temporary directory for tests."""
+        self.temp_dir = tempfile.mkdtemp(dir=TEST_DIR)
+        self.sqlite_url = f"sqlite:///{self.temp_dir}/db.sqlite3"
+
+        # Write out source schema file
+        source_schema_content = """
+name: source_schema
+tables:
+- name: source_table
+  columns:
+  - name: ref_col1
+    datatype: int
+  - name: ref_col2
+    datatype: string
+    length: 64
+  - name: ref_col3
+    datatype: float
+"""
+        source_schema_path = os.path.join(self.temp_dir, "source_schema.yaml")
+        with open(source_schema_path, "w") as f:
+            f.write(source_schema_content.strip())
+
+        # Write out referencing schema file
+        ref_schema_content = """
+name: ref_schema
+resources:
+  source_schema:
+    uri: {resource_path}
+tables:
+- name: ref_table
+  columnRefs:
+    source_schema:
+      source_table:
+        ref_col1:
+        ref_col2:
+          overrides:
+            tap:column_index: 15
+        col3:
+          ref_name: ref_col3
+"""
+        self.ref_schema_path = os.path.join(self.temp_dir, "ref_schema.yaml")
+        ref_content = ref_schema_content.format(resource_path=source_schema_path)
+        with open(self.ref_schema_path, "w") as f:
+            f.write(ref_content.strip())
+
+    def tearDown(self) -> None:
+        """Clean up temporary directory."""
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_validate_with_column_ref_index_increment(self) -> None:
+        """Test that passing a valid value for column reference index increment
+        works.
+        """
+        run_cli(
+            [
+                "--column-ref-index-increment=1",
+                "validate",
+                self.ref_schema_path,
+            ]
+        )
+
+    def test_validate_with_column_ref_index_increment_error(self) -> None:
+        """Test that passing an invalid value for column reference index raises
+        an error.
+        """
+        run_cli(
+            [
+                "--column-ref-index-increment=-1",
+                "validate",
+                self.ref_schema_path,
+            ],
+            expect_error=True,
+        )
+
+    def test_load_tap_schema_with_column_refs(self) -> None:
+        """Test load-tap-schema command with column reference index
+        increment.
+        """
+        # Create the TAP_SCHEMA database
+        run_cli(["init-tap-schema", f"--engine-url={self.sqlite_url}"])
+
+        # Load the TAP_SCHEMA data that includes column references
+        run_cli(
+            [
+                "load-tap-schema",
+                f"--engine-url={self.sqlite_url}",
+                self.ref_schema_path,
+            ]
+        )
+
+    def test_load_tap_schema_with_column_ref_index_increment(self) -> None:
+        """Test load-tap-schema command with column reference index
+        increment.
+        """
+        # Create the TAP_SCHEMA database
+        run_cli(["init-tap-schema", f"--engine-url={self.sqlite_url}"])
+
+        # Load the TAP_SCHEMA data that includes column reference index
+        # increment
+        run_cli(
+            [
+                "--column-ref-index-increment=1",
+                "load-tap-schema",
+                f"--engine-url={self.sqlite_url}",
+                self.ref_schema_path,
+            ]
+        )
 
 
 if __name__ == "__main__":

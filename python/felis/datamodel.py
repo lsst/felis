@@ -28,6 +28,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from enum import StrEnum, auto
+from operator import itemgetter
 from typing import IO, Annotated, Any, Generic, Literal, TypeAlias, TypeVar
 
 import yaml
@@ -57,10 +58,13 @@ __all__ = (
     "BaseObject",
     "CheckConstraint",
     "Column",
+    "ColumnOverrides",
+    "ColumnResourceRef",
     "Constraint",
     "DataType",
     "ForeignKeyConstraint",
     "Index",
+    "Resource",
     "Schema",
     "SchemaVersion",
     "Table",
@@ -76,12 +80,6 @@ CONFIG = ConfigDict(
 """Pydantic model configuration as described in:
 https://docs.pydantic.dev/2.0/api/config/#pydantic.config.ConfigDict
 """
-
-DESCR_MIN_LENGTH = 3
-"""Minimum length for a description field."""
-
-DescriptionStr: TypeAlias = Annotated[str, Field(min_length=DESCR_MIN_LENGTH)]
-"""Type for a description, which must be three or more characters long."""
 
 
 class BaseObject(BaseModel):
@@ -100,7 +98,7 @@ class BaseObject(BaseModel):
     id: str = Field(alias="@id")
     """Unique identifier of the database object."""
 
-    description: DescriptionStr | None = None
+    description: str | None = None
     """Description of the database object."""
 
     votable_utype: str | None = Field(None, alias="votable:utype")
@@ -108,7 +106,9 @@ class BaseObject(BaseModel):
 
     @model_validator(mode="after")
     def check_description(self, info: ValidationInfo) -> BaseObject:
-        """Check that the description is present if required.
+        """Check that the description is present and contains at least one
+        non-whitespace character, if the validation context indicates that this
+        check is enabled. By default, descriptions may be omitted or empty.
 
         Parameters
         ----------
@@ -125,8 +125,6 @@ class BaseObject(BaseModel):
             return self
         if self.description is None or self.description == "":
             raise ValueError("Description is required and must be non-empty")
-        if len(self.description) < DESCR_MIN_LENGTH:
-            raise ValueError(f"Description must be at least {DESCR_MIN_LENGTH} characters long")
         return self
 
 
@@ -232,6 +230,9 @@ class Column(BaseObject):
 
     postgresql_datatype: str | None = Field(None, alias="postgresql:datatype")
     """PostgreSQL datatype override on the column."""
+
+    _is_resource_ref: bool = PrivateAttr(False)
+    """Whether this column is a resource reference column."""
 
     @model_validator(mode="after")
     def check_value(self) -> Column:
@@ -340,10 +341,10 @@ class Column(BaseObject):
                 + (f" in column '{values['@id']}'" if "@id" in values else "")
             )
         elif not felis_type.is_sized and length is not None:
-            logger.warning(
-                f"The datatype '{datatype}' does not support a specified length"
-                + (f" in column '{values['@id']}'" if "@id" in values else "")
-            )
+            msg = f"The datatype '{datatype}' does not support a specified length"
+            if "@id" in values:
+                msg += f" in column '{values['@id']}'"
+            logger.warning("%s", msg)
         return values
 
     @model_validator(mode="after")
@@ -400,10 +401,14 @@ class Column(BaseObject):
                     )
                 else:
                     logger.debug(
-                        f"Type override of 'datatype: {self.datatype}' "
-                        f"with '{db_annotation}: {datatype_string}' in column '{self.id}' "
-                        f"compiled to '{datatype_obj.compile(dialect)}' and "
-                        f"'{db_datatype_obj.compile(dialect)}'"
+                        "Type override of 'datatype: %s' with '%s: %s' in column '%s' "
+                        "compiled to '%s' and '%s'",
+                        self.datatype,
+                        db_annotation,
+                        datatype_string,
+                        self.id,
+                        datatype_obj.compile(dialect),
+                        db_datatype_obj.compile(dialect),
                     )
         return self
 
@@ -459,8 +464,11 @@ class Column(BaseObject):
                     if context.get("force_unbounded_arraysize", False):
                         arraysize = "*"
                         logger.debug(
-                            f"Forced VOTable's 'arraysize' to '*' on column '{values['name']}' with datatype "
-                            + f"'{values['datatype']}' and length '{length}'"
+                            "Forced VOTable's 'arraysize' to '*' on column '%s' with datatype "
+                            "'%s' and length '%s'",
+                            values["name"],
+                            values["datatype"],
+                            length,
                         )
                     else:
                         arraysize = f"{length}*"
@@ -469,15 +477,21 @@ class Column(BaseObject):
             if arraysize is not None:
                 values["votable:arraysize"] = arraysize
                 logger.debug(
-                    f"Set default 'votable:arraysize' to '{arraysize}' on column '{values['name']}'"
-                    + f" with datatype '{values['datatype']}' and length '{values.get('length', None)}'"
+                    "Set default 'votable:arraysize' to '%s' on column '%s'"
+                    " with datatype '%s' and length '%s'",
+                    arraysize,
+                    values["name"],
+                    values["datatype"],
+                    values.get("length", None),
                 )
         else:
-            logger.debug(f"Using existing 'votable:arraysize' of '{arraysize}' on column '{values['name']}'")
+            logger.debug(
+                "Using existing 'votable:arraysize' of '%s' on column '%s'", arraysize, values["name"]
+            )
             if isinstance(values["votable:arraysize"], int):
                 logger.warning(
-                    f"Usage of an integer value for 'votable:arraysize' in column '{values['name']}' is "
-                    + "deprecated"
+                    "Usage of an integer value for 'votable:arraysize' in column '%s' is deprecated",
+                    values["name"],
                 )
                 values["votable:arraysize"] = str(arraysize)
         return values
@@ -534,6 +548,25 @@ class Column(BaseObject):
         if self.datatype == DataType.timestamp and self.votable_xtype is None:
             self.votable_xtype = "timestamp"
         return self
+
+    def _update_from_overrides(self, overrides: ColumnOverrides) -> None:
+        """Update the column attributes from the given overrides.
+
+        Parameters
+        ----------
+        overrides
+            The column overrides to apply or `None` to skip applying overrides.
+
+        Notes
+        -----
+        Using ``model_fields_set`` allows updating only the fields that are
+        explicitly set in the `overrides` object. This prevents overwriting
+        existing column attributes which were not explicitly provided.
+        """
+        if overrides.model_fields_set:
+            logger.debug("Applying overrides to column '%s': %s", self.id, overrides.model_fields_set)
+            for field in overrides.model_fields_set:
+                setattr(self, field, getattr(overrides, field))
 
 
 class Constraint(BaseObject):
@@ -810,6 +843,103 @@ class ColumnGroup(BaseObject):
         return [col if isinstance(col, str) else col.id for col in columns]
 
 
+class ColumnOverrides(BaseModel):
+    """Allowed overrides for a referenced column.
+
+    Notes
+    -----
+    All of these fields are optional. Values of None may be explicitly set to
+    override the corresponding attribute in the referenced column but only
+    for certain fields (see validation in `_check_non_nullable_overrides`).
+    """
+
+    model_config = CONFIG.copy()
+
+    datatype: DataType | None = None
+    """New datatype for the column."""
+
+    length: int | None = None
+    """New length for the column."""
+
+    description: str | None = None
+    """New description for the column."""
+
+    nullable: bool | None = None
+    """New nullable flag for the column."""
+
+    tap_principal: int | None = Field(default=None, alias="tap:principal")
+    """Override for the TAP_SCHEMA 'principal' flag."""
+
+    tap_column_index: int | None = Field(default=None, alias="tap:column_index")
+    """Override for the TAP_SCHEMA column index."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _check_non_nullable_overrides(cls, data: Any) -> Any:
+        """Check that certain fields are not overridden to null."""
+        if not isinstance(data, dict):
+            return data
+        non_nullable_fields = ("datatype", "length", "nullable", "tap_principal")
+        for name in non_nullable_fields:
+            if name in data and data[name] is None:
+                raise ValueError(f"The '{name}' field cannot be overridden to null")
+        return data
+
+    @field_serializer("datatype")
+    def serialize_datatype(self, value: DataType | None) -> str | None:
+        """Convert `DataType` to string when serializing to JSON/YAML.
+
+        Parameters
+        ----------
+        value
+            The `DataType` value to serialize, or None.
+
+        Returns
+        -------
+        `str` | None
+            The serialized `DataType` value, or None if the input was None.
+        """
+        if value is None:
+            return None
+        return str(value)
+
+    @field_validator("datatype", mode="before")
+    @classmethod
+    def deserialize_datatype(cls, value: str | None) -> DataType | None:
+        """Convert string back into `DataType` when loading from JSON/YAML.
+
+        Parameters
+        ----------
+        value
+            The string value to deserialize, or None.
+
+        Returns
+        -------
+        `DataType` | None
+            The deserialized `DataType` value, or None if the input was None.
+        """
+        if value is None:
+            return None
+        return DataType(value)
+
+
+class ColumnResourceRef(BaseModel):
+    """A column which is dervived from an external resource."""
+
+    ref_name: str | None = None
+    """Name of the referenced column in the resource
+    (if different from the key)."""
+
+    overrides: ColumnOverrides | None = None
+    """Optional overrides of the referenced column's attributes."""
+
+
+# Type aliases for the nested mapping structure of referenced columns
+ResourceColumnMap: TypeAlias = dict[str, ColumnResourceRef | None]
+ResourceTableMap: TypeAlias = dict[str, ResourceColumnMap]
+ResourceMap: TypeAlias = dict[str, ResourceTableMap]
+
+
 class Table(BaseObject):
     """Table model."""
 
@@ -825,7 +955,10 @@ class Table(BaseObject):
     mysql_charset: str | None = Field(None, alias="mysql:charset")
     """MySQL charset to use for the table."""
 
-    columns: Sequence[Column]
+    column_refs: ResourceMap = Field(default_factory=dict, alias="columnRefs")
+    """Referenced columns from external resources."""
+
+    columns: list[Column] = Field(default_factory=list)
     """Columns in the table."""
 
     column_groups: list[ColumnGroup] = Field(default_factory=list, alias="columnGroups")
@@ -938,6 +1071,12 @@ class Table(BaseObject):
                 return column
         raise KeyError(f"Column '{id}' not found in table '{self.name}'")
 
+    def _find_column_by_name(self, name: str) -> Column:
+        for column in self.columns:
+            if column.name == name:
+                return column
+        raise KeyError(f"Column '{name}' not found in table '{self.name}'")
+
     @model_validator(mode="after")
     def dereference_column_groups(self: Table) -> Table:
         """Dereference columns in column groups.
@@ -951,6 +1090,19 @@ class Table(BaseObject):
             group.table = self
             group._dereference_columns()
         return self
+
+    @field_serializer("columns")
+    def _serialize_columns(self, columns: list[Column]) -> list[dict[str, Any]]:
+        """Serialize only non-resource columns."""
+        return [
+            col.model_dump(
+                by_alias=True,
+                exclude_none=True,
+                exclude_defaults=True,
+            )
+            for col in columns
+            if not col._is_resource_ref
+        ]
 
 
 class SchemaVersion(BaseModel):
@@ -1106,6 +1258,14 @@ def _append_error(
     )
 
 
+class Resource(BaseModel):
+    """A resource definition referencing an external schema."""
+
+    uri: str = Field(..., description="Resource URI or path")
+    """URI of the schema resource which may be a local path, ``resource://``,
+    or remote URL."""
+
+
 class Schema(BaseObject, Generic[T]):
     """Database schema model.
 
@@ -1115,11 +1275,228 @@ class Schema(BaseObject, Generic[T]):
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
+    resources: dict[str, Resource] = Field(default_factory=dict)
+    """External resources referenced by this schema."""
+
     tables: Sequence[Table]
     """The tables in the schema."""
 
     _id_map: dict[str, Any] = PrivateAttr(default_factory=dict)
     """Map of IDs to objects."""
+
+    _resource_map: dict[str, Schema] = PrivateAttr(default_factory=dict)
+    """Map of resource names to loaded schemas."""
+
+    @model_validator(mode="after")
+    def _load_resources(self: Schema, info: ValidationInfo) -> Schema:
+        """Load external resources referenced by this schema into an internal
+        mapping of resource names to their `Schema` objects.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        ValueError
+            Raised if a resource cannot be loaded.
+        """
+        if info.context:
+            context = info.context.copy()
+            # Ignore this flag for loading the resources themselves
+            context.pop("dereference_resources", None)
+        else:
+            context = {}
+
+        # Get the base URI for resolving relative resource paths from the
+        # validation context, if available.
+        resource_path = context.pop("resource_path", None)
+        base_uri = None
+        if resource_path is not None:
+            base_uri = resource_path.parent()
+
+        for resource_name, resource in self.resources.items():
+            uri = resource.uri
+
+            # Apply the base URI to the resource URI, if available.
+            if base_uri is not None:
+                orig_uri = uri
+                uri = base_uri.join(uri, forceDirectory=False)
+                if uri != orig_uri:
+                    logger.info(
+                        "Resolved relative URI '%s' for resource '%s' to '%s' using base URI '%s'",
+                        resource.uri,
+                        resource_name,
+                        uri,
+                        base_uri,
+                    )
+
+            try:
+                loaded_schema = Schema.from_uri(uri, context=context)
+                self._resource_map[resource_name] = loaded_schema
+                logger.debug("Loaded resource '%s' from URI '%s'", resource_name, uri)
+            except Exception as e:
+                raise ValueError(f"Failed to load resource '{resource_name}' from URI '{uri}': {e}") from e
+        return self
+
+    def _find_table_by_name(self, name: str) -> Table:
+        """Find a table by name.
+
+        Parameters
+        ----------
+        name
+            The name of the table to find.
+
+        Returns
+        -------
+        `Table`
+            The table with the given name.
+
+        Raises
+        ------
+        KeyError
+            Raised if the table is not found.
+        """
+        for table in self.tables:
+            if table.name == name:
+                return table
+        raise KeyError(f"Table '{name}' not found in schema '{self.name}'")
+
+    @model_validator(mode="after")
+    def _dereference_resource_columns(self: Schema, info: ValidationInfo) -> Schema:
+        """Dereference columns from external resources and add them to the
+        tables in this schema.
+        """
+        context = info.context
+        column_ref_index_increment: int | None = None
+        dereference_resources = False
+        if context is not None:
+            dereference_resources = context.get("dereference_resources", False)
+            column_ref_index_increment = context.get("column_ref_index_increment", None)
+
+        for table in self.tables:
+            if column_refs := table.column_refs:
+                for resource_name, tables in column_refs.items():
+                    resource_schema = self._resource_map.get(resource_name)
+                    if resource_schema is None:
+                        raise ValueError(f"Schema resource '{resource_name}' was not found in resources")
+                    self._process_column_refs(
+                        table,
+                        tables,
+                        resource_schema,
+                        dereference_resources,
+                        column_ref_index_increment,
+                    )
+                if dereference_resources and len(table.column_refs) > 0:
+                    # Clear column refs in table if fully dereferencing
+                    logger.debug(
+                        "Clearing columnRefs in table '%s' after dereferencing resource columns",
+                        table.name,
+                    )
+                    table.column_refs = {}
+        return self
+
+    @classmethod
+    def _process_column_refs(
+        cls,
+        table: Table,
+        ref_tables: ResourceTableMap,
+        resource_schema: Schema,
+        dereference_resources: bool = False,
+        column_ref_index_increment: int | None = None,
+    ) -> None:
+        """Process column references from an external resource and add them
+        to the given table as columns.
+        """
+        current_column_index = column_ref_index_increment if column_ref_index_increment is not None else -1
+
+        for table_name, columns in ref_tables.items():
+            try:
+                resource_table = resource_schema._find_table_by_name(table_name)
+            except KeyError as e:
+                raise ValueError(
+                    f"Table '{table_name}' not found in resource '{resource_schema.name}'"
+                ) from e
+            for local_column_name, column_ref in columns.items():
+                if column_ref is not None and column_ref.ref_name is not None:
+                    # Use specified ref_name
+                    ref_column_name = column_ref.ref_name
+                else:
+                    # Use the local column name if no ref_name
+                    # specified
+                    ref_column_name = local_column_name
+
+                    # Check if referenced column exists in resource
+                try:
+                    base_column = resource_table._find_column_by_name(ref_column_name)
+                except KeyError:
+                    # The ref_name is specified but column is not
+                    # found
+                    if column_ref is not None and column_ref.ref_name is not None:
+                        raise ValueError(
+                            f"Column '{ref_column_name}' not found in table '{table_name}' "
+                            f"from resource '{resource_schema.name}'"
+                        )
+                        # The ref_name is not specified and the local
+                        # column name is not found
+                    raise ValueError(
+                        f"Column '{local_column_name}' not found in table '{table_name}' "
+                        f"from resource '{resource_schema.name}' and no ref_name provided"
+                    )
+
+                # Create a copy of the base column
+                column_copy = base_column.model_copy()
+
+                # Set the local name (key from the mapping)
+                column_copy.name = local_column_name
+
+                if not dereference_resources:
+                    # Flag the column as a resource reference so it will not be
+                    # written out during serialization
+                    column_copy._is_resource_ref = True
+
+                # Apply overrides to the referenced column definition
+                overrides = column_ref.overrides if column_ref is not None else None
+                if overrides is not None:
+                    column_copy._update_from_overrides(overrides)
+
+                # Manually set the ID of the copied column as ID generation has
+                # already occurred by now
+                column_copy.id = f"{table.id}.{local_column_name}"
+
+                # Apply automatic assignment of 'tap:column_index', if enabled
+                if column_ref_index_increment is not None:
+                    if (not overrides) or (overrides.tap_column_index is None):
+                        column_copy.tap_column_index = current_column_index
+                        current_column_index += column_ref_index_increment
+                        logger.debug(
+                            "Automatically assigned 'tap:column_index' %s to "
+                            "column '%s' in table '%s' from resource '%s'",
+                            column_copy.tap_column_index,
+                            local_column_name,
+                            table_name,
+                            resource_schema.name,
+                        )
+                    else:
+                        # Skip automatic assignment of 'tap:column_index' if it
+                        # is already overridden
+                        logger.debug(
+                            "Skipping automatic assignment of 'tap:column_index' for column "
+                            "'%s' in table '%s' from resource '%s' as it is already overridden to %s",
+                            local_column_name,
+                            table_name,
+                            resource_schema.name,
+                            column_copy.tap_column_index,
+                        )
+                table.columns.append(column_copy)
+                logger.debug(
+                    "Dereferenced column '%s' from table '%s' in resource '%s' into table '%s'",
+                    local_column_name,
+                    table_name,
+                    resource_schema.name,
+                    table.name,
+                )
 
     @model_validator(mode="before")
     @classmethod
@@ -1145,37 +1522,40 @@ class Schema(BaseObject, Generic[T]):
         schema_name = values["name"]
         if "@id" not in values:
             values["@id"] = f"#{schema_name}"
-            logger.debug(f"Generated ID '{values['@id']}' for schema '{schema_name}'")
+            logger.debug("Generated ID '%s' for schema '%s'", values["@id"], schema_name)
         if "tables" in values:
             for table in values["tables"]:
                 if "@id" not in table:
                     table["@id"] = f"#{table['name']}"
-                    logger.debug(f"Generated ID '{table['@id']}' for table '{table['name']}'")
+                    logger.debug("Generated ID '%s' for table '%s'", table["@id"], table["name"])
                 if "columns" in table:
                     for column in table["columns"]:
                         if "@id" not in column:
                             column["@id"] = f"#{table['name']}.{column['name']}"
-                            logger.debug(f"Generated ID '{column['@id']}' for column '{column['name']}'")
+                            logger.debug("Generated ID '%s' for column '%s'", column["@id"], column["name"])
                 if "columnGroups" in table:
                     for column_group in table["columnGroups"]:
                         if "@id" not in column_group:
                             column_group["@id"] = f"#{table['name']}.{column_group['name']}"
                             logger.debug(
-                                f"Generated ID '{column_group['@id']}' for column group "
-                                f"'{column_group['name']}'"
+                                "Generated ID '%s' for column group '%s'",
+                                column_group["@id"],
+                                column_group["name"],
                             )
                 if "constraints" in table:
                     for constraint in table["constraints"]:
                         if "@id" not in constraint:
                             constraint["@id"] = f"#{constraint['name']}"
                             logger.debug(
-                                f"Generated ID '{constraint['@id']}' for constraint '{constraint['name']}'"
+                                "Generated ID '%s' for constraint '%s'",
+                                constraint["@id"],
+                                constraint["name"],
                             )
                 if "indexes" in table:
                     for index in table["indexes"]:
                         if "@id" not in index:
                             index["@id"] = f"#{index['name']}"
-                            logger.debug(f"Generated ID '{index['@id']}' for index '{index['name']}'")
+                            logger.debug("Generated ID '%s' for index '%s'", index["@id"], index["name"])
         return values
 
     @field_validator("tables", mode="after")
@@ -1565,12 +1945,15 @@ class Schema(BaseObject, Generic[T]):
         pydantic.ValidationError
             Raised if the schema fails validation.
         """
-        logger.debug(f"Loading schema from: '{resource_path}'")
         try:
-            rp_stream = ResourcePath(resource_path).read()
+            rp = ResourcePath(resource_path, forceAbsolute=False, forceDirectory=False)
+            rp_data = rp.read()
         except Exception as e:
             raise ValueError(f"Error reading resource from '{resource_path}' : {e}") from e
-        yaml_data = yaml.safe_load(rp_stream)
+        yaml_data = yaml.safe_load(rp_data)
+        context = dict(context)
+        # Append the resource path to the context for resolving resource URLs.
+        context["resource_path"] = rp
         return Schema.model_validate(yaml_data, context=context)
 
     @classmethod
@@ -1600,7 +1983,7 @@ class Schema(BaseObject, Generic[T]):
         yaml_data = yaml.safe_load(source)
         return Schema.model_validate(yaml_data, context=context)
 
-    def _model_dump(self, strip_ids: bool = False) -> dict[str, Any]:
+    def _model_dump(self, strip_ids: bool = False, sort_columns: bool = False) -> dict[str, Any]:
         """Dump the schema as a dictionary with some default arguments
         applied.
 
@@ -1608,6 +1991,9 @@ class Schema(BaseObject, Generic[T]):
         ----------
         strip_ids
             Whether to strip the IDs from the dumped data. Defaults to `False`.
+        sort_columns
+            Whether to sort columns alphabetically by name. Defaults to
+            `False`.
 
         Returns
         -------
@@ -1617,9 +2003,14 @@ class Schema(BaseObject, Generic[T]):
         data = self.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
         if strip_ids:
             data = _strip_ids(data)
+        if sort_columns:
+            for table in data.get("tables", []):
+                table["columns"] = sorted(table.get("columns", []), key=itemgetter("name"))
         return data
 
-    def dump_yaml(self, stream: IO[str] = sys.stdout, strip_ids: bool = False) -> None:
+    def dump_yaml(
+        self, stream: IO[str] = sys.stdout, strip_ids: bool = False, sort_columns: bool = False
+    ) -> None:
         """Pretty print the schema as YAML.
 
         Parameters
@@ -1628,8 +2019,11 @@ class Schema(BaseObject, Generic[T]):
             The stream to write the YAML data to.
         strip_ids
             Whether to strip the IDs from the dumped data. Defaults to `False`.
+        sort_columns
+            Whether to sort columns alphabetically by name. Defaults to
+            `False`.
         """
-        data = self._model_dump(strip_ids=strip_ids)
+        data = self._model_dump(strip_ids=strip_ids, sort_columns=sort_columns)
         yaml.safe_dump(
             data,
             stream,
@@ -1637,7 +2031,9 @@ class Schema(BaseObject, Generic[T]):
             sort_keys=False,
         )
 
-    def dump_json(self, stream: IO[str] = sys.stdout, strip_ids: bool = False) -> None:
+    def dump_json(
+        self, stream: IO[str] = sys.stdout, strip_ids: bool = False, sort_columns: bool = False
+    ) -> None:
         """Pretty print the schema as JSON.
 
         Parameters
@@ -1646,8 +2042,11 @@ class Schema(BaseObject, Generic[T]):
             The stream to write the JSON data to.
         strip_ids
             Whether to strip the IDs from the dumped data. Defaults to `False`.
+        sort_columns
+            Whether to sort columns alphabetically by name. Defaults to
+            `False`.
         """
-        data = self._model_dump(strip_ids=strip_ids)
+        data = self._model_dump(strip_ids=strip_ids, sort_columns=sort_columns)
         json.dump(
             data,
             stream,
