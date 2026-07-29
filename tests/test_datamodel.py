@@ -40,6 +40,7 @@ from felis.datamodel import (
     Constraint,
     DataType,
     ForeignKeyConstraint,
+    ForeignKeyReference,
     Index,
     Schema,
     SchemaVersion,
@@ -377,6 +378,55 @@ class TableTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Table(name="testTable", id="#test_id", columns=[testCol, testCol])
 
+    def test_column_group_lookup_by_name(self) -> None:
+        """Test that a column group resolves its column references by name,
+        with a fallback to ID lookup for backward compatibility.
+        """
+        col_a = Column(name="colA", id="#col_a", datatype="int")
+        col_b = Column(name="colB", id="#col_b", datatype="int")
+
+        def build_table(group_refs: list[str]) -> Table:
+            """Build a table with a column group referencing the given
+            columns.
+            """
+            return Table(
+                name="testTable",
+                id="#test_table",
+                columns=[col_a, col_b],
+                column_groups=[ColumnGroup(name="testGroup", id="#test_group", columns=group_refs)],
+            )
+
+        # Referencing the columns by name should dereference to the column
+        # objects.
+        table = build_table(["colA", "colB"])
+        self.assertEqual(
+            [col_a, col_b],
+            table.column_groups[0].columns,
+            "column group should dereference columns by name",
+        )
+
+        # Referencing the columns by ID should still work as a fallback.
+        table = build_table(["#col_a", "#col_b"])
+        self.assertEqual(
+            [col_a, col_b],
+            table.column_groups[0].columns,
+            "column group should dereference columns by ID",
+        )
+
+        # Referencing an unknown column should raise.
+        with self.assertRaises(ValidationError):
+            build_table(["bad_column"])
+
+    def test_column_lookup_warns_on_id_fallback(self) -> None:
+        """Test that ID-based lookup is recorded on the table."""
+        col = Column(name="colA", id="#col_a", datatype="int")
+        table = Table(name="testTable", id="#test_table", columns=[col])
+
+        found = table._find_column("#col_a")
+
+        self.assertEqual(col, found)
+        self.assertIn("#col_a", table._deprecated_id_lookups)
+
 
 class ColumnGroupTestCase(unittest.TestCase):
     """Test Pydantic validation of the ``ColumnGroup`` class."""
@@ -446,6 +496,25 @@ class ColumnGroupTestCase(unittest.TestCase):
                 columns=[col],
                 column_groups=[group],
             )
+
+    def test_serialization_uses_column_names(self) -> None:
+        """Test that column group serialization emits column names."""
+        col_a = Column(name="colA", id="#col_a", datatype="int")
+        col_b = Column(name="colB", id="#col_b", datatype="int")
+
+        table = Table(
+            name="testTable",
+            id="#test_table",
+            columns=[col_a, col_b],
+            column_groups=[ColumnGroup(name="testGroup", id="#test_group", columns=["colA", "colB"])],
+        )
+
+        dumped = table.model_dump(by_alias=True)
+        self.assertEqual(
+            ["colA", "colB"],
+            dumped["columnGroups"][0]["columns"],
+            "serialized column group columns should use names",
+        )
 
 
 class ConstraintTestCase(unittest.TestCase):
@@ -555,6 +624,61 @@ class ConstraintTestCase(unittest.TestCase):
                 referenced_columns=["test_column"],
             )
 
+    def test_foreign_key_reference(self) -> None:
+        """Test the name-based ``reference`` style of foreign key
+        constraint.
+        """
+        # Creating a foreign key using the name-based reference style should
+        # load data correctly.
+        constraint = ForeignKeyConstraint(
+            name="fk_test",
+            id="#fk_test",
+            columns=["visit"],
+            reference=ForeignKeyReference(table="Visit", columns=["visit"]),
+        )
+        self.assertIsNone(constraint.referenced_columns)
+        self.assertEqual(constraint.reference.table, "Visit")
+        self.assertEqual(constraint.reference.columns, ["visit"])
+
+        # Creating from a data dictionary should also work.
+        data = {
+            "name": "fk_test",
+            "@id": "#fk_test",
+            "@type": "ForeignKey",
+            "columns": ["visit"],
+            "reference": {"table": "Visit", "columns": ["visit"]},
+        }
+        constraint = ForeignKeyConstraint.model_validate(data)
+        self.assertIsNone(constraint.referenced_columns)
+        self.assertEqual(constraint.reference.table, "Visit")
+        self.assertEqual(constraint.reference.columns, ["visit"])
+
+        # A foreign key specifying neither referenced columns nor a reference
+        # should raise.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(name="fk_test", id="#fk_test", columns=["visit"])
+
+        # A reference whose column count differs from the source columns should
+        # raise.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(
+                name="fk_test",
+                id="#fk_test",
+                columns=["visit"],
+                reference=ForeignKeyReference(table="Visit", columns=["visit", "extra"]),
+            )
+
+        # Specifying both referenced columns and a reference should raise at
+        # direct ForeignKeyConstraint validation time.
+        with self.assertRaises(ValidationError):
+            ForeignKeyConstraint(
+                name="fk_test",
+                id="#fk_test",
+                columns=["visit"],
+                referenced_columns=["#Visit.visit"],
+                reference=ForeignKeyReference(table="Visit", columns=["visit"]),
+            )
+
     def test_check_constraint(self) -> None:
         """Test validation of check constraints."""
         # Setting name and id should throw an exception from missing
@@ -655,33 +779,6 @@ class ConstraintTestCase(unittest.TestCase):
                     referenced_columns=["#test_schema_id"],
                 )
             )
-
-        # Creating a valid unique constraint should not raise an exception.
-        _create_test_schema(
-            UniqueConstraint(name="testConstraint", id="#test_constraint_id", columns=["#test_col_id"])
-        )
-
-        # Creating a valid foreign key constraint should not raise an
-        # exception.
-        _create_test_schema(
-            ForeignKeyConstraint(
-                name="testForeignKey",
-                id="#test_fk_id",
-                columns=["#test_col_id"],
-                referenced_columns=["#test_col2_id"],
-            )
-        )
-
-        # Creating a foreign key constraint with a composite key should not
-        # raise an exception.
-        _create_test_schema(
-            ForeignKeyConstraint(
-                name="testCompositeForeignKey",
-                id="#test_composite_fk_id",
-                columns=["#test_col_id", "#test_col_id2"],
-                referenced_columns=["#test_col2_id", "#test_col2_id2"],
-            )
-        )
 
 
 class IndexTestCase(unittest.TestCase):
@@ -816,6 +913,90 @@ class SchemaTestCase(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Schema(name="test_schema", id="#test-schema", tables=[test_tbl])
 
+    def test_foreign_key_lookup_by_name(self) -> None:
+        """Test that the source columns of a foreign key constraint are
+        resolved by name within their own table.
+        """
+
+        def build_schema(columns: list[str], referenced_columns: list[str]) -> Schema:
+            """Build a schema with a source table whose foreign key references
+            a column in a second table.
+            """
+            fk = ForeignKeyConstraint(
+                name="testForeignKey",
+                id="#test_fk",
+                columns=columns,
+                referenced_columns=referenced_columns,
+            )
+            src_col = Column(name="srcColumn", id="#src_col", datatype="int")
+            ref_col = Column(name="refColumn", id="#ref_col", datatype="int")
+            src_tbl = Table(name="srcTable", id="#src_tbl", columns=[src_col], constraints=[fk])
+            ref_tbl = Table(name="refTable", id="#ref_tbl", columns=[ref_col])
+            return Schema(name="testSchema", id="#test_schema", tables=[src_tbl, ref_tbl])
+
+        # Referencing the source column by name should validate.
+        build_schema(["srcColumn"], ["#ref_col"])
+
+        # An unknown source column should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(["bad_column"], ["#ref_col"])
+
+    def test_foreign_key_reference_lookup(self) -> None:
+        """Test that the name-based ``reference`` style of foreign key resolves
+        the referenced table and columns by name.
+        """
+
+        def build_schema(reference: ForeignKeyReference) -> Schema:
+            """Build a schema with a source table whose foreign key references
+            a column in a second table by name.
+            """
+            fk = ForeignKeyConstraint(
+                name="testForeignKey", id="#test_fk", columns=["srcColumn"], reference=reference
+            )
+            src_col = Column(name="srcColumn", id="#src_col", datatype="int")
+            ref_col = Column(name="refColumn", id="#ref_col", datatype="int")
+            src_tbl = Table(name="srcTable", id="#src_tbl", columns=[src_col], constraints=[fk])
+            ref_tbl = Table(name="refTable", id="#ref_tbl", columns=[ref_col])
+            return Schema(name="testSchema", id="#test_schema", tables=[src_tbl, ref_tbl])
+
+        # Referencing the table and column by name should validate.
+        build_schema(ForeignKeyReference(table="refTable", columns=["refColumn"]))
+
+        # Referencing the column by ID should raise because the ``reference``
+        # syntax accepts names only.
+        with self.assertRaises(ValidationError):
+            build_schema(ForeignKeyReference(table="refTable", columns=["#ref_col"]))
+
+        # An unknown referenced table should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(ForeignKeyReference(table="missingTable", columns=["refColumn"]))
+
+        # An unknown referenced column should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(ForeignKeyReference(table="refTable", columns=["bad_column"]))
+
+    def test_index_lookup_by_name(self) -> None:
+        """Test that an index resolves its column references by name within its
+        table.
+        """
+
+        def build_schema(columns: list[str]) -> Schema:
+            """Build a schema with a table whose index references the given
+            columns.
+            """
+            col_a = Column(name="colA", id="#col_a", datatype="int")
+            col_b = Column(name="colB", id="#col_b", datatype="int")
+            idx = Index(name="idx_test", id="#idx_test", columns=columns)
+            tbl = Table(name="testTable", id="#test_tbl", columns=[col_a, col_b], indexes=[idx])
+            return Schema(name="testSchema", id="#test_schema", tables=[tbl])
+
+        # Referencing the columns by name should validate.
+        build_schema(["colA", "colB"])
+
+        # An unknown column should raise.
+        with self.assertRaises(ValidationError):
+            build_schema(["bad_column"])
+
     def test_model_validate(self) -> None:
         """Load a YAML test file and validate the schema data model."""
         with open(TEST_YAML) as test_yaml:
@@ -852,7 +1033,9 @@ class SchemaTestCase(unittest.TestCase):
         test_col = Column(name="test_column", id="#test_tbl.test_col", datatype="string", length=256)
         test_tbl = Table(name="test_table", id="#test_tbl", columns=[test_col])
         sch = Schema(name="testSchema", id="#test_sch_id", tables=[test_tbl])
-        self.assertEqual(sch.find_object_by_id("#test_tbl.test_col", Column), test_col)
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self.assertEqual(sch.find_object_by_id("#test_tbl.test_col", Column), test_col)
+        self.assertIn("Lookup by object ID", "\n".join(cm.output))
         with self.assertRaises(KeyError):
             sch.find_object_by_id("#bad_id", Column)
         with self.assertRaises(TypeError):
@@ -914,6 +1097,173 @@ class SchemaTestCase(unittest.TestCase):
         # Test that a KeyError is raised when the table is not found
         with self.assertRaises(KeyError):
             sch._find_table_by_name("nonexistent_table")
+
+    def test_primary_key_invalid_reference(self) -> None:
+        """Test that a primaryKey referencing a nonexistent column raises."""
+        with self.assertRaises(ValidationError):
+            Schema.model_validate(
+                {
+                    "name": "testSchema",
+                    "@id": "#test_schema",
+                    "tables": [
+                        {
+                            "name": "testTable",
+                            "@id": "#test_tbl",
+                            "columns": [{"name": "col_a", "@id": "#tbl.col_a", "datatype": "int"}],
+                            "primaryKey": "nonexistent_column",
+                        }
+                    ],
+                }
+            )
+
+
+class DeprecatedIdLookupTestCase(unittest.TestCase):
+    """Test that deprecated column ID-based lookups still resolve and emit
+    deprecation warnings, covering all object types that support column
+    references.
+    """
+
+    def _make_schema(
+        self,
+        *,
+        primary_key: str | list[str] | None = None,
+        indexes: list[dict] | None = None,
+        constraints: list[dict] | None = None,
+        include_ref_table: bool = False,
+    ) -> Schema:
+        """Build and validate a minimal schema with standard test columns.
+
+        Parameters
+        ----------
+        primary_key
+            Value for the ``primaryKey`` field on ``TestTable``.  May be a
+            single column reference string or a list of strings.
+        indexes
+            List of raw index dicts to attach to ``TestTable``.
+        constraints
+            List of raw constraint dicts to attach to ``TestTable``.
+        include_ref_table
+            When ``True``, add a ``RefTable`` to the schema.  Required for
+            tests that use foreign key ``referencedColumns``.
+
+        Returns
+        -------
+        `Schema`
+            Validated ``Schema`` object.
+        """
+        test_table: dict = {
+            "name": "TestTable",
+            "@id": "#TestTable",
+            "columns": [
+                {"name": "col_a", "@id": "#TestTable.col_a", "datatype": "int"},
+                {"name": "col_b", "@id": "#TestTable.col_b", "datatype": "int"},
+            ],
+        }
+        if primary_key is not None:
+            test_table["primaryKey"] = primary_key
+        if indexes:
+            test_table["indexes"] = indexes
+        if constraints:
+            test_table["constraints"] = constraints
+
+        tables: list[dict] = [test_table]
+        if include_ref_table:
+            tables.append(
+                {
+                    "name": "RefTable",
+                    "@id": "#RefTable",
+                    "columns": [
+                        {"name": "ref_col", "@id": "#RefTable.ref_col", "datatype": "int"},
+                    ],
+                }
+            )
+
+        return Schema.model_validate({"name": "TestSchema", "@id": "#TestSchema", "tables": tables})
+
+    def test_primary_key_id_lookup_deprecated(self) -> None:
+        """Scalar and list primaryKey references by column ID should resolve
+        and be reported in the table's deprecated ID lookup summary.
+        """
+        # Scalar form: primaryKey is a single column ID string.
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self._make_schema(primary_key="#TestTable.col_a")
+        self.assertIn("Deprecated ID lookup(s) encountered in table TestTable", "\n".join(cm.output))
+
+        # List form: primaryKey is a list of column ID strings.
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self._make_schema(primary_key=["#TestTable.col_a", "#TestTable.col_b"])
+        self.assertIn("Deprecated ID lookup(s) encountered in table TestTable", "\n".join(cm.output))
+
+    def test_index_column_id_lookup_deprecated(self) -> None:
+        """Index column references by ID should resolve and be reported in
+        the table's deprecated ID lookup summary.
+        """
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self._make_schema(
+                indexes=[{"name": "idx_test", "@id": "#idx_test", "columns": ["#TestTable.col_a"]}]
+            )
+        self.assertIn("Deprecated ID lookup(s) encountered in table TestTable", "\n".join(cm.output))
+
+    def test_unique_constraint_column_id_lookup_deprecated(self) -> None:
+        """UniqueConstraint column references by ID should resolve and be
+        reported in the table's deprecated ID lookup summary.
+        """
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self._make_schema(
+                constraints=[
+                    {
+                        "name": "uq_test",
+                        "@id": "#uq_test",
+                        "@type": "Unique",
+                        "columns": ["#TestTable.col_a"],
+                    }
+                ]
+            )
+        self.assertIn("Deprecated ID lookup(s) encountered in table TestTable", "\n".join(cm.output))
+
+    def test_foreign_key_source_column_id_lookup_deprecated(self) -> None:
+        """ForeignKeyConstraint source column references by ID should resolve
+        and be reported in the table's deprecated ID lookup summary.
+        """
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self._make_schema(
+                constraints=[
+                    {
+                        "name": "fk_test",
+                        "@id": "#fk_test",
+                        "@type": "ForeignKey",
+                        "columns": ["#TestTable.col_a"],
+                        "referencedColumns": ["#RefTable.ref_col"],
+                    }
+                ],
+                include_ref_table=True,
+            )
+        self.assertIn("Deprecated ID lookup(s) encountered in table TestTable", "\n".join(cm.output))
+
+    def test_foreign_key_referenced_columns_id_lookup_deprecated(self) -> None:
+        """ForeignKeyConstraint using the legacy ``referencedColumns`` field
+        should resolve and be reported in the table's deprecated ID lookup
+        summary.
+
+        Source columns are referenced by name to isolate the warning to the
+        ``referencedColumns`` deprecation rather than column ID fallback.
+        """
+        with self.assertLogs("felis.datamodel", level="WARNING") as cm:
+            self._make_schema(
+                constraints=[
+                    {
+                        "name": "fk_test",
+                        "@id": "#fk_test",
+                        "@type": "ForeignKey",
+                        "columns": ["col_a"],
+                        "referencedColumns": ["#RefTable.ref_col"],
+                    }
+                ],
+                include_ref_table=True,
+            )
+        output = "\n".join(cm.output)
+        self.assertIn("Deprecated ID lookup(s) encountered in table TestTable", output)
+        self.assertIn("#RefTable.ref_col", output)
 
 
 class SchemaVersionTest(unittest.TestCase):

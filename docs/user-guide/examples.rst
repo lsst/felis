@@ -66,11 +66,15 @@ key constraint on the ``ccdVisitId`` field of the ``Source`` table, defined as f
      "@id": "#FK_Source_ccdVisitId_CcdVisit_ccdVisitId"
      description: Link CCD-level images to associated Sources
      columns:
-     - "#Source.ccdVisitId"
-     referencedColumns:
-     - "#CcdVisit.ccdVisitId"
+     - ccdVisitId
+     reference:
+       table: CcdVisit
+       columns:
+       - ccdVisitId
 
 The ``ccdVisitId`` field in the ``Source`` table is linked to the ``ccdVisitId`` field in the ``CcdVisit``
 table.
+Columns are referred to by name, and the ``reference`` field names the target table and its columns directly.
+Refer to the `model documentation <model.html#referencing-columns-by-name>`__ for more on how columns are referenced.
 
 Felis schemas support many additional features. Refer to the `model documentation <model.html>`_ for a complete list.

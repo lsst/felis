@@ -42,8 +42,8 @@ tables:
         "@type": "Unique"
         description: Unique customer name
         columns:
-          - "#customers.name"
-    primaryKey: "#customers.customer_id"
+          - name
+    primaryKey: customer_id
   - name: orders
     "@id": "#orders"
     description: Customer orders
@@ -72,12 +72,14 @@ tables:
         "@type": "ForeignKey"
         description: Foreign key to customers
         columns:
-          - "#orders.customer_id"
-        referencedColumns:
-          - "#customers.customer_id"
+          - customer_id
+        reference:
+          table: customers
+          columns:
+            - customer_id
         on_delete: SET NULL
         on_update: CASCADE
-    primaryKey: "#orders.order_id"
+    primaryKey: order_id
   - name: items
     "@id": "#items"
     description: Items
@@ -111,7 +113,7 @@ tables:
         "@type": "Check"
         description: Quantity must be non-negative
         expression: "quantity >= 0"
-    primaryKey: "#items.item_id"
+    primaryKey: item_id
   - name: order_items
     "@id": "#order_items"
     description: Order items
@@ -125,4 +127,24 @@ tables:
         "@id": "#order_items.item_id"
         datatype: int
         description: Item identifier
-    primaryKey: "#order_items.order_id"
+    constraints:
+      - name: idx_order_items_uniq
+        "@id": "#order_items_uniq"
+        "@type": "Unique"
+        description: Unique order item pairing
+        columns:
+          - order_id
+          - item_id
+      - name: fk_order_items_item_id
+        "@id": "#order_items_fk_item_id"
+        "@type": "ForeignKey"
+        description: Foreign key to items
+        columns:
+          - item_id
+        reference:
+          table: items
+          columns:
+            - item_id
+        on_delete: SET NULL
+        on_update: CASCADE
+    primaryKey: order_id

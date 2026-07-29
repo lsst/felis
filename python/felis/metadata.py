@@ -146,7 +146,13 @@ class MetaDataBuilder:
         if not apply_schema_to_metadata:
             logger.debug("Schema name will not be applied to metadata")
         self.metadata = MetaData(schema=schema.name if apply_schema_to_metadata else None)
-        self._objects: dict[str, Any] = {}
+        # Maps keyed by the identity (``id()``) of the Felis model objects to
+        # their corresponding SQLAlchemy objects. Object identity is used
+        # because the Felis models are not hashable, and because two distinct
+        # columns with identical field values must still map to different
+        # SQLAlchemy columns.
+        self._sa_tables: dict[int, Table] = {}
+        self._sa_columns: dict[int, Column] = {}
         self.ignore_constraints = ignore_constraints
         self.table_name_postfix = table_name_postfix
         self.skip_indexes = skip_indexes
@@ -181,18 +187,20 @@ class MetaDataBuilder:
         for table in self.schema.tables:
             self.build_table(table)
             if table.primary_key:
-                primary_key = self.build_primary_key(table.primary_key)
-                self._objects[table.id].append_constraint(primary_key)
+                primary_key = self.build_primary_key(table)
+                self._sa_tables[id(table)].append_constraint(primary_key)
 
-    def build_primary_key(self, primary_key_columns: str | list[str]) -> PrimaryKeyConstraint:
-        """Build a SQAlchemy ``PrimaryKeyConstraint`` from a single column ID
-        or a list of them.
+    def build_primary_key(self, table_obj: datamodel.Table) -> PrimaryKeyConstraint:
+        """Build a SQLAlchemy ``PrimaryKeyConstraint`` from a Felis table's
+        primary key.
 
         Parameters
         ----------
-        primary_key_columns
-            The column ID or list of column IDs from which to build the primary
-            key.
+        table_obj
+            The Felis table that owns the primary key. Its ``primary_key``
+            field provides the column reference or list of column references
+            from which to build the primary key, and is also used to resolve
+            those references.
 
         Returns
         -------
@@ -201,12 +209,16 @@ class MetaDataBuilder:
 
         Notes
         -----
-        The ``primary_key_columns`` is a string or a list of strings
-        representing IDs which will be used to find the columnn objects in the
-        builder's internal ID map.
+        Each entry in ``table_obj.primary_key`` is a reference which is
+        resolved within ``table_obj`` by column name, falling back to column ID
+        for backward compatibility. Primary key references are resolved within
+        the owning table rather than against the schema-wide ID map.
         """
         return PrimaryKeyConstraint(
-            *[self._objects[column_id] for column_id in ensure_iterable(primary_key_columns)]
+            *[
+                self._sa_columns[id(table_obj._find_column(column_ref))]
+                for column_ref in ensure_iterable(table_obj.primary_key)
+            ]
         )
 
     def build_table(self, table_obj: datamodel.Table) -> None:
@@ -233,7 +245,6 @@ class MetaDataBuilder:
 
         # Create the SQLAlchemy table object and its columns.
         name = table_obj.name
-        id = table_obj.id
         description = table_obj.description
         columns = [self.build_column(column) for column in table_obj.columns]
         table = Table(
@@ -244,7 +255,7 @@ class MetaDataBuilder:
             **optargs,  # type: ignore[arg-type]
         )
 
-        self._objects[id] = table
+        self._sa_tables[id(table_obj)] = table
 
     def build_column(self, column_obj: datamodel.Column) -> Column:
         """Build a SQLAlchemy ``Column`` from a Felis column object.
@@ -261,7 +272,6 @@ class MetaDataBuilder:
         """
         # Get basic column attributes.
         name = column_obj.name
-        id = column_obj.id
         description = column_obj.description
         value = column_obj.value
         nullable = column_obj.nullable
@@ -283,7 +293,7 @@ class MetaDataBuilder:
                 server_default = text(server_default)
 
         if server_default is not None:
-            logger.debug("Column '%s' has default value: %s", id, server_default)
+            logger.debug("Column '%s' has default value: %s", column_obj.id, server_default)
 
         column: Column = Column(
             name,
@@ -294,7 +304,7 @@ class MetaDataBuilder:
             server_default=server_default,
         )
 
-        self._objects[id] = column
+        self._sa_columns[id(column_obj)] = column
 
         return column
 
@@ -306,19 +316,24 @@ class MetaDataBuilder:
         -----
         This is performed as a separate step after building the tables so that
         all the referenced objects in the constraints will be present and can
-        be looked up by their ID.
+        be resolved.
         """
         for table_obj in self.schema.tables:
-            table = self._objects[table_obj.id]
+            table = self._sa_tables[id(table_obj)]
             for constraint_obj in table_obj.constraints:
-                constraint = self.build_constraint(constraint_obj)
+                constraint = self.build_constraint(table_obj, constraint_obj)
                 table.append_constraint(constraint)
 
-    def build_constraint(self, constraint_obj: datamodel.Constraint) -> Constraint:
+    def build_constraint(
+        self, table_obj: datamodel.Table, constraint_obj: datamodel.Constraint
+    ) -> Constraint:
         """Build a SQLAlchemy ``Constraint`` from a  Felis constraint.
 
         Parameters
         ----------
+        table_obj
+            The Felis table that owns the constraint. It is used to resolve the
+            constraint's source column references.
         constraint_obj
             The Felis object from which to build the constraint.
 
@@ -345,8 +360,10 @@ class MetaDataBuilder:
 
         if isinstance(constraint_obj, datamodel.ForeignKeyConstraint):
             fk_obj: datamodel.ForeignKeyConstraint = constraint_obj
-            columns = [self._objects[column_id] for column_id in fk_obj.columns]
-            refcolumns = [self._objects[column_id] for column_id in fk_obj.referenced_columns]
+            columns = [
+                self._sa_columns[id(table_obj._find_column(column_ref))] for column_ref in fk_obj.columns
+            ]
+            refcolumns = self._resolve_referenced_columns(fk_obj)
             if constraint_obj.on_delete is not None:
                 args["ondelete"] = constraint_obj.on_delete
             if constraint_obj.on_update is not None:
@@ -358,20 +375,55 @@ class MetaDataBuilder:
             constraint = CheckConstraint(expression, **args)
         elif isinstance(constraint_obj, datamodel.UniqueConstraint):
             uniq_obj: datamodel.UniqueConstraint = constraint_obj
-            columns = [self._objects[column_id] for column_id in uniq_obj.columns]
+            columns = [
+                self._sa_columns[id(table_obj._find_column(column_ref))] for column_ref in uniq_obj.columns
+            ]
             constraint = UniqueConstraint(*columns, **args)
         else:
             raise ValueError(f"Unknown constraint type: {type(constraint_obj)}")
 
-        self._objects[constraint_obj.id] = constraint
-
         return constraint
 
-    def build_index(self, index_obj: datamodel.Index) -> Index:
+    def _resolve_referenced_columns(self, fk_obj: datamodel.ForeignKeyConstraint) -> list[Column]:
+        """Resolve the referenced columns of a foreign key to their SQLAlchemy
+        columns.
+
+        Parameters
+        ----------
+        fk_obj
+            The Felis foreign key constraint whose reference target is
+            resolved.
+
+        Returns
+        -------
+        `list` [ `~sqlalchemy.sql.schema.Column` ]
+            The referenced SQLAlchemy columns.
+
+        Notes
+        -----
+        The reference target is given either by the name-based ``reference``
+        (a table name plus column names) or by the legacy ID-based
+        ``referencedColumns`` (global column IDs).
+        """
+        if fk_obj.reference is not None:
+            referenced_table = self.schema._find_table_by_name(fk_obj.reference.table)
+            return [
+                self._sa_columns[id(referenced_table._find_column_by_name(column_ref))]
+                for column_ref in fk_obj.reference.columns
+            ]
+        return [
+            self._sa_columns[id(self.schema.find_object_by_id(column_id, datamodel.Column))]
+            for column_id in fk_obj.referenced_columns or []
+        ]
+
+    def build_index(self, table_obj: datamodel.Table, index_obj: datamodel.Index) -> Index:
         """Build a SQLAlchemy ``Index`` from a Felis `~felis.datamodel.Index`.
 
         Parameters
         ----------
+        table_obj
+            The Felis table that owns the index. It is used to resolve the
+            index's column references.
         index_obj
             The Felis object from which to build the SQLAlchemy index.
 
@@ -380,10 +432,12 @@ class MetaDataBuilder:
         `~sqlalchemy.sql.schema.Index`
             The SQLAlchemy index object.
         """
-        columns = [self._objects[c_id] for c_id in (index_obj.columns if index_obj.columns else [])]
+        columns = [
+            self._sa_columns[id(table_obj._find_column(column_ref))]
+            for column_ref in (index_obj.columns if index_obj.columns else [])
+        ]
         expressions = index_obj.expressions if index_obj.expressions else []
         index = Index(index_obj.name, *columns, *expressions)
-        self._objects[index_obj.id] = index
         return index
 
     def build_indexes(self) -> None:
@@ -391,12 +445,10 @@ class MetaDataBuilder:
         the associated table in the metadata.
         """
         for table in self.schema.tables:
-            md_table = self._objects.get(table.id, None)
+            md_table = self._sa_tables.get(id(table), None)
             if md_table is None:
-                raise KeyError(f"Table with ID '{table.id}' not found in objects map")
-            if not isinstance(md_table, Table):
-                raise TypeError(f"Expected Table object, got {type(md_table)}")
-            indexes = [self.build_index(index) for index in table.indexes]
+                raise KeyError(f"SQLAlchemy table not found for Felis table '{table.name}' (id='{table.id}')")
+            indexes = [self.build_index(table, index) for index in table.indexes]
             for index in indexes:
                 index._set_parent(md_table)
                 md_table.indexes.add(index)
