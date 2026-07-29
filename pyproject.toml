@@ -226,3 +226,7 @@ format = "png"
 exclude = [
     "sqlalchemy"
 ]
+
+[tool.pyright]
+include = ["python", "tests"]
+extraPaths = ["python"]
