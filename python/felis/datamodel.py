@@ -1416,9 +1416,11 @@ class Schema(BaseObject, Generic[T]):
                 orig_uri = uri
                 uri = base_uri.join(uri, forceDirectory=False)
                 if uri != orig_uri:
-                    logger.info(
-                        "Resolved relative URI '%s' for resource '%s' to '%s' using base URI '%s'",
+                    logger.debug(
+                        "Resolved relative URI '%s' in schema '%s' for resource '%s' to '%s' "
+                        "using base URI '%s'",
                         resource.uri,
+                        self.name,
                         resource_name,
                         uri,
                         base_uri,
