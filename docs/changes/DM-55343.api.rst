@@ -1,1 +1,0 @@
-Removed restriction on the minimum length of the description field.
