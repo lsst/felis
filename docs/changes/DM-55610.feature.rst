@@ -1,1 +1,0 @@
-Pass the `column_ref_index_increment` flag to the `felis dump` command to enable automatic setting of `tap:column_index` on column references

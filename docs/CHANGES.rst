@@ -1,3 +1,34 @@
+v30.0.11 (2026-08-13)
+=====================
+
+New Features
+------------
+
+- Added support for column resource references using ``columnRefs`` in a table definition (`DM-53392 <https://jira.lsstcorp.org/browse/DM-53392>`_)
+- Added support for automatic assignment of ``tap:column_index`` to column refs (`DM-53664 <https://jira.lsstcorp.org/browse/DM-53664>`_)
+- Added support for automatically resolving resources with relative URIs and converted the command line interface to use URIs rather than paths (`DM-54856 <https://jira.lsstcorp.org/browse/DM-54856>`_)
+- Added support to the ``dump`` command for sorting output columns alphabetically (`DM-54876 <https://jira.lsstcorp.org/browse/DM-54876>`_)
+- Enabled automatic setting of ``tap:column_index`` with the ``felis dump`` command (`DM-55610 <https://jira.lsstcorp.org/browse/DM-55610>`_)
+
+
+API Changes
+-----------
+
+- Removed restriction on the minimum length of the description field (`DM-55343 <https://jira.lsstcorp.org/browse/DM-55343>`_)
+
+
+Bug Fixes
+---------
+
+- Fixed an issue when copying column ref overrides to the target column (`DM-53979 <https://jira.lsstcorp.org/browse/DM-53979>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Improved the handling and validation of ``Column`` overrides (`DM-53999 <https://jira.lsstcorp.org/browse/DM-53999>`_)
+
+
 v30.0.0 (2026-01-16)
 ====================
 

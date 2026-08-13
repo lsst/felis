@@ -1,2 +1,0 @@
-Added support for automatically resolving resources with relative URIs.
-Also converted the command line interface to use URIs rather than paths.
