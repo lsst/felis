@@ -27,6 +27,7 @@ dependencies = [
     "astropy",
     "click",
     "deepdiff",
+    "jinja2",
     "lsst-resources",
     "lsst-utils",
     "numpy",
@@ -43,6 +44,7 @@ Source = "https://github.com/lsst/felis"
 
 [project.optional-dependencies]
 test = [
+    "beautifulsoup4>=4.12",
     "pytest >= 3.2"
 ]
 dev = [
@@ -61,7 +63,14 @@ where = ["python"]
 zip-safe = true
 
 [tool.setuptools.package-data]
-"felis" = ["py.typed", "config/tap_schema/*.yaml", "config/tap_schema/*.csv"]
+"felis" = [
+    "py.typed",
+    "config/tap_schema/*.yaml",
+    "config/tap_schema/*.csv",
+    "browser/templates/*.j2",
+    "browser/static/*.css",
+    "browser/static/*.js",
+]
 
 [tool.setuptools.dynamic]
 version = { attr = "lsst_versions.get_lsst_version" }

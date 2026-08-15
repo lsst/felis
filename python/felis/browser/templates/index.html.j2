@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Home</title>
+    <link rel="stylesheet" href="{{ stylesheet_href }}" />
+  </head>
+  <body>
+    {%- import "tree_section_macro.j2" as tree_macros -%}
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-expanded="true" title="Toggle sidebar">
+            <svg viewBox="0 0 24 24" class="sidebar-toggle-icon" aria-hidden="true" focusable="false">
+              <rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M9 5.2v13.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <nav>
+          <ul class="tree">
+            {% for schema in schemas %}
+            <li>
+              <details class="tree-node">
+                <summary>
+                  <a href="{{ schema.filename }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+                </summary>
+                <ul>
+                  {% for table in schema.tables %}
+                  <li>
+                    <details class="tree-node">
+                      <summary>
+                        <a href="{{ table.page_filename }}"{% if table.description %} title="{{ table.description }}"{% endif %}>{{ table.name }}</a>
+                      </summary>
+                      {{ tree_macros.render_tree_table_sections(table) }}
+                    </details>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </details>
+            </li>
+            {% endfor %}
+          </ul>
+        </nav>
+      </aside>
+      <div class="sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
+
+      <main class="content">
+        <header class="content-header">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <span>schemas</span>
+          </nav>
+        </header>
+        <div class="content-body">
+          <ul class="schema-list">
+            {% for schema in schemas %}
+            <li>
+              <a href="{{ schema.filename }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+              {% set table_count = schema.tables | length %}
+              <span class="muted">({{ table_count }} {{ "table" if table_count == 1 else "tables" }})</span>
+              {% if schema.description %}
+              <div class="muted">{{ schema.description }}</div>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+      </main>
+    </div>
+    <script src="{{ script_href }}"></script>
+  </body>
+</html>

@@ -1,7 +1,9 @@
 alembic
 astropy
+beautifulsoup4>=4.12
 click
 deepdiff
+jinja2
 lsst-resources @ git+https://github.com/lsst/resources@main
 lsst-utils @ git+https://github.com/lsst/utils@main
 numpy
