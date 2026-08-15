@@ -45,7 +45,7 @@ tables:
     description: Test column group
     votable:utype: stc:CatalogEntryLocation
     columns:
-    - '#test_table.test_column'
+    - test_column
   constraints:
   - name: test_unique_constraint
     '@id': '#test_table.test_constraint'

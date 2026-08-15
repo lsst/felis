@@ -63,6 +63,7 @@ __all__ = (
     "Constraint",
     "DataType",
     "ForeignKeyConstraint",
+    "ForeignKeyReference",
     "Index",
     "Resource",
     "Schema",
@@ -646,13 +647,33 @@ class UniqueConstraint(Constraint):
         return value
 
 
+class ForeignKeyReference(BaseModel):
+    """Reference target of a foreign key constraint.
+
+    This is used by the name-based style of foreign key, which names the
+    referenced table and its columns directly rather than using global column
+    IDs.
+    """
+
+    model_config = CONFIG
+    """Pydantic model configuration."""
+
+    table: str
+    """Name of the referenced table."""
+
+    columns: list[str] = Field(min_length=1)
+    """Referenced columns in the referenced table, by name."""
+
+
 class ForeignKeyConstraint(Constraint):
     """Table foreign key constraint model.
 
     This constraint is used to define a foreign key relationship between two
     tables in the schema. There must be at least one column in the
-    `columns` list, and at least one column in the `referenced_columns` list
-    or a validation error will be raised.
+    `columns` list, and the reference target must be specified using either
+    `referenced_columns` (a list of global column IDs) or `reference` (the
+    name of the referenced table and its columns). Exactly one of these must
+    be provided or a validation error will be raised.
 
     Notes
     -----
@@ -666,8 +687,17 @@ class ForeignKeyConstraint(Constraint):
     columns: list[str] = Field(min_length=1)
     """The columns comprising the foreign key."""
 
-    referenced_columns: list[str] = Field(alias="referencedColumns", min_length=1)
-    """The columns referenced by the foreign key."""
+    referenced_columns: list[str] | None = Field(None, alias="referencedColumns", min_length=1)
+    """The columns referenced by the foreign key, given as global column IDs.
+
+    This is the original, ID-based style. Mutually exclusive with `reference`.
+    """
+
+    reference: ForeignKeyReference | None = None
+    """The reference target given as a table name and column names.
+
+    This is the name-based style. Mutually exclusive with `referenced_columns`.
+    """
 
     on_delete: Literal["CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT", "NO ACTION"] | None = None
     """Action to take when the referenced row is deleted."""
@@ -693,8 +723,8 @@ class ForeignKeyConstraint(Constraint):
 
     @model_validator(mode="after")
     def check_column_lengths(self) -> ForeignKeyConstraint:
-        """Check that the `columns` and `referenced_columns` lists have the
-        same length.
+        """Check that the foreign key specifies a reference target and that it
+        references the same number of columns as it has source columns.
 
         Returns
         -------
@@ -704,12 +734,23 @@ class ForeignKeyConstraint(Constraint):
         Raises
         ------
         ValueError
-            Raised if the `columns` and `referenced_columns` lists do not have
-            the same length.
+            Raised if both reference styles are specified, if no reference
+            target is specified, or if the number of source columns and
+            referenced columns differ.
         """
-        if len(self.columns) != len(self.referenced_columns):
+        if self.reference is not None and self.referenced_columns is not None:
             raise ValueError(
-                "Columns and referencedColumns must have the same length for a ForeignKey constraint"
+                "A ForeignKey constraint must not specify both 'referencedColumns' and 'reference'"
+            )
+        if self.reference is not None:
+            referenced_length = len(self.reference.columns)
+        elif self.referenced_columns is not None:
+            referenced_length = len(self.referenced_columns)
+        else:
+            raise ValueError("A ForeignKey constraint must specify either 'referencedColumns' or 'reference'")
+        if len(self.columns) != referenced_length:
+            raise ValueError(
+                "Columns and referenced columns must have the same length for a ForeignKey constraint"
             )
         return self
 
@@ -817,9 +858,9 @@ class ColumnGroup(BaseObject):
             if isinstance(col, str):
                 # Dereference ColumnRef to Column object
                 try:
-                    col_obj = self.table._find_column_by_id(col)
+                    col_obj = self.table._find_column(col)
                 except KeyError as e:
-                    raise ValueError(f"Column '{col}' not found in table '{self.table.name}'") from e
+                    raise ValueError(str(e)) from e
                 dereferenced_columns.append(col_obj)
             else:
                 dereferenced_columns.append(col)
@@ -828,7 +869,7 @@ class ColumnGroup(BaseObject):
 
     @field_serializer("columns")
     def serialize_columns(self, columns: list[ColumnRef | Column]) -> list[str]:
-        """Serialize columns as their IDs.
+        """Serialize columns as their names.
 
         Parameters
         ----------
@@ -838,9 +879,9 @@ class ColumnGroup(BaseObject):
         Returns
         -------
         `list` [ `str` ]
-            The serialized column IDs.
+            The serialized column names.
         """
-        return [col if isinstance(col, str) else col.id for col in columns]
+        return [col if isinstance(col, str) else col.name for col in columns]
 
 
 class ColumnOverrides(BaseModel):
@@ -970,6 +1011,9 @@ class Table(BaseObject):
     indexes: list[Index] = Field(default_factory=list)
     """Indexes on the table."""
 
+    _deprecated_id_lookups: list[str] = PrivateAttr(default_factory=list)
+    """IDs resolved via deprecated ID-based lookup instead of by name."""
+
     @field_validator("columns", mode="after")
     @classmethod
     def check_unique_column_names(cls, columns: list[Column]) -> list[Column]:
@@ -1063,19 +1107,67 @@ class Table(BaseObject):
 
         Raises
         ------
-        ValueError
+        KeyError
             Raised if the column is not found.
         """
         for column in self.columns:
             if column.id == id:
+                self._deprecated_id_lookups.append(id)
                 return column
         raise KeyError(f"Column '{id}' not found in table '{self.name}'")
 
     def _find_column_by_name(self, name: str) -> Column:
+        """Find a column by name.
+
+        This performs a strict name-only lookup with no ID fallback and no
+        deprecation warning.
+
+        Parameters
+        ----------
+        name
+            The name of the column to find.
+
+        Returns
+        -------
+        `Column`
+            The column with the given name.
+
+        Raises
+        ------
+        KeyError
+            Raised if the column is not found.
+        """
         for column in self.columns:
             if column.name == name:
                 return column
         raise KeyError(f"Column '{name}' not found in table '{self.name}'")
+
+    def _find_column(self, ref: str) -> Column:
+        """Find a column in this table by name, falling back to ID lookup.
+
+        Name-based lookup is always preferred. If no column's name matches
+        ``ref``, the lookup falls back to matching by column ID (deprecated).
+
+        Parameters
+        ----------
+        ref
+            Reference to a column in this table. Matched first against column
+            names, then against column IDs.
+
+        Returns
+        -------
+        `Column`
+            The referenced column in this table.
+
+        Raises
+        ------
+        KeyError
+            Raised if no column in this table matches ``ref`` by name or ID.
+        """
+        by_name = next((column for column in self.columns if column.name == ref), None)
+        if by_name is not None:
+            return by_name
+        return self._find_column_by_id(ref)  # deprecated; raises KeyError if not found
 
     @model_validator(mode="after")
     def dereference_column_groups(self: Table) -> Table:
@@ -1324,9 +1416,11 @@ class Schema(BaseObject, Generic[T]):
                 orig_uri = uri
                 uri = base_uri.join(uri, forceDirectory=False)
                 if uri != orig_uri:
-                    logger.info(
-                        "Resolved relative URI '%s' for resource '%s' to '%s' using base URI '%s'",
+                    logger.debug(
+                        "Resolved relative URI '%s' in schema '%s' for resource '%s' to '%s' "
+                        "using base URI '%s'",
                         resource.uri,
+                        self.name,
                         resource_name,
                         uri,
                         base_uri,
@@ -1728,37 +1822,6 @@ class Schema(BaseObject, Generic[T]):
                 f"ID '{column_id}' does not refer to a Column object",
             )
 
-    def _validate_foreign_key_column(
-        self: Schema,
-        column_id: str,
-        table: Table,
-        loc: tuple,
-        errors: list[InitErrorDetails],
-    ) -> None:
-        """Validate a foreign key column ID from a constraint and append errors
-        if invalid.
-
-        Parameters
-        ----------
-        schema : Schema
-            The schema being validated.
-        column_id : str
-            The foreign key column ID to validate.
-        loc : tuple
-            The location of the error in the schema.
-        errors : list[InitErrorDetails]
-            The list of errors to append to.
-        """
-        try:
-            table._find_column_by_id(column_id)
-        except KeyError:
-            _append_error(
-                errors,
-                loc,
-                column_id,
-                f"Column '{column_id}' not found in table '{table.name}'",
-            )
-
     @model_validator(mode="after")
     def check_constraints(self: Schema) -> Schema:
         """Check constraint objects for validity. This needs to be deferred
@@ -1778,64 +1841,190 @@ class Schema(BaseObject, Generic[T]):
 
         for table_index, table in enumerate(self.tables):
             for constraint_index, constraint in enumerate(table.constraints):
-                column_ids: list[str] = []
-                referenced_column_ids: list[str] = []
+                if isinstance(constraint, (ForeignKeyConstraint, UniqueConstraint)):
+                    source_columns = constraint.columns
+                else:
+                    # No checks are required on CheckConstraint objects.
+                    continue
 
-                if isinstance(constraint, ForeignKeyConstraint):
-                    column_ids += constraint.columns
-                    referenced_column_ids += constraint.referenced_columns
-                elif isinstance(constraint, UniqueConstraint):
-                    column_ids += constraint.columns
-                # No extra checks are required on CheckConstraint objects.
-
-                # Validate the foreign key columns
-                for column_id in column_ids:
-                    self._validate_column_id(
-                        column_id,
-                        (
-                            "tables",
-                            table_index,
-                            "constraints",
-                            constraint_index,
-                            "columns",
+                # Validate the source columns, which must be found within the
+                # constraint's own table, by name (preferred) or by ID for
+                # backward compatibility.
+                for column_id in source_columns:
+                    try:
+                        table._find_column(column_id)
+                    except KeyError as e:
+                        _append_error(
+                            errors,
+                            ("tables", table_index, "constraints", constraint_index, "columns", column_id),
                             column_id,
-                        ),
-                        errors,
-                    )
-                    # Check that the foreign key column is within the source
-                    # table.
-                    self._validate_foreign_key_column(
-                        column_id,
-                        table,
-                        (
-                            "tables",
-                            table_index,
-                            "constraints",
-                            constraint_index,
-                            "columns",
-                            column_id,
-                        ),
-                        errors,
-                    )
+                            str(e),
+                        )
 
-                # Validate the primary key (reference) columns
-                for referenced_column_id in referenced_column_ids:
-                    self._validate_column_id(
-                        referenced_column_id,
-                        (
-                            "tables",
-                            table_index,
-                            "constraints",
-                            constraint_index,
-                            "referenced_columns",
+                if not isinstance(constraint, ForeignKeyConstraint):
+                    continue
+
+                if constraint.reference is not None:
+                    # Name-based style: resolve the referenced table and
+                    # columns strictly by name.
+                    reference = constraint.reference
+                    try:
+                        referenced_table = self._find_table_by_name(reference.table)
+                    except KeyError:
+                        _append_error(
+                            errors,
+                            (
+                                "tables",
+                                table_index,
+                                "constraints",
+                                constraint_index,
+                                "reference",
+                                "table",
+                            ),
+                            reference.table,
+                            f"Referenced table '{reference.table}' not found in schema",
+                        )
+                        referenced_table = None
+                    if referenced_table is not None:
+                        for referenced_column in reference.columns:
+                            try:
+                                referenced_table._find_column_by_name(referenced_column)
+                            except KeyError:
+                                _append_error(
+                                    errors,
+                                    (
+                                        "tables",
+                                        table_index,
+                                        "constraints",
+                                        constraint_index,
+                                        "reference",
+                                        "columns",
+                                        referenced_column,
+                                    ),
+                                    referenced_column,
+                                    f"Column '{referenced_column}' not found in table "
+                                    f"'{referenced_table.name}'",
+                                )
+                else:
+                    # ID-based style: validate the referenced columns against
+                    # the global ID map.
+                    for referenced_column_id in constraint.referenced_columns or []:
+                        table._deprecated_id_lookups.append(referenced_column_id)
+                        self._validate_column_id(
                             referenced_column_id,
-                        ),
+                            (
+                                "tables",
+                                table_index,
+                                "constraints",
+                                constraint_index,
+                                "referenced_columns",
+                                referenced_column_id,
+                            ),
+                            errors,
+                        )
+
+        if errors:
+            raise ValidationError.from_exception_data("Schema validation failed", errors)
+
+        return self
+
+    @model_validator(mode="after")
+    def check_indexes(self: Schema) -> Schema:
+        """Check that index column references resolve within their table.
+
+        Index columns are resolved by name first, falling back to ID for
+        backward compatibility.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        pydantic.ValidationError
+            Raised if any index references a column that is not found in its
+            table.
+        """
+        errors: list[InitErrorDetails] = []
+
+        for table_index, table in enumerate(self.tables):
+            for index_index, index in enumerate(table.indexes):
+                for column_ref in index.columns or []:
+                    try:
+                        table._find_column(column_ref)
+                    except KeyError as e:
+                        _append_error(
+                            errors,
+                            ("tables", table_index, "indexes", index_index, "columns", column_ref),
+                            column_ref,
+                            str(e),
+                        )
+
+        if errors:
+            raise ValidationError.from_exception_data("Schema validation failed", errors)
+
+        return self
+
+    @model_validator(mode="after")
+    def check_primary_key(self: Schema) -> Schema:
+        """Check that primary key column references resolve within their table.
+
+        This validator runs after resource columns have been merged into
+        tables, so all columns are available. Primary key columns are resolved
+        by name first, falling back to ID for backward compatibility.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+
+        Raises
+        ------
+        pydantic.ValidationError
+            Raised if any primary key column reference is not found in its
+            table.
+        """
+        errors: list[InitErrorDetails] = []
+
+        for table_index, table in enumerate(self.tables):
+            if not table.primary_key:
+                continue
+            pks = [table.primary_key] if isinstance(table.primary_key, str) else table.primary_key
+            for pk_index, column_ref in enumerate(pks):
+                try:
+                    table._find_column(column_ref)
+                except KeyError as e:
+                    _append_error(
                         errors,
+                        ("tables", table_index, "primaryKey", pk_index),
+                        column_ref,
+                        str(e),
                     )
 
         if errors:
             raise ValidationError.from_exception_data("Schema validation failed", errors)
 
+        return self
+
+    @model_validator(mode="after")
+    def log_deprecated_id_lookups(self: Schema) -> Schema:
+        """Log deprecated ID-based lookups encountered while validating tables.
+
+        Returns
+        -------
+        `Schema`
+            The schema being validated.
+        """
+        for table in self.tables:
+            if table._deprecated_id_lookups:
+                logger.warning(
+                    "Deprecated ID lookup(s) encountered in table %s: %s"
+                    " - see https://felis.lsst.io/user-guide/model.html#referencing-columns-by-name"
+                    " for name-based referencing style",
+                    table.name,
+                    table._deprecated_id_lookups,
+                )
         return self
 
     def __getitem__(self, id: str) -> BaseObject:
@@ -1892,6 +2081,7 @@ class Schema(BaseObject, Generic[T]):
         The actual return type is the user-specified argument ``T``, which is
         expected to be a subclass of `BaseObject`.
         """
+        logger.warning("Lookup by object ID '%s'; prefer name-based lookup where available", id)
         obj = self[id]
         if not isinstance(obj, obj_type):
             raise TypeError(f"Object with ID '{id}' is not of type '{obj_type.__name__}'")

@@ -550,13 +550,13 @@ class DataLoader:
         for table in self.schema.tables:
             for constraint in table.constraints:
                 if isinstance(constraint, datamodel.ForeignKeyConstraint):
+                    referenced_table, from_columns, target_columns = self._resolve_foreign_key(
+                        table, constraint
+                    )
+
                     ###########################################################
                     # Handle keys table
                     ###########################################################
-                    referenced_column = self.schema.find_object_by_id(
-                        constraint.referenced_columns[0], datamodel.Column
-                    )
-                    referenced_table = self.schema.get_table_by_column(referenced_column)
                     key_id = self._get_key(constraint)
                     key_record = {
                         "key_id": key_id,
@@ -573,17 +573,60 @@ class DataLoader:
                     # Loop over the corresponding columns and referenced
                     # columns and insert a record for each pair. This is
                     # necessary for proper handling of composite keys.
-                    for from_column_id, target_column_id in zip(
-                        constraint.columns, constraint.referenced_columns
-                    ):
-                        from_column = self.schema.find_object_by_id(from_column_id, datamodel.Column)
-                        target_column = self.schema.find_object_by_id(target_column_id, datamodel.Column)
+                    for from_column, target_column in zip(from_columns, target_columns):
                         key_columns_record = {
                             "key_id": key_id,
                             "from_column": from_column.name,
                             "target_column": target_column.name,
                         }
                         self._insert("key_columns", key_columns_record)
+
+    def _resolve_foreign_key(
+        self, table: datamodel.Table, constraint: datamodel.ForeignKeyConstraint
+    ) -> tuple[datamodel.Table, list[datamodel.Column], list[datamodel.Column]]:
+        """Resolve the tables and columns involved in a foreign key constraint.
+
+        Parameters
+        ----------
+        table
+            The Felis table that owns the constraint. It is used to resolve the
+            source column references.
+        constraint
+            The foreign key constraint to resolve.
+
+        Returns
+        -------
+        referenced_table : `~felis.datamodel.Table`
+            The referenced ("target") table.
+        from_columns : `list` [ `~felis.datamodel.Column` ]
+            The resolved source ("from") columns.
+        target_columns : `list` [ `~felis.datamodel.Column` ]
+            The resolved referenced ("target") columns.
+
+        Notes
+        -----
+        The source columns are resolved within ``table``. References may be
+        column names or, for backward compatibility, global column IDs. The
+        referenced table and columns are given either by the name-based
+        ``reference`` (a table name plus column names) or by the legacy
+        ID-based ``referencedColumns`` (global column IDs).
+        """
+        from_columns = [table._find_column(column_ref) for column_ref in constraint.columns]
+
+        if constraint.reference is not None:
+            referenced_table = self.schema._find_table_by_name(constraint.reference.table)
+            target_columns = [
+                referenced_table._find_column_by_name(column_ref)
+                for column_ref in constraint.reference.columns
+            ]
+        else:
+            target_columns = [
+                self.schema.find_object_by_id(column_id, datamodel.Column)
+                for column_id in constraint.referenced_columns or []
+            ]
+            referenced_table = self.schema.get_table_by_column(target_columns[0])
+
+        return referenced_table, from_columns, target_columns
 
     def _generate_all_inserts(self) -> None:
         """Generate the inserts for all the data."""

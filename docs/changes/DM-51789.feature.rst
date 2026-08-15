@@ -1,0 +1,1 @@
+Added support for looking up column references by name

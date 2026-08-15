@@ -167,12 +167,12 @@ class MetaDataTestCase(unittest.TestCase):
                 if isinstance(constraint, dm.ForeignKeyConstraint):
                     self.assertTrue(isinstance(md_constraint, ForeignKeyConstraint))
                     self.assertTrue(
-                        sorted([sch[column_id].name for column_id in constraint.columns]),
+                        sorted([table._find_column(column_ref).name for column_ref in constraint.columns]),
                         sorted(md_constraint.columns.keys()),
                     )
                 elif isinstance(constraint, dm.UniqueConstraint):
                     self.assertEqual(
-                        sorted([sch[column_id].name for column_id in constraint.columns]),
+                        sorted([table._find_column(column_ref).name for column_ref in constraint.columns]),
                         sorted(md_constraint.columns.keys()),
                     )
                 elif isinstance(constraint, dm.CheckConstraint):
@@ -180,14 +180,14 @@ class MetaDataTestCase(unittest.TestCase):
             for index in table.indexes:
                 md_index = [mdi for mdi in md_table.indexes if mdi.name == index.name][0]
                 self.assertEqual(
-                    sorted([sch[column_id].name for column_id in index.columns]),
+                    sorted([table._find_column(column_ref).name for column_ref in index.columns]),
                     sorted(md_index.columns.keys()),
                 )
             if table.primary_key:
                 if isinstance(table.primary_key, str):
-                    primary_keys = [sch[table.primary_key].name]
+                    primary_keys = [table._find_column(table.primary_key).name]
                 else:
-                    primary_keys = [sch[pk].name for pk in table.primary_key]
+                    primary_keys = [table._find_column(pk).name for pk in table.primary_key]
                 for primary_key in primary_keys:
                     self.assertTrue(md_table.columns[primary_key].primary_key)
 
@@ -212,6 +212,30 @@ class MetaDataTestCase(unittest.TestCase):
             mysql_timestamp = variant_dict["mysql"]
             self.assertEqual(mysql_timestamp.timezone, False)
             self.assertEqual(mysql_timestamp.fsp, precision)
+
+    def test_primary_key_lookup_by_name(self) -> None:
+        """Test that a primary key can be resolved by column name."""
+        order_id = dm.Column(name="order_id", id="#orders.order_id", datatype="int")
+        table = dm.Table(name="orders", id="#orders", columns=[order_id], primary_key="order_id")
+        schema = Schema(name="testSchema", id="#test_schema", tables=[table])
+
+        metadata = MetaDataBuilder(schema, apply_schema_to_metadata=False).build()
+        metadata_table = metadata.tables[table.name]
+
+        self.assertTrue(metadata_table.columns["order_id"].primary_key)
+
+    def test_composite_primary_key_lookup_by_name(self) -> None:
+        """Test that a composite primary key can be resolved by column name."""
+        id1 = dm.Column(name="id1", id="#table1.id1", datatype="int")
+        id2 = dm.Column(name="id2", id="#table1.id2", datatype="int")
+        table = dm.Table(name="table1", id="#table1", columns=[id1, id2], primary_key=["id1", "id2"])
+        schema = Schema(name="testSchema", id="#test_schema", tables=[table])
+
+        metadata = MetaDataBuilder(schema, apply_schema_to_metadata=False).build()
+        metadata_table = metadata.tables[table.name]
+
+        self.assertTrue(metadata_table.columns["id1"].primary_key)
+        self.assertTrue(metadata_table.columns["id2"].primary_key)
 
     def test_ignore_constraints(self) -> None:
         """Test that constraints are not created when the

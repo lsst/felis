@@ -57,7 +57,7 @@ columns along with their indexes and constraints and has these attributes:
 :``@id``: A unique identifier for this table.
 :``description``: A textual description of this table.
 :``columns``: The list of columns in the table.
-:``primaryKey``: The ID of the table's primary key column or a list of IDs that make up a composite primary key.
+:``primaryKey``: The name of the table's primary key column, or a list of names that make up a composite primary key. For backward compatibility, primary key columns may also be referenced by ``@id``. Primary key references are resolved within the owning table.
 :``constraints``: The list of constraints for the table. Refer to the :ref:`Constraint` section for more information.
 :``indexes``: The list of indexes for the table. Refer to the :ref:`Index` section for more information.
 
@@ -105,6 +105,61 @@ A column may also have the following optional properties:
 .. [2] `TAP Access Protocol (TAP) specification <https://www.ivoa.net/documents/TAP/>`__
 .. [3] `VOTable specification <http://www.ivoa.net/documents/VOTable/>`__
 
+.. _Referencing Columns by Name:
+
+Referencing Columns by Name
+===========================
+
+Several parts of a table definition refer to columns of that table, namely its
+:ref:`constraints <Constraint>` and its :ref:`indexes <Index>`.
+These references use the column ``name``, and the name must match a column in
+the same table.
+
+.. code-block:: yaml
+
+   tables:
+     - name: customers
+       columns:
+         - name: customer_id
+           "@id": "#customers.customer_id"
+           datatype: long
+       primaryKey: customer_id
+     - name: orders
+       columns:
+         - name: order_id
+           "@id": "#orders.order_id"
+           datatype: long
+         - name: customer_id
+           "@id": "#orders.customer_id"
+           datatype: long
+       primaryKey: order_id
+       constraints:
+         - name: fk_orders_customer
+           "@type": ForeignKey
+           columns:
+             - customer_id
+           reference:
+             table: customers
+             columns:
+               - customer_id
+
+A foreign key constraint additionally refers to columns in *another* table.
+The referenced table and its columns are named directly using the ``reference``
+field, which contains the name of the referenced ``table`` and the list of its
+``columns`` (see the :ref:`Foreign Key Constraint` section).
+
+For backward compatibility, columns may still be referenced by their global
+``@id`` (for example, ``#orders.customer_id``), and a foreign key may still name
+its target with the ``referencedColumns`` field. These ID-based forms are
+deprecated, emit a warning, and will be removed in a future release.
+
+.. note::
+
+  The ``primaryKey`` field now follows the same name-based style as other
+  in-table column references. For backward compatibility, column ``@id``
+  values are still accepted there, but they are deprecated and emit a
+  warning.
+
 *************
 Column Groups
 *************
@@ -113,7 +168,7 @@ A `column group <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Co
 In addition to the standard column attributes, column groups have the following attributes:
 
 :``ivoa:ucd``: The `IVOA UCD <http://www.ivoa.net/documents/latest/UCD.html>`__ for this column group.
-:``columns``: The list of columns in this column group, which should be IDs of columns in the table. This is a required field.
+:``columns``: The list of columns in this column group, given by column name. See :ref:`Referencing Columns by Name` for details. Column IDs are also accepted for backward compatibility but are deprecated. This is a required field.
 
 The functionality of column groups is currently limited but may be expanded in future versions of Felis, in particular to support VOTable ``GROUP`` elements.
 
@@ -313,6 +368,8 @@ All types of constraints accept the following properties:
 Constraint Types
 ================
 
+.. _Foreign Key Constraint:
+
 Foreign Key Constraint
 ----------------------
 
@@ -321,8 +378,9 @@ a rule that enforces referential integrity between two tables.
 The constraint is defined by a column in the current table that references a column in another table.
 Foreign key constraints may have the following additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the foreign key. This should be one or more ``@id`` values pointing to columns in the current table.
-:``referencedColumns``: The columns referenced by the foreign key. This should be one or more ``@id`` values pointing to columns in another table.
+:``columns``: One or more column names in the current table that make up the foreign key. See :ref:`Referencing Columns by Name` for details.
+:``reference``: The table and columns that the foreign key points to. It has two sub-fields: ``table``, the name of the referenced table, and ``columns``, the list of referenced column names in that table. This is the recommended way to define the reference target. Use either ``reference`` or ``referencedColumns``, but not both.
+:``referencedColumns``: *(Deprecated)* The columns referenced by the foreign key, given as one or more ``@id`` values pointing to columns in another table. Use ``reference`` instead. This is mutually exclusive with ``reference``.
 :``on_update``: The action to take when the referenced column is updated. See the  `data model documentation for on_update <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_update>`__ for valid values [5]_.
 :``on_delete``: The action to take when the referenced column is deleted. See the `data model documentation for on_delete <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_delete>`__ for valid values [5]_.
 
@@ -348,7 +406,7 @@ that enforces uniqueness of values in a column or set of columns.
 The constraint is defined by one or more columns in the table. Unique constraints may have the following
 additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the unique constraint. This should be one or more ``@id`` values pointing to columns in the current table.
+:``columns``: One or more column names in the current table that are part of the unique constraint. See :ref:`Referencing Columns by Name` for details.
 
 .. _Index:
 
@@ -363,7 +421,7 @@ Indexes are defined by one or more columns in the table and have the following a
 :``name``: The name of the index. This is the name that will be used to create the index in the database.
 :``description``: A textual description of this index.
 :``@id``: A unique identifier for this index.
-:``columns``: The list of columns in the table that are part of the index. This should be one or more ``@id`` values pointing to columns in the table [6]_.
+:``columns``: The list of columns in the table that are part of the index, given by column name. See :ref:`Referencing Columns by Name` for details [6]_.
 :``expressions``: The list of SQL expressions that are part of the index. This is only applicable to indexes that are created using expressions [6]_.
 
 .. [6] The ``columns`` and ``expressions`` fields are mutually exclusive.
