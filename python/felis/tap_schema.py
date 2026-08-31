@@ -24,7 +24,6 @@
 import csv
 import io
 import logging
-import os
 import re
 from typing import IO, Any
 
@@ -247,7 +246,7 @@ class TableManager:
         str
             The path to the standard TAP_SCHEMA schema resource.
         """
-        return os.path.join(os.path.dirname(__file__), "config", "tap_schema", "tap_schema_std.yaml")
+        return str(cls.get_tap_schema_std_resource())
 
     @classmethod
     def get_tap_schema_std_resource(cls) -> ResourcePath:
