@@ -11,6 +11,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
+import json
 import os
 import tempfile
 import unittest
@@ -76,44 +77,22 @@ def get_page_soup_by_title(output_dir: str, title: str) -> BeautifulSoup:
     return parse_html(get_page_html_by_title(output_dir, title))
 
 
+def load_nav(output_dir: str) -> dict:
+    """Load the sidebar navigation data from the generated ``nav-data.js``."""
+    with open(os.path.join(output_dir, "assets", "nav-data.js"), encoding="utf-8") as f:
+        script = f.read()
+    prefix = "window.FELIS_NAV = "
+    if not script.startswith(prefix) or not script.endswith(";\n"):
+        raise AssertionError("Unexpected nav-data.js format")
+    return json.loads(script[len(prefix) : -2])
+
+
 def find_link(container: BeautifulSoup | Tag, href: str, title: str | None = None) -> Tag | None:
     """Find a link by href and optional title."""
     attrs: dict[str, str] = {"href": href}
     if title is not None:
         attrs["title"] = title
     return container.find("a", attrs=attrs)
-
-
-def find_details_section(soup: BeautifulSoup, section_class: str) -> Tag | None:
-    """Find a details section by its class name."""
-    return soup.find("details", class_=section_class)
-
-
-def find_summary_link(section: Tag | None, href: str) -> Tag | None:
-    """Find the summary link in a details section by href."""
-    if section is None:
-        return None
-    summary = section.find("summary")
-    if summary is None:
-        return None
-    return find_link(summary, href)
-
-
-def find_section_summary_link(soup: BeautifulSoup, section_class: str, href: str) -> Tag | None:
-    """Find the section heading link for a named section class."""
-    for section in soup.find_all(class_=section_class):
-        link = find_link(section, href)
-        if link is not None:
-            return link
-    return None
-
-
-def find_section_by_summary_href(soup: BeautifulSoup, section_class: str, href: str) -> Tag | None:
-    """Find a section by class and heading-link href."""
-    for section in soup.find_all(class_=section_class):
-        if find_link(section, href) is not None:
-            return section
-    return None
 
 
 class BrowserTestCase(unittest.TestCase):
@@ -209,71 +188,72 @@ tables:
             self.assertIsNotNone(find_link(schema_soup, "../../index.html"))
             self.assertIsNotNone(find_link(child_table_soup, "../../index.html"))
 
-            # Validate tooltip-bearing links in sidebar/tree context.
-            self.assertIsNotNone(child_table_soup.find(attrs={"title": "Parent rows."}))
-            self.assertIsNotNone(child_table_soup.find(attrs={"title": "Child rows."}))
-            self.assertIsNotNone(child_table_soup.find(attrs={"title": "Business code."}))
-            self.assertIsNotNone(child_table_soup.find(attrs={"title": "Index on code."}))
-            self.assertIsNotNone(child_table_soup.find(attrs={"title": "Unique code per parent."}))
-            self.assertIsNotNone(
-                find_link(
-                    child_table_soup,
-                    "childtable.html#index-idx-childtable-code",
-                    title="Index on code.",
-                )
+            # Validate the sidebar navigation data shared by all pages.
+            nav = load_nav(output_dir)
+            self.assertEqual([schema["name"] for schema in nav["schemas"]], ["demo"])
+            demo = nav["schemas"][0]
+            self.assertEqual(demo["path"], "schemas/demo/index.html")
+            self.assertNotIn("description", demo)
+            parent, child = demo["tables"]
+            self.assertEqual(
+                parent,
+                {
+                    "name": "ParentTable",
+                    "description": "Parent rows.",
+                    "path": "schemas/demo/parenttable.html",
+                    "anchor": "table-parenttable",
+                    "columns": [{"name": "id", "description": "Parent key.", "anchor": "column-id"}],
+                    "indexes": [],
+                    "constraints": [],
+                },
             )
+            self.assertEqual(child["path"], "schemas/demo/childtable.html")
+            self.assertEqual(child["description"], "Child rows.")
+            self.assertEqual(
+                [(column["name"], column["anchor"]) for column in child["columns"]],
+                [
+                    ("id", "column-id"),
+                    ("code", "column-code"),
+                    ("parent_id", "column-parent-id"),
+                    ("amount", "column-amount"),
+                ],
+            )
+            self.assertEqual(child["columns"][1]["description"], "Business code.")
+            self.assertEqual(
+                child["indexes"],
+                [
+                    {
+                        "name": "IDX_ChildTable_code",
+                        "description": "Index on code.",
+                        "anchor": "index-idx-childtable-code",
+                    }
+                ],
+            )
+            self.assertEqual(
+                [(constraint["name"], constraint["anchor"]) for constraint in child["constraints"]],
+                [
+                    ("CK_ChildTable_amount_positive", "constraint-ck-childtable-amount-positive"),
+                    ("UQ_ChildTable_code_parent", "constraint-uq-childtable-code-parent"),
+                    ("FK_ChildTable_ParentTable", "constraint-fk-childtable-parenttable"),
+                ],
+            )
+            self.assertEqual(child["constraints"][1]["description"], "Unique code per parent.")
 
-            # Validate section summary linkss.
-            columns_summary = find_section_summary_link(
-                child_table_soup,
-                section_class="tree-columns",
-                href="childtable.html#table-childtable-columns",
-            )
-            indexes_summary = find_section_summary_link(
-                child_table_soup,
-                section_class="tree-indexes",
-                href="childtable.html#table-childtable-indexes",
-            )
-            constraints_summary = find_section_summary_link(
-                child_table_soup,
-                section_class="tree-constraints",
-                href="childtable.html#table-childtable-constraints",
-            )
-            self.assertIsNotNone(columns_summary)
-            self.assertIsNotNone(indexes_summary)
-            self.assertIsNotNone(constraints_summary)
-            if columns_summary is not None:
-                self.assertFalse(columns_summary.has_attr("title"))
-            if indexes_summary is not None:
-                self.assertFalse(indexes_summary.has_attr("title"))
-            if constraints_summary is not None:
-                self.assertFalse(constraints_summary.has_attr("title"))
-
-            # Validate section collapsed/open state.
-            columns_section = find_section_by_summary_href(
-                child_table_soup,
-                section_class="tree-columns",
-                href="childtable.html#table-childtable-columns",
-            )
-            indexes_section = find_section_by_summary_href(
-                child_table_soup,
-                section_class="tree-indexes",
-                href="childtable.html#table-childtable-indexes",
-            )
-            constraints_section = find_section_by_summary_href(
-                child_table_soup,
-                section_class="tree-constraints",
-                href="childtable.html#table-childtable-constraints",
-            )
-            self.assertIsNotNone(columns_section)
-            self.assertIsNotNone(indexes_section)
-            self.assertIsNotNone(constraints_section)
-            if columns_section is not None:
-                self.assertEqual(columns_section.name, "div")
-            if indexes_section is not None:
-                self.assertEqual(indexes_section.name, "div")
-            if constraints_section is not None:
-                self.assertEqual(constraints_section.name, "div")
+            # Validate the information each page gives the sidebar script.
+            index_soup = get_page_soup_by_title(output_dir, "Home")
+            for soup, site_root, schema_path, table_path in (
+                (index_soup, ".", None, None),
+                (schema_soup, "../..", "schemas/demo/index.html", None),
+                (child_table_soup, "../..", "schemas/demo/index.html", "schemas/demo/childtable.html"),
+            ):
+                body = soup.find("body")
+                assert body is not None
+                self.assertEqual(body.get("data-site-root"), site_root)
+                self.assertEqual(body.get("data-schema-path"), schema_path)
+                self.assertEqual(body.get("data-table-path"), table_path)
+                self.assertIsNotNone(soup.find("nav", id="sidebar-tree"))
+                scripts = [str(script.get("src")).rsplit("/", 1)[-1] for script in soup.find_all("script")]
+                self.assertEqual(scripts, ["nav-data.js", "sidebar.js"])
 
             # Validate columns/details table content and detail-toggle wiring.
             self.assertIsNotNone(child_table_soup.find(id="table-childtable-primary-key"))
@@ -300,25 +280,10 @@ tables:
             self.assertIsNone(child_table_soup.find(string="#ChildTable.code"))
 
             # Validate constraints section and cross-table FK references.
-            constraints_anchor = find_section_summary_link(
-                child_table_soup,
-                section_class="tree-constraints",
-                href="childtable.html#table-childtable-constraints",
-            )
-            self.assertIsNotNone(constraints_anchor)
-            if constraints_anchor is not None:
-                self.assertEqual(constraints_anchor.get_text(strip=True), "Constraints")
-
             self.assertIsNotNone(child_table_soup.find(id="table-childtable-constraints"))
             self.assertIsNotNone(child_table_soup.find(string="CK_ChildTable_amount_positive"))
             self.assertIsNotNone(child_table_soup.find("code", string="amount > 0"))
             self.assertIsNotNone(child_table_soup.find(string="UQ_ChildTable_code_parent"))
-            self.assertIsNotNone(
-                find_link(
-                    child_table_soup,
-                    "childtable.html#constraint-fk-childtable-parenttable",
-                )
-            )
             self.assertIsNotNone(find_link(child_table_soup, "parenttable.html"))
             self.assertIsNotNone(
                 find_link(

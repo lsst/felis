@@ -24,6 +24,7 @@ schemas.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -31,7 +32,7 @@ from collections.abc import Iterable
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from jinja2 import Environment, PackageLoader, pass_context, select_autoescape
 from jinja2.runtime import Context
@@ -49,6 +50,11 @@ logger = logging.getLogger(__name__)
 _ASSETS = {"stylesheet_href": "style.css", "script_href": "sidebar.js"}
 """Static assets copied into the site's ``assets`` directory, keyed by the
 template variable holding each asset's href.
+"""
+
+_NAV_DATA = "nav-data.js"
+"""Generated script defining ``window.FELIS_NAV``, the sidebar navigation data
+shared by all pages.
 """
 
 
@@ -257,12 +263,61 @@ def _write_page(
     target_path.write_text(
         env.get_template(template_name).render(
             page_path=page_path,
+            site_root=Path(os.path.relpath(".", start=Path(page_path).parent)).as_posix(),
             home_href=_relative_href(page_path, "index.html"),
+            nav_data_href=_relative_href(page_path, f"assets/{_NAV_DATA}"),
             **{key: _relative_href(page_path, f"assets/{name}") for key, name in _ASSETS.items()},
             **context,
         ),
         encoding="utf-8",
     )
+
+
+def _nav_data(schema_pages: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the sidebar navigation data shared by all pages.
+
+    Parameters
+    ----------
+    schema_pages
+        The schema page entries, in display order.
+
+    Returns
+    -------
+    dict
+        Schemas with their tables, and each table's columns, indexes and
+        constraints. Paths are relative to the site root, and descriptions
+        are omitted when empty.
+    """
+
+    def item(entry: dict[str, Any], **fields: Any) -> dict[str, Any]:
+        data = {"name": entry["name"], **fields}
+        if entry.get("description"):
+            data["description"] = entry["description"]
+        return data
+
+    def anchored(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [item(entry, anchor=entry["anchor"]) for entry in entries]
+
+    return {
+        "schemas": [
+            item(
+                schema,
+                path=schema["output_path"],
+                tables=[
+                    item(
+                        table,
+                        path=table["output_path"],
+                        anchor=table["anchor"],
+                        columns=anchored(table["columns"]),
+                        indexes=anchored(table["indexes"]),
+                        constraints=anchored(table["constraints"]),
+                    )
+                    for table in schema["tables"]
+                ],
+            )
+            for schema in schema_pages
+        ]
+    }
 
 
 def render_static_site(
@@ -459,7 +514,6 @@ def render_static_site(
             output_dir,
             "schema.html.j2",
             str(page["output_path"]),
-            schemas=schema_pages,
             current_schema=page,
         )
         for table_page in cast(list[dict[str, object]], page["tables"]):
@@ -468,7 +522,6 @@ def render_static_site(
                 output_dir,
                 "table.html.j2",
                 str(table_page["output_path"]),
-                schemas=schema_pages,
                 current_schema=page,
                 current_table=table_page,
             )
@@ -478,3 +531,5 @@ def render_static_site(
     for asset_name in _ASSETS.values():
         source = resources.files("felis.browser").joinpath(f"static/{asset_name}").read_text(encoding="utf-8")
         (assets_dir / asset_name).write_text(source, encoding="utf-8")
+    nav_json = json.dumps(_nav_data(schema_pages), separators=(",", ":"))
+    (assets_dir / _NAV_DATA).write_text(f"window.FELIS_NAV = {nav_json};\n", encoding="utf-8")
