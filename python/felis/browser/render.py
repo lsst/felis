@@ -215,24 +215,7 @@ class SiteMap:
             self._tables[id(obj)] = table
 
     def path(self, obj: BaseObject) -> str:
-        """Return the output path of the page showing ``obj``.
-
-        Parameters
-        ----------
-        obj
-            A schema or an object in one.
-
-        Returns
-        -------
-        str
-            The page path, relative to the site root.
-        """
-        if id(obj) in self._paths:
-            return self._paths[id(obj)]
-        return self._paths[id(self._tables[id(obj)])]
-
-    def url(self, obj: BaseObject) -> str:
-        """Return the URL of ``obj`` within the site.
+        """Return the location of ``obj`` within the site.
 
         Parameters
         ----------
@@ -247,7 +230,7 @@ class SiteMap:
         """
         if id(obj) in self._paths:
             return self._paths[id(obj)]
-        return f"{self.path(obj)}#{self.anchor(obj)}"
+        return f"{self._paths[id(self.table_of(obj))]}#{self.anchor(obj)}"
 
     def anchor(self, obj: BaseObject) -> str:
         """Return the element ID of ``obj`` on its table's page.
@@ -346,7 +329,7 @@ def _environment(site: SiteMap) -> Environment:
     @pass_context
     def href(context: Context, obj: BaseObject) -> str:
         # Link to obj from the page being rendered.
-        return _relative_href(context["page_path"], site.url(obj))
+        return _relative_href(context["page_path"], site.path(obj))
 
     @pass_context
     def columns(context: Context, refs: str | list[str]) -> list[Column | str]:
