@@ -30,7 +30,7 @@
         <header class="content-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
             {% if schema is defined %}
-            <a href="{{ site_root }}/index.html">schemas</a>
+            <a href="{{ site_root }}/index.html">Home</a>
             {{ page_macros.breadcrumb_separator() }}
             {% if table is defined %}
             <a href="{{ schema | href }}">{{ schema.name }}</a>
@@ -40,7 +40,7 @@
             <span>{{ schema.name }}</span>
             {% endif %}
             {% else %}
-            <span>schemas</span>
+            <span>Home</span>
             {% endif %}
           </nav>
           <button id="scroll-to-top" type="button" class="scroll-to-top" title="Scroll to the top of the page">Top</button>

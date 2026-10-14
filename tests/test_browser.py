@@ -249,6 +249,13 @@ tables:
                 self.assertEqual(body.get("data-schema-path"), schema_path)
                 self.assertEqual(body.get("data-table-path"), table_path)
                 self.assertIsNotNone(soup.find("nav", id="sidebar-tree"))
+                breadcrumb = soup.find("nav", class_="breadcrumb")
+                assert breadcrumb is not None
+                home = breadcrumb.find(["a", "span"])
+                assert home is not None
+                self.assertEqual(home.get_text(strip=True), "Home")
+                if table_path or schema_path:
+                    self.assertEqual(home.get("href"), "../../index.html")
                 top_button = soup.find("button", id="scroll-to-top")
                 self.assertIsNotNone(top_button)
                 assert top_button is not None
