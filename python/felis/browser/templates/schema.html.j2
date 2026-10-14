@@ -1,16 +1,5 @@
 {% extends "base.html.j2" %}
 {% block content %}
           <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
-          <ul class="schema-list">
-            {% for table in schema.tables %}
-            <li>
-              <a href="{{ table | href }}">{{ table.name }}</a>
-              {% set column_count = table.columns | length %}
-              <span class="muted">({{ column_count }} {{ "column" if column_count == 1 else "columns" }})</span>
-              {% if table.description %}
-              <div class="muted">{{ table.description }}</div>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
+{{ page_macros.entry_list(schema.tables, "columns", "column", "columns") }}
 {% endblock %}

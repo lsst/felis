@@ -17,3 +17,20 @@
 {%- endif -%}
 {%- endfor -%}
 {%- endmacro %}
+
+{# Render a list of linked schemas or tables, each with a count of its
+   children (e.g. "tables") and its description #}
+{% macro entry_list(entries, children, singular, plural) %}
+<ul class="schema-list">
+  {% for entry in entries %}
+  <li>
+    <a href="{{ entry | href }}"{% if entry.description %} title="{{ entry.description }}"{% endif %}>{{ entry.name }}</a>
+    {% set count = entry[children] | length %}
+    <span class="muted">({{ count }} {{ singular if count == 1 else plural }})</span>
+    {% if entry.description %}
+    <div class="muted">{{ entry.description }}</div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}

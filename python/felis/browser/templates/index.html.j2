@@ -1,15 +1,4 @@
 {% extends "base.html.j2" %}
 {% block content %}
-          <ul class="schema-list">
-            {% for schema in schemas %}
-            <li>
-              <a href="{{ schema | href }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
-              {% set table_count = schema.tables | length %}
-              <span class="muted">({{ table_count }} {{ "table" if table_count == 1 else "tables" }})</span>
-              {% if schema.description %}
-              <div class="muted">{{ schema.description }}</div>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
+{{ page_macros.entry_list(schemas, "tables", "table", "tables") }}
 {% endblock %}
