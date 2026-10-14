@@ -249,6 +249,10 @@ tables:
                 self.assertEqual(body.get("data-schema-path"), schema_path)
                 self.assertEqual(body.get("data-table-path"), table_path)
                 self.assertIsNotNone(soup.find("nav", id="sidebar-tree"))
+                top_button = soup.find("button", id="scroll-to-top")
+                self.assertIsNotNone(top_button)
+                assert top_button is not None
+                self.assertEqual(top_button.get_text(strip=True), "Top")
                 scripts = [str(script.get("src")).rsplit("/", 1)[-1] for script in soup.find_all("script")]
                 datatables = ["dataTables.min.js", "dataTables.buttons.min.js"] if table_path else []
                 self.assertEqual(scripts, [*datatables, "nav-data.js", "sidebar.js"])

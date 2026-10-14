@@ -237,10 +237,25 @@
     });
   }
 
+  // The "Top" button in the header scrolls the content pane back to its start.
+  function initScrollToTop() {
+    var button = document.getElementById("scroll-to-top");
+    var pane = document.querySelector(".content-body");
+    if (!button || !pane) {
+      return;
+    }
+
+    button.addEventListener("click", function () {
+      var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      pane.scrollTo({ top: 0, left: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    });
+  }
+
   function init() {
     initSidebarTree();
     initColumnsTable();
     initJumpScrolling();
+    initScrollToTop();
     initSidebarToggle();
     initSidebarResize();
   }
