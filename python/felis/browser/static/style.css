@@ -137,8 +137,8 @@
     display: flex;
     flex: none;
     align-items: center;
-    justify-content: center;
     height: var(--header-height);
+    padding: 0 var(--content-padding);
     background: var(--color-white);
     border-bottom: 1px solid var(--color-border);
   }
@@ -148,7 +148,6 @@
     flex: 1;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
     gap: 0.35rem;
     height: 100%;
     font-weight: 500;
