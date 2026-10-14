@@ -1,12 +1,8 @@
 {# Macros shared by the page templates #}
 
 {# Render the arrow separating breadcrumb items #}
-{% macro breadcrumb_separator() %}
-<span class="breadcrumb-separator" aria-hidden="true">
-  <svg viewBox="0 0 16 16" class="breadcrumb-separator-icon" focusable="false">
-    <path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</span>
+{% macro breadcrumb_separator() -%}
+<span class="breadcrumb-separator" aria-hidden="true"><svg viewBox="0 0 16 16" class="breadcrumb-separator-icon" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
 {%- endmacro %}
 
 {# Render comma-separated column names, linked to their rows on this page;

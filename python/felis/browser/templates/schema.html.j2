@@ -1,11 +1,4 @@
 {% extends "base.html.j2" %}
-{% import "page_macros.j2" as page_macros %}
-{% block title %}{{ schema.name }} - Felis Browser{% endblock %}
-{% block breadcrumb %}
-            <a href="{{ home_href }}">schemas</a>
-            {{ page_macros.breadcrumb_separator() | indent(12) }}
-            <span>{{ schema.name }}</span>
-{% endblock %}
 {% block content %}
           <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
           <ul class="schema-list">

@@ -1,10 +1,11 @@
+{% import "page_macros.j2" as page_macros %}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ stylesheet_href }}" />
+    <title>{% if table is defined %}{{ table.name }} - {% endif %}{% if schema is defined %}{{ schema.name }} - Felis Browser{% else %}Home{% endif %}</title>
+    <link rel="stylesheet" href="{{ site_root }}/assets/style.css" />
   </head>
   <body data-site-root="{{ site_root }}"{% if schema is defined %} data-schema-path="{{ schema | path }}"{% endif %}{% if table is defined %} data-table-path="{{ table | path }}"{% endif %}>
     <div class="layout">
@@ -24,7 +25,19 @@
       <main class="content">
         <header class="content-header">
           <nav class="breadcrumb" aria-label="Breadcrumb">
-            {% block breadcrumb %}{% endblock %}
+            {% if schema is defined %}
+            <a href="{{ site_root }}/index.html">schemas</a>
+            {{ page_macros.breadcrumb_separator() }}
+            {% if table is defined %}
+            <a href="{{ schema | href }}">{{ schema.name }}</a>
+            {{ page_macros.breadcrumb_separator() }}
+            <span>{{ table.name }}</span>
+            {% else %}
+            <span>{{ schema.name }}</span>
+            {% endif %}
+            {% else %}
+            <span>schemas</span>
+            {% endif %}
           </nav>
         </header>
         <div class="content-body">
@@ -32,7 +45,7 @@
         </div>
       </main>
     </div>
-    <script src="{{ nav_data_href }}"></script>
-    <script src="{{ script_href }}"></script>
+    <script src="{{ site_root }}/assets/nav-data.js"></script>
+    <script src="{{ site_root }}/assets/sidebar.js"></script>
   </body>
 </html>

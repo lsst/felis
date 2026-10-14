@@ -1,13 +1,5 @@
 {% extends "base.html.j2" %}
 {% import "page_macros.j2" as page_macros %}
-{% block title %}{{ table.name }} - {{ schema.name }} - Felis Browser{% endblock %}
-{% block breadcrumb %}
-            <a href="{{ home_href }}">schemas</a>
-            {{ page_macros.breadcrumb_separator() | indent(12) }}
-            <a href="{{ schema | href }}">{{ schema.name }}</a>
-            {{ page_macros.breadcrumb_separator() | indent(12) }}
-            <a href="{{ table | href }}">{{ table.name }}</a>
-{% endblock %}
 {% block content %}
           <section class="panel panel-plain" id="{{ table | anchor }}">
           {% if table.description %}
@@ -16,7 +8,7 @@
           {% if table.primary_key %}
           <h3 id="{{ table | anchor }}-primary-key">Primary Key</h3>
           <p>
-            {% with columns = table.primary_key | columns %}{{ page_macros.column_links(columns) }}{% endwith %}
+            {{ page_macros.column_links(table.primary_key | columns) }}
           </p>
           {% endif %}
           <h3 id="{{ table | anchor }}-columns">Columns</h3>

@@ -40,10 +40,8 @@ from felis.datamodel import BaseObject, Column, Schema, SchemaVersion, Table
 
 logger = logging.getLogger(__name__)
 
-_ASSETS = {"stylesheet_href": "style.css", "script_href": "sidebar.js"}
-"""Static assets copied into the site's ``assets`` directory, keyed by the
-template variable holding each asset's href.
-"""
+_ASSETS = ("style.css", "sidebar.js")
+"""Static files copied into the site's ``assets`` directory."""
 
 _NAV_DATA = "nav-data.js"
 """Generated script defining ``window.FELIS_NAV``, the sidebar navigation data
@@ -397,9 +395,6 @@ def _write_page(
         env.get_template(template_name).render(
             page_path=page_path,
             site_root=Path(os.path.relpath(".", start=Path(page_path).parent)).as_posix(),
-            home_href=_relative_href(page_path, "index.html"),
-            nav_data_href=_relative_href(page_path, f"assets/{_NAV_DATA}"),
-            **{key: _relative_href(page_path, f"assets/{name}") for key, name in _ASSETS.items()},
             **context,
         ),
         encoding="utf-8",
@@ -429,7 +424,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path) -> None:
 
     assets_dir = output_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
-    for asset_name in _ASSETS.values():
+    for asset_name in _ASSETS:
         source = resources.files("felis.browser").joinpath(f"static/{asset_name}").read_text(encoding="utf-8")
         (assets_dir / asset_name).write_text(source, encoding="utf-8")
     nav_json = json.dumps(site.nav_data(), separators=(",", ":"))
