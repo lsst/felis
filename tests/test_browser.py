@@ -388,6 +388,85 @@ tables:
                 self.assertIn("(1 table)", count_labels)
                 self.assertIn("(2 tables)", count_labels)
 
+    def test_browser_name_collisions(self) -> None:
+        """Names that differ only in case or punctuation get unique paths and
+        element IDs, with ``-2`` appended to the later one.
+        """
+        schema_yaml = """
+name: {name}
+"@id": "#{name}"
+tables:
+  - name: Data
+    "@id": "#Data"
+    columns:
+      - name: ra
+        "@id": "#Data.ra"
+        datatype: double
+        description: Lowercase.
+      - name: RA
+        "@id": "#Data.RA"
+        datatype: double
+        description: Uppercase.
+    indexes:
+      - name: IDX_ra
+        "@id": "#IDX_ra"
+        columns: ["#Data.ra"]
+      - name: idx-RA
+        "@id": "#idx-RA"
+        columns: ["#Data.RA"]
+    constraints:
+      - name: UQ_ra
+        "@id": "#UQ_ra"
+        "@type": Unique
+        columns: ["#Data.ra"]
+      - name: uq-RA
+        "@id": "#uq-RA"
+        "@type": Unique
+        columns: ["#Data.RA"]
+  - name: data
+    "@id": "#data"
+    columns:
+      - name: id
+        "@id": "#data.id"
+        datatype: int
+        description: Key.
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            files = []
+            for file_name, schema_name in (("a.yaml", "collide"), ("b.yaml", "COLLIDE")):
+                files.append(os.path.join(tmpdir, file_name))
+                with open(files[-1], "w", encoding="utf-8") as f:
+                    f.write(schema_yaml.format(name=schema_name))
+            output_dir = os.path.join(tmpdir, "browser")
+
+            render_browser_site(output_dir=output_dir, files=files)
+
+            nav = load_nav(output_dir)
+            self.assertEqual(
+                [schema["path"] for schema in nav["schemas"]],
+                ["schemas/collide/index.html", "schemas/collide-2/index.html"],
+            )
+            first, second = nav["schemas"][0]["tables"]
+            self.assertEqual(
+                [first["path"], second["path"]], ["schemas/collide/data.html", "schemas/collide/data-2.html"]
+            )
+            self.assertEqual([c["anchor"] for c in first["columns"]], ["column-ra", "column-ra-2"])
+            self.assertEqual([i["anchor"] for i in first["indexes"]], ["index-idx-ra", "index-idx-ra-2"])
+            self.assertEqual(
+                [c["anchor"] for c in first["constraints"]], ["constraint-uq-ra", "constraint-uq-ra-2"]
+            )
+
+            # The page uses the same IDs, each only once, and links to them.
+            page_path = os.path.join(output_dir, "schemas", "collide", "data.html")
+            with open(page_path, encoding="utf-8") as f:
+                page = parse_html(f.read())
+            ids = [element["id"] for element in page.find_all(id=True)]
+            self.assertEqual(len(ids), len(set(ids)))
+            for anchor in ("column-ra", "column-ra-2", "index-idx-ra-2", "constraint-uq-ra-2"):
+                self.assertIn(anchor, ids)
+            self.assertIsNotNone(find_link(page, "#column-ra-2"))
+
     def test_browser_compound_primary_key_spacing(self) -> None:
         """Render compound primary keys without whitespace before commas."""
         schema_yaml = """

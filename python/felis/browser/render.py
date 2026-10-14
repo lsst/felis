@@ -198,20 +198,19 @@ class SiteMap:
             for table in schema.tables:
                 self._paths[id(table)] = f"{schema_dir}/{table_files.claim(_slugify(table.name))}.html"
                 self._anchors[id(table)] = f"table-{_slugify(table.name)}"
-                self._add(table, "column", table.columns, None)
+                self._add(table, "column", table.columns, _UniqueNames())
                 self._add(table, "index", table.indexes, _UniqueNames())
                 self._add(table, "constraint", table.constraints, _UniqueNames())
 
         self.schemas = sorted(schemas, key=lambda schema: schema.name.lower())
         """The schemas in display order."""
 
-    def _add(
-        self, table: Table, prefix: str, objects: Iterable[BaseObject], names: _UniqueNames | None
-    ) -> None:
-        """Record the table and anchor of objects shown on a table's page."""
+    def _add(self, table: Table, prefix: str, objects: Iterable[BaseObject], names: _UniqueNames) -> None:
+        """Record the table and a unique anchor for objects shown on a table's
+        page.
+        """
         for obj in objects:
-            anchor = f"{prefix}-{_slugify(obj.name)}"
-            self._anchors[id(obj)] = names.claim(anchor) if names else anchor
+            self._anchors[id(obj)] = names.claim(f"{prefix}-{_slugify(obj.name)}")
             self._tables[id(obj)] = table
 
     def path(self, obj: BaseObject) -> str:
