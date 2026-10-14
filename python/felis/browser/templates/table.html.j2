@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ stylesheet_href }}" />
   </head>
   <body>
-    {%- import "tree_section_macro.j2" as tree_macros -%}
+    {%- import "tree_section_macro.j2" as tree_macros with context -%}
     <div class="layout">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -22,16 +22,16 @@
           <ul class="tree">
             {% for schema in schemas %}
             <li>
-              <details class="tree-node"{% if schema.filename == current_schema.filename %} open{% endif %}>
+              <details class="tree-node"{% if schema.output_path == current_schema.output_path %} open{% endif %}>
                 <summary>
-                  <a href="{{ schema.filename }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+                  <a href="{{ schema.output_path | href }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
                 </summary>
                 <ul>
                   {% for table in schema.tables %}
                   <li>
-                    <details class="tree-node"{% if table.page_filename == current_table.page_filename %} open{% endif %}>
+                    <details class="tree-node"{% if table.output_path == current_table.output_path %} open{% endif %}>
                       <summary>
-                        <a href="{{ table.page_filename }}"{% if table.description %} title="{{ table.description }}"{% endif %}>{{ table.name }}</a>
+                        <a href="{{ table.output_path | href }}"{% if table.description %} title="{{ table.description }}"{% endif %}>{{ table.name }}</a>
                       </summary>
                       {{ tree_macros.render_tree_table_sections(table) }}
                     </details>
@@ -55,13 +55,13 @@
                 <path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </span>
-            <a href="{{ current_schema.filename }}">{{ current_schema.name }}</a>
+            <a href="{{ current_schema.output_path | href }}">{{ current_schema.name }}</a>
             <span class="breadcrumb-separator" aria-hidden="true">
               <svg viewBox="0 0 16 16" class="breadcrumb-separator-icon" focusable="false">
                 <path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </span>
-            <a href="{{ current_table.page_filename }}">{{ current_table.name }}</a>
+            <a href="{{ current_table.output_path | href }}">{{ current_table.name }}</a>
           </nav>
         </header>
         <div class="content-body">
@@ -216,8 +216,8 @@
                     <strong>References:</strong>&#32;
                     {%- for ref_col in constraint.referenced_columns -%}
                     {%- if not loop.first %}, {% endif -%}
-                    {%- if ref_col.table_page_filename -%}
-                    <a href="{{ ref_col.table_page_filename }}">{{ ref_col.table_name }}</a>.{% if ref_col.anchor %}<a href="{{ ref_col.table_page_filename }}#{{ ref_col.anchor }}">{{ ref_col.name }}</a>{% else %}{{ ref_col.name }}{% endif %}
+                    {%- if ref_col.table_output_path -%}
+                    <a href="{{ ref_col.table_output_path | href }}">{{ ref_col.table_name }}</a>.{% if ref_col.anchor %}<a href="{{ ref_col.table_output_path | href }}#{{ ref_col.anchor }}">{{ ref_col.name }}</a>{% else %}{{ ref_col.name }}{% endif %}
                     {%- else -%}
                     {{ ref_col.id }}
                     {%- endif -%}

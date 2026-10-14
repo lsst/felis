@@ -30,8 +30,10 @@ import re
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
+from typing import cast
 
-from jinja2 import Environment, PackageLoader, select_autoescape
+from jinja2 import Environment, PackageLoader, pass_context, select_autoescape
+from jinja2.runtime import Context
 
 from felis.datamodel import (
     CheckConstraint,
@@ -174,96 +176,52 @@ def _column_entry(
         "name": _column_label(column_id),
         "anchor": column_anchors.get(column_id, ""),
         "table_name": _table_label(column_id),
-        "table_page_filename": "",
+        "table_output_path": "",
     }
 
 
-def _build_page_context(
-    schema_pages: list[dict[str, object]],
-    output_path: str,
-    current_page_output_path: str,
-) -> tuple[list[dict[str, object]], dict[str, object] | None]:
-    """Build schema context for a page with relative hrefs.
+@pass_context
+def _href(context: Context, target_output_path: str) -> str:
+    """Jinja filter resolving a site-relative output path against the page
+    being rendered, which is given by the ``page_path`` context variable.
+    """
+    return _relative_href(context["page_path"], target_output_path)
+
+
+def _write_page(
+    env: Environment,
+    output_dir: Path,
+    template_name: str,
+    page_path: str,
+    **context: object,
+) -> None:
+    """Render a template and write it to ``page_path`` under ``output_dir``.
 
     Parameters
     ----------
-    schema_pages
-        List of all schema page dicts to build context from.
-    output_path
-        The output path of the current page (e.g., "index.html").
-    current_page_output_path
-        The output path of the page being rendered (to identify current
-        context).
-
-    Returns
-    -------
-    tuple
-        (context_pages list, current_schema_context dict or None)
+    env
+        The Jinja environment used to load the template.
+    output_dir
+        Root directory of the generated site.
+    template_name
+        Name of the template to render.
+    page_path
+        Output path of the page, relative to ``output_dir``.
+    **context
+        Additional template context.
     """
-    context_pages: list[dict[str, object]] = []
-    current_schema_ctx: dict[str, object] | None = None
-
-    for schema in schema_pages:
-        schema_copy = dict(schema)
-        schema_copy["filename"] = _relative_href(output_path, str(schema["output_path"]))
-        table_copies: list[dict[str, object]] = []
-        for table in schema["tables"]:
-            table_copy = dict(table)
-            table_copy["page_filename"] = _relative_href(output_path, str(table["output_path"]))
-            table_copies.append(table_copy)
-        schema_copy["tables"] = table_copies
-        context_pages.append(schema_copy)
-        if schema["output_path"] == current_page_output_path:
-            current_schema_ctx = schema_copy
-
-    return context_pages, current_schema_ctx
-
-
-def _build_table_page_context(
-    schema_pages: list[dict[str, object]],
-    output_path: str,
-    current_page_output_path: str,
-    current_table_output_path: str,
-) -> tuple[list[dict[str, object]], dict[str, object] | None, dict[str, object] | None]:
-    """Build table page context with current schema and table contexts.
-
-    Parameters
-    ----------
-    schema_pages
-        List of all schema page dicts to build context from.
-    output_path
-        The output path of the current page.
-    current_page_output_path
-        The output path of the schema being rendered.
-    current_table_output_path
-        The output path of the table being rendered.
-
-    Returns
-    -------
-    tuple
-        (context_pages list, current_schema_context dict or None,
-        current_table_context dict or None)
-    """
-    context_pages: list[dict[str, object]] = []
-    current_schema_ctx: dict[str, object] | None = None
-    current_table_ctx: dict[str, object] | None = None
-
-    for schema in schema_pages:
-        schema_copy = dict(schema)
-        schema_copy["filename"] = _relative_href(output_path, str(schema["output_path"]))
-        table_copies: list[dict[str, object]] = []
-        for table_entry in schema["tables"]:
-            table_copy = dict(table_entry)
-            table_copy["page_filename"] = _relative_href(output_path, str(table_entry["output_path"]))
-            table_copies.append(table_copy)
-            if table_entry["output_path"] == current_table_output_path:
-                current_table_ctx = table_copy
-        schema_copy["tables"] = table_copies
-        context_pages.append(schema_copy)
-        if schema["output_path"] == current_page_output_path:
-            current_schema_ctx = schema_copy
-
-    return context_pages, current_schema_ctx, current_table_ctx
+    target_path = output_dir / page_path
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(
+        env.get_template(template_name).render(
+            page_path=page_path,
+            home_href=_relative_href(page_path, "index.html"),
+            stylesheet_href=_relative_href(page_path, "assets/style.css"),
+            script_href=_relative_href(page_path, "assets/sidebar.js"),
+            **context,
+        ),
+        encoding="utf-8",
+    )
 
 
 def render_static_site(
@@ -294,6 +252,7 @@ def render_static_site(
         trim_blocks=True,
         lstrip_blocks=True,
     )
+    env.filters["href"] = _href
 
     schema_pages: list[dict[str, object]] = []
     schema_dir_counts: dict[str, int] = {}
@@ -374,7 +333,7 @@ def render_static_site(
         schema_column_targets: dict[str, dict[str, str]] = {}
         for prepared in prepared_tables:
             table_name = str(getattr(prepared["table"], "name"))
-            table_page_filename = str(prepared["output_path"])
+            table_output_path = str(prepared["output_path"])
             for column in prepared["columns"]:
                 column_id = str(column["id"])
                 schema_column_targets[column_id] = {
@@ -382,7 +341,7 @@ def render_static_site(
                     "name": str(column["name"]),
                     "anchor": str(column["anchor"]),
                     "table_name": table_name,
-                    "table_page_filename": table_page_filename,
+                    "table_output_path": table_output_path,
                 }
 
         table_entries: list[dict[str, object]] = []
@@ -502,67 +461,26 @@ def render_static_site(
 
     schema_pages.sort(key=lambda page: str(page["name"]).lower())
 
-    index_template = env.get_template("index.html.j2")
-    schema_template = env.get_template("schema.html.j2")
-    table_template = env.get_template("table.html.j2")
-
-    index_output_path = "index.html"
-    index_schemas, _ = _build_page_context(schema_pages, index_output_path, index_output_path)
-
-    (output_dir / index_output_path).write_text(
-        index_template.render(
-            schemas=index_schemas,
-            stylesheet_href="assets/style.css",
-            script_href="assets/sidebar.js",
-        ),
-        encoding="utf-8",
-    )
+    _write_page(env, output_dir, "index.html.j2", "index.html", schemas=schema_pages)
 
     for page in schema_pages:
-        schema_output = str(page["output_path"])
-        schema_context_pages, current_schema_ctx = _build_page_context(
-            schema_pages, schema_output, schema_output
+        _write_page(
+            env,
+            output_dir,
+            "schema.html.j2",
+            str(page["output_path"]),
+            schemas=schema_pages,
+            current_schema=page,
         )
-
-        if current_schema_ctx is None:
-            raise ValueError(f"Schema context not found for output path: {schema_output}")
-
-        schema_target_path = output_dir / schema_output
-        schema_target_path.parent.mkdir(parents=True, exist_ok=True)
-        schema_target_path.write_text(
-            schema_template.render(
-                current_schema=current_schema_ctx,
-                schemas=schema_context_pages,
-                home_href=_relative_href(schema_output, "index.html"),
-                stylesheet_href=_relative_href(schema_output, "assets/style.css"),
-                script_href=_relative_href(schema_output, "assets/sidebar.js"),
-            ),
-            encoding="utf-8",
-        )
-
-        for table in page["tables"]:
-            table_output = str(table["output_path"])
-            table_context_pages, current_schema_table_ctx, current_table_ctx = _build_table_page_context(
-                schema_pages, table_output, str(page["output_path"]), table_output
-            )
-
-            if current_schema_table_ctx is None:
-                raise ValueError(f"Schema context not found for table output path: {table_output}")
-            if current_table_ctx is None:
-                raise ValueError(f"Table context not found for table output path: {table_output}")
-
-            table_target_path = output_dir / table_output
-            table_target_path.parent.mkdir(parents=True, exist_ok=True)
-            table_target_path.write_text(
-                table_template.render(
-                    current_schema=current_schema_table_ctx,
-                    current_table=current_table_ctx,
-                    schemas=table_context_pages,
-                    home_href=_relative_href(table_output, "index.html"),
-                    stylesheet_href=_relative_href(table_output, "assets/style.css"),
-                    script_href=_relative_href(table_output, "assets/sidebar.js"),
-                ),
-                encoding="utf-8",
+        for table_page in cast(list[dict[str, object]], page["tables"]):
+            _write_page(
+                env,
+                output_dir,
+                "table.html.j2",
+                str(table_page["output_path"]),
+                schemas=schema_pages,
+                current_schema=page,
+                current_table=table_page,
             )
 
     css_source = resources.files("felis.browser").joinpath("static/style.css").read_text(encoding="utf-8")

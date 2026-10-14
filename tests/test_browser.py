@@ -330,6 +330,15 @@ tables:
             fk_row = child_table_soup.find(id="constraint-fk-childtable-parenttable")
             self.assertIsNotNone(fk_row)
             if fk_row is not None:
+                # The FK "References" links point to ParentTable's page, which
+                # is in the same directory as ChildTable's page, so they must
+                # be plain relative filenames, not paths from the site root
+                # like "schemas/demo/parenttable.html".
+                references = next(div for div in fk_row.find_all("div") if "References:" in div.get_text())
+                self.assertEqual(
+                    [link["href"] for link in references.find_all("a")],
+                    ["parenttable.html", "parenttable.html#column-id"],
+                )
                 fk_text = fk_row.get_text(" ", strip=True)
                 self.assertIn("On Delete:", fk_text)
                 self.assertIn("CASCADE", fk_text)

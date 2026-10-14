@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ stylesheet_href }}" />
   </head>
   <body>
-    {%- import "tree_section_macro.j2" as tree_macros -%}
+    {%- import "tree_section_macro.j2" as tree_macros with context -%}
     <div class="layout">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -24,14 +24,14 @@
             <li>
               <details class="tree-node">
                 <summary>
-                  <a href="{{ schema.filename }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+                  <a href="{{ schema.output_path | href }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
                 </summary>
                 <ul>
                   {% for table in schema.tables %}
                   <li>
                     <details class="tree-node">
                       <summary>
-                        <a href="{{ table.page_filename }}"{% if table.description %} title="{{ table.description }}"{% endif %}>{{ table.name }}</a>
+                        <a href="{{ table.output_path | href }}"{% if table.description %} title="{{ table.description }}"{% endif %}>{{ table.name }}</a>
                       </summary>
                       {{ tree_macros.render_tree_table_sections(table) }}
                     </details>
@@ -56,7 +56,7 @@
           <ul class="schema-list">
             {% for schema in schemas %}
             <li>
-              <a href="{{ schema.filename }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+              <a href="{{ schema.output_path | href }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
               {% set table_count = schema.tables | length %}
               <span class="muted">({{ table_count }} {{ "table" if table_count == 1 else "tables" }})</span>
               {% if schema.description %}
