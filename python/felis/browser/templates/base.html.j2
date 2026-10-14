@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% if table is defined %}{{ table.name }} - {% endif %}{% if schema is defined %}{{ schema.name }} - Felis Browser{% else %}Home{% endif %}</title>
     <link rel="stylesheet" href="{{ site_root }}/assets/style.css" />
+    {% for stylesheet in custom_stylesheets %}
+    <link rel="stylesheet" href="{{ site_root }}/assets/{{ stylesheet }}" />
+    {% endfor %}
   </head>
   <body data-site-root="{{ site_root }}"{% if schema is defined %} data-schema-path="{{ schema | path }}"{% endif %}{% if table is defined %} data-table-path="{{ table | path }}"{% endif %}>
     <div class="layout">

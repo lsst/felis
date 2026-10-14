@@ -29,6 +29,7 @@ TEST_DIR = os.path.abspath(os.path.dirname(__file__))
 def render_browser_site(
     output_dir: str,
     files: list[str],
+    stylesheets: list[str] | None = None,
 ) -> None:
     """Render browser pages from schema files using renderer directly."""
     paths = sorted(files)
@@ -40,7 +41,11 @@ def render_browser_site(
         Schema.from_uri(path, context={"id_generation": True, "column_ref_index_increment": None})
         for path in paths
     ]
-    render_static_site(schemas=schemas, output_dir=Path(output_dir))
+    render_static_site(
+        schemas=schemas,
+        output_dir=Path(output_dir),
+        stylesheets=[Path(stylesheet) for stylesheet in stylesheets or []],
+    )
 
 
 def parse_html(content: str) -> BeautifulSoup:
@@ -479,6 +484,61 @@ tables:
             for anchor in ("column-ra", "column-ra-2", "index-idx-ra-2", "constraint-uq-ra-2"):
                 self.assertIn(anchor, ids)
             self.assertIsNotNone(find_link(page, "#column-ra-2"))
+
+    def test_browser_custom_stylesheets(self) -> None:
+        """Custom stylesheets are copied into the site and linked after the
+        built-in stylesheet, in the order given.
+        """
+        schema_yaml = """
+name: styled
+"@id": "#styled"
+tables:
+  - name: Data
+    "@id": "#Data"
+    columns:
+      - name: id
+        "@id": "#Data.id"
+        datatype: int
+        description: Key.
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            schema_path = os.path.join(tmpdir, "styled.yaml")
+            with open(schema_path, "w", encoding="utf-8") as f:
+                f.write(schema_yaml)
+            stylesheets = []
+            for name, rule in (
+                ("theme.css", ":root { --color-link: red; }"),
+                ("local.css", "a { color: blue; }"),
+            ):
+                stylesheets.append(os.path.join(tmpdir, name))
+                with open(stylesheets[-1], "w", encoding="utf-8") as f:
+                    f.write(rule)
+            output_dir = os.path.join(tmpdir, "browser")
+
+            render_browser_site(output_dir=output_dir, files=[schema_path], stylesheets=stylesheets)
+
+            assets = os.path.join(output_dir, "assets")
+            for copied, original in (
+                ("custom-1-theme.css", stylesheets[0]),
+                ("custom-2-local.css", stylesheets[1]),
+            ):
+                with (
+                    open(os.path.join(assets, copied), encoding="utf-8") as f,
+                    open(original, encoding="utf-8") as g,
+                ):
+                    self.assertEqual(f.read(), g.read())
+
+            for title, prefix in (("Home", "."), ("Data - styled - Felis Browser", "../..")):
+                soup = get_page_soup_by_title(output_dir, title)
+                self.assertEqual(
+                    [link["href"] for link in soup.find_all("link", rel="stylesheet")],
+                    [
+                        f"{prefix}/assets/style.css",
+                        f"{prefix}/assets/custom-1-theme.css",
+                        f"{prefix}/assets/custom-2-local.css",
+                    ],
+                )
 
     def test_browser_compound_primary_key_spacing(self) -> None:
         """Render compound primary keys without whitespace before commas."""

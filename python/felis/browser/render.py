@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import re
+import shutil
 from collections.abc import Iterable
 from importlib import resources
 from pathlib import Path
@@ -383,7 +384,7 @@ def _write_page(
     )
 
 
-def render_static_site(schemas: Iterable[Schema], output_dir: Path) -> None:
+def render_static_site(schemas: Iterable[Schema], output_dir: Path, stylesheets: Iterable[Path] = ()) -> None:
     """Render a static browser site for browsing schemas.
 
     The generated pages include schema, table, and column navigation.
@@ -394,9 +395,17 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path) -> None:
         Schemas to render.
     output_dir
         Directory where the rendered HTML files will be saved.
+    stylesheets
+        Additional stylesheets, applied in order after the built-in one, so
+        later stylesheets take precedence. Each is copied into the site's
+        ``assets`` directory as ``custom-<N>-<name>``.
     """
     site = SiteMap(schemas)
     env = _environment(site)
+    custom_stylesheets = {
+        f"custom-{number}-{path.name}": path for number, path in enumerate(stylesheets, start=1)
+    }
+    env.globals["custom_stylesheets"] = list(custom_stylesheets)
 
     _write_page(env, output_dir, "index.html.j2", "index.html", schemas=site.schemas)
     for schema in site.schemas:
@@ -409,5 +418,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path) -> None:
     for asset_name in _ASSETS:
         source = resources.files("felis.browser").joinpath(f"static/{asset_name}").read_text(encoding="utf-8")
         (assets_dir / asset_name).write_text(source, encoding="utf-8")
+    for asset_name, path in custom_stylesheets.items():
+        shutil.copyfile(path, assets_dir / asset_name)
     nav_json = json.dumps(site.nav_data(), separators=(",", ":"))
     (assets_dir / _NAV_DATA).write_text(f"window.FELIS_NAV = {nav_json};\n", encoding="utf-8")

@@ -659,6 +659,13 @@ def dump(
     required=True,
     help="Output directory for generated static HTML",
 )
+@click.option(
+    "--stylesheet",
+    "stylesheets",
+    type=click.Path(exists=True, dir_okay=False),
+    multiple=True,
+    help="Additional stylesheet applied after the built-in one (repeatable; later ones take precedence)",
+)
 @click.argument(
     "files",
     nargs=-1,
@@ -669,6 +676,7 @@ def dump(
 def browser(
     ctx: click.Context,
     output_dir: str,
+    stylesheets: tuple[str, ...],
     files: tuple[str, ...],
 ) -> None:
     """Generate a static HTML browser for one or more YAML schema files."""
@@ -695,7 +703,11 @@ def browser(
         schemas.append(schema)
 
     try:
-        render_static_site(schemas=schemas, output_dir=Path(output_dir))
+        render_static_site(
+            schemas=schemas,
+            output_dir=Path(output_dir),
+            stylesheets=[Path(stylesheet) for stylesheet in stylesheets],
+        )
     except Exception as e:
         raise click.ClickException(f"Failed rendering browser site: {e}") from e
 

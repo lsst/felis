@@ -85,6 +85,30 @@ class CliTestCase(unittest.TestCase):
             ]
         )
 
+    def test_browser_with_stylesheets(self) -> None:
+        """Test browser command with custom stylesheets."""
+        output_dir = os.path.join(self.tmpdir, "site")
+        stylesheets = []
+        for name in ("theme.css", "local.css"):
+            stylesheets.append(os.path.join(self.tmpdir, name))
+            with open(stylesheets[-1], "w", encoding="utf-8") as f:
+                f.write(":root { --color-link: red; }\n")
+        run_cli(
+            [
+                "browser",
+                "--output-dir",
+                output_dir,
+                "--stylesheet",
+                stylesheets[0],
+                "--stylesheet",
+                stylesheets[1],
+                TEST_YAML,
+            ]
+        )
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "index.html")))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-1-theme.css")))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-2-local.css")))
+
     def test_validate(self) -> None:
         """Test validate command."""
         run_cli(["validate", TEST_YAML])
