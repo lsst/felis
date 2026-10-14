@@ -90,18 +90,26 @@
     return item;
   }
 
-  // Build one section (Columns, Indexes or Constraints) of a table node.
+  // Build one collapsible section (Columns, Indexes or Constraints) of a
+  // table node, showing how many entries it has. The section starts closed,
+  // and its list is built the first time it is opened.
   function treeSection(root, table, kind, label, entries) {
-    var section = document.createElement("div");
-    section.className = "tree-section tree-" + kind;
     var heading = navLink(root, table.path, table.anchor + "-" + kind, label);
     heading.className = "tree-section-heading";
-    section.appendChild(heading);
-    var list = document.createElement("ul");
-    entries.forEach(function (entry) {
-      list.appendChild(listItem(navLink(root, table.path, entry.anchor, entry.name, entry.description)));
+    var section = treeNode(heading);
+    section.classList.add("tree-section", "tree-" + kind);
+    var count = document.createElement("span");
+    count.className = "tree-section-count";
+    count.textContent = "(" + entries.length + ")";
+    section.querySelector("summary").appendChild(count);
+    section.addEventListener("toggle", function fill() {
+      section.removeEventListener("toggle", fill);
+      var list = document.createElement("ul");
+      entries.forEach(function (entry) {
+        list.appendChild(listItem(navLink(root, table.path, entry.anchor, entry.name, entry.description)));
+      });
+      section.appendChild(list);
     });
-    section.appendChild(list);
     return section;
   }
 

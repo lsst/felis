@@ -28,7 +28,6 @@
     /* Text */
     --color-text: #1e293b;
     --color-text-strong: #0f172a;
-    --color-text-secondary: #334155;
     --color-muted: #475569;
     --color-black: #000000;
     --color-link: #006da8;
@@ -38,7 +37,6 @@
     --color-white: #ffffff;
     --color-page: #f4f6f9;
     --color-surface: #f8fafc;
-    --color-surface-alt: #f7f9fc;
 
     /* Borders */
     --color-border: #dbe1ea;
@@ -324,15 +322,13 @@
   }
 
   .tree-section-heading {
-    display: inline-block;
-    margin: 0.1rem 0 0.15rem;
-    padding: 0.05rem 0.35rem;
-    font-size: var(--font-size-small);
     font-weight: 500;
-    color: var(--color-text-secondary);
-    background: var(--color-surface-alt);
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
+  }
+
+  .tree-section-count {
+    margin-left: 0.3rem;
+    font-weight: 400;
+    color: var(--color-muted);
   }
 
   .tree-section > ul {
