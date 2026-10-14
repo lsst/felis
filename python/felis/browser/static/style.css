@@ -361,6 +361,13 @@
     background: var(--color-white);
   }
 
+  /* When jumping to a row from a link, keep the content pane scrolled fully
+     left instead of lining the row up with the pane's edge, which would
+     scroll past the padding and table border. */
+  tr[id] {
+    scroll-margin-left: calc(var(--content-padding) + 1px);
+  }
+
   /* Columns table: values stay on one line, except descriptions, which wrap
      at a readable width. */
 

@@ -174,8 +174,30 @@
     });
   }
 
+  // Jumping to a column, index or constraint row should only scroll the
+  // content pane vertically: keep it scrolled fully left, even if it was
+  // scrolled right before the jump.
+  function initJumpScrolling() {
+    var pane = document.querySelector(".content-body");
+    if (!pane) {
+      return;
+    }
+
+    function scrollFullyLeft() {
+      pane.scrollLeft = 0;
+    }
+
+    window.addEventListener("hashchange", scrollFullyLeft);
+    window.addEventListener("load", function () {
+      if (window.location.hash) {
+        scrollFullyLeft();
+      }
+    });
+  }
+
   function init() {
     initSidebarTree();
+    initJumpScrolling();
     initSidebarToggle();
     initSidebarResize();
   }
