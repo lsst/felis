@@ -386,6 +386,23 @@
     box-shadow: inset 0 -1px 0 var(--color-border);
   }
 
+  /* Likewise keep the name column visible at the left of the content pane
+     while scrolling right, with its right border drawn as a shadow. Its header
+     cell is pinned both ways, so it sits above the other sticky cells. */
+  .columns-table [data-field="name"] {
+    position: sticky;
+    left: calc(-1 * var(--content-padding) - 1px);
+    z-index: 1;
+    box-shadow: inset -1px 0 0 var(--color-border);
+  }
+
+  .columns-table th[data-field="name"] {
+    z-index: 2;
+    box-shadow:
+      inset -1px 0 0 var(--color-border),
+      inset 0 -1px 0 var(--color-border);
+  }
+
   .primary-key-tag {
     margin-left: 0.5rem;
     padding: 0.1rem 0.3rem;
