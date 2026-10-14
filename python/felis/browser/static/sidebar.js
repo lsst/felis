@@ -166,76 +166,10 @@
     });
   }
 
-  function setColumnDetailsExpanded(toggleCell, expanded) {
-    var targetId = toggleCell.getAttribute("data-column-details-target");
-    if (!targetId) {
-      return;
-    }
-
-    var detailsRow = document.getElementById(targetId);
-    if (!detailsRow) {
-      return;
-    }
-
-    detailsRow.hidden = !expanded;
-    toggleCell.setAttribute("aria-expanded", String(expanded));
-    toggleCell.setAttribute("title", expanded ? "Click to hide details." : "Click to show details.");
-  }
-
-  function initColumnDetailsControls() {
-    function handleToggleCell(toggleCell) {
-      var expanded = toggleCell.getAttribute("aria-expanded") === "true";
-      setColumnDetailsExpanded(toggleCell, !expanded);
-    }
-
-    document.addEventListener("click", function (event) {
-      var toggleCell = event.target.closest("td[data-column-details-target]");
-      if (toggleCell) {
-        handleToggleCell(toggleCell);
-        return;
-      }
-
-      var actionButton = event.target.closest("button[data-column-details-action]");
-      if (!actionButton) {
-        return;
-      }
-
-      var action = actionButton.getAttribute("data-column-details-action");
-      var panel = actionButton.closest(".panel");
-      if (!panel) {
-        return;
-      }
-
-      var toggleCells = panel.querySelectorAll("td[data-column-details-target]");
-      toggleCells.forEach(function (cell) {
-        if (action === "expand-all") {
-          setColumnDetailsExpanded(cell, true);
-        } else if (action === "collapse-all") {
-          setColumnDetailsExpanded(cell, false);
-        }
-      });
-    });
-
-    document.addEventListener("keydown", function (event) {
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-
-      var toggleCell = event.target.closest("td[data-column-details-target]");
-      if (!toggleCell) {
-        return;
-      }
-
-      event.preventDefault();
-      handleToggleCell(toggleCell);
-    });
-  }
-
   function init() {
     initSidebarTree();
     initSidebarToggle();
     initSidebarResize();
-    initColumnDetailsControls();
   }
 
   if (document.readyState === "loading") {

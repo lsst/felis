@@ -15,7 +15,6 @@
     --font-table: var(--font-body);
     --line-height: 1.4;
     --font-size-small: 0.9rem;
-    --font-size-button: 0.78rem;
     --font-size-table: 0.875rem;
 
     /* Sizes and spacing */
@@ -40,13 +39,9 @@
     --color-page: #f4f6f9;
     --color-surface: #f8fafc;
     --color-surface-alt: #f7f9fc;
-    --color-key: #e9eef5;
-    --color-button-hover: #eef2ff;
 
-    /* Borders and focus */
+    /* Borders */
     --color-border: #dbe1ea;
-    --color-border-strong: #cbd5e1;
-    --color-focus: #93c5fd;
 
     /* Scrollbars and sidebar resizer */
     --color-scrollbar-track: #f2f4f6;
@@ -118,12 +113,23 @@
     margin-left: var(--sidebar-width);
   }
 
+  /* The content pane fills the window next to the sidebar; below its header,
+     the content scrolls on its own, in both directions, so wide tables get a
+     scrollbar at the bottom of the pane rather than widening the page. */
+
   .content {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
     background: var(--color-white);
   }
 
   .content-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     padding: var(--content-padding);
   }
 
@@ -131,6 +137,7 @@
 
   .content-header {
     display: flex;
+    flex: none;
     align-items: center;
     justify-content: center;
     height: var(--header-height);
@@ -333,20 +340,6 @@
     padding-left: 0.35rem;
   }
 
-  .tree-action-button {
-    padding: 0.15rem 0.4rem;
-    font-size: var(--font-size-button);
-    color: var(--color-text);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    cursor: pointer;
-  }
-
-  .tree-action-button:hover {
-    background: var(--color-button-hover);
-  }
-
   /* Tables */
 
   table {
@@ -372,47 +365,16 @@
     background: var(--color-white);
   }
 
-  /* Column details */
+  /* Columns table: values stay on one line, except descriptions, which wrap
+     at a readable width. */
 
-  .column-details-actions {
-    display: flex;
-    gap: 0.35rem;
-    margin: 0.5rem 0 0.7rem;
-  }
-
-  .column-details-toggle-cell {
-    cursor: pointer;
-  }
-
-  .column-details-toggle-cell:hover {
-    background: var(--color-surface);
-  }
-
-  .column-details-toggle-cell:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: -2px;
-  }
-
-  .column-details-row > td {
-    padding: 0.25rem;
-    background: var(--color-surface);
-  }
-
-  .column-details-table {
-    width: auto;
-    max-width: 100%;
-  }
-
-  .column-details-table .field-key {
-    width: 1%;
-    font-weight: 600;
+  .columns-table td {
     white-space: nowrap;
-    background: var(--color-key);
   }
 
-  .column-details-table .field-value {
-    white-space: nowrap;
-    background: var(--color-surface);
+  .columns-table [data-field="description"] {
+    min-width: 20rem;
+    white-space: normal;
   }
 
   /* Narrow screens: the sidebar sits above the content. */
@@ -442,10 +404,6 @@
 
     .sidebar-resizer {
       display: none;
-    }
-
-    .column-details-table {
-      width: 100%;
     }
   }
 }

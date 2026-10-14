@@ -98,7 +98,7 @@ class BrowserTestCase(unittest.TestCase):
     def test_browser_renders_table_features(self) -> None:
         """Render table/browser features and validate key structure/content.
 
-        This test covers navigation controls, section wiring, details rows,
+        This test covers navigation controls, section wiring, column fields,
         and index/constraint rendering (including FK references).
         """
         schema_yaml = """
@@ -265,25 +265,54 @@ tables:
                 ["Index", "Definition", "Description"],
             )
 
-            # Validate columns/details table content and detail-toggle wiring.
+            # Validate the columns table content.
             self.assertIsNotNone(child_table_soup.find(id="table-childtable-primary-key"))
             self.assertIsNotNone(child_table_soup.find(string="IDX_ChildTable_code"))
-            self.assertIsNotNone(child_table_soup.find("th", string="UCD"))
             self.assertIsNotNone(child_table_soup.find("td", string="meta.code"))
 
-            # Datatype is shown in the main table row and should not be
-            # repeated in details; other non-row fields should appear.
-            self.assertIsNotNone(
-                child_table_soup.find(attrs={"data-column-details-target": "column-code-details"})
+            # Every column field is a table column, in a fixed order, blank
+            # where a column has no value.
+            columns_table = child_table_soup.find("table", class_="columns-table")
+            assert columns_table is not None
+            headers = [th.get_text(strip=True) for th in columns_table.find_all("th")]
+            self.assertEqual(
+                headers,
+                [
+                    "name",
+                    "datatype",
+                    "ivoa:ucd",
+                    "ivoa:unit",
+                    "fits:tunit",
+                    "description",
+                    "tap:column_index",
+                    "tap:principal",
+                    "tap:std",
+                    "nullable",
+                    "votable:arraysize",
+                    "votable:datatype",
+                    "votable:xtype",
+                    "votable:utype",
+                    "value",
+                    "length",
+                    "precision",
+                    "autoincrement",
+                ],
             )
-            code_details_row = child_table_soup.find(id="column-code-details")
-            self.assertIsNotNone(code_details_row)
-            if code_details_row is not None:
-                self.assertTrue(code_details_row.has_attr("hidden"))
-                self.assertIsNone(code_details_row.find("th", class_="field-key", string="datatype"))
-                self.assertIsNone(code_details_row.find("th", class_="field-key", string="@id"))
-                self.assertIsNotNone(code_details_row.find("th", class_="field-key", string="tap:std"))
-                self.assertIsNotNone(code_details_row.find("td", class_="field-value", string="0"))
+            code_row = child_table_soup.find("tr", id="column-code")
+            assert code_row is not None
+            cells = dict(
+                zip(headers, (td.get_text(strip=True) for td in code_row.find_all("td")), strict=True)
+            )
+            self.assertEqual(cells["name"], "code")
+            self.assertEqual(cells["datatype"], "int")
+            self.assertEqual(cells["ivoa:ucd"], "meta.code")
+            self.assertEqual(cells["tap:std"], "0")
+            self.assertEqual(cells["nullable"], "true")
+            self.assertEqual(cells["length"], "")
+
+            # There are no expandable details rows or controls.
+            self.assertIsNone(child_table_soup.find(class_="column-details-row"))
+            self.assertIsNone(child_table_soup.find(attrs={"data-column-details-action": True}))
 
             self.assertIsNotNone(find_link(child_table_soup, "#column-code"))
             self.assertIsNotNone(find_link(child_table_soup, "#column-parent-id"))

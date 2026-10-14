@@ -1,6 +1,6 @@
 {% extends "base.html.j2" %}
 {% block content %}
-          <section class="panel" id="{{ table | anchor }}">
+          <section id="{{ table | anchor }}">
           {% if table.description %}
           <p>{{ table.description }}</p>
           {% endif %}
@@ -11,57 +11,21 @@
           </p>
           {% endif %}
           <h3 id="{{ table | anchor }}-columns">Columns</h3>
-          <div class="column-details-actions" role="group" aria-label="Column details controls">
-            <button type="button" class="tree-action-button" data-column-details-action="expand-all">Show all details</button>
-            <button type="button" class="tree-action-button" data-column-details-action="collapse-all">Hide all details</button>
-          </div>
-          <table>
+          <table class="columns-table">
             <thead>
               <tr>
-                <th>Column</th>
-                <th>Datatype</th>
-                <th>UCD</th>
-                <th>Unit</th>
-                <th>Description</th>
+                {% for field in column_fields %}
+                <th data-field="{{ field }}">{{ field }}</th>
+                {% endfor %}
               </tr>
             </thead>
             <tbody>
               {% for column in table.columns %}
-              {% set details = column | details %}
               <tr id="{{ column | anchor }}">
-                <td
-                  {% if details %}
-                  class="column-details-toggle-cell"
-                  data-column-details-target="{{ column | anchor }}-details"
-                  aria-expanded="false"
-                  title="Click to show details."
-                  tabindex="0"
-                  role="button"
-                  {% endif %}
-                >
-                  {{ column.name }}
-                </td>
-                <td>{{ column.datatype }}</td>
-                <td>{{ column.ivoa_ucd }}</td>
-                <td>{{ column.ivoa_unit or column.fits_tunit }}</td>
-                <td>{{ column.description }}</td>
+                {% for field in column_fields %}
+                <td data-field="{{ field }}">{{ column | field(field) }}</td>
+                {% endfor %}
               </tr>
-              {% if details %}
-              <tr id="{{ column | anchor }}-details" class="column-details-row" hidden>
-                <td colspan="5">
-                  <table class="column-details-table">
-                    <tbody>
-                      {% for key, value in details %}
-                      <tr>
-                        <th class="field-key">{{ key }}</th>
-                        <td class="field-value">{{ value }}</td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </td>
-              </tr>
-              {% endif %}
               {% endfor %}
             </tbody>
           </table>

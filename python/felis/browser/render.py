@@ -49,10 +49,32 @@ _NAV_DATA = "nav-data.js"
 shared by all pages.
 """
 
-_SUMMARY_FIELDS = frozenset({"@id", "name", "datatype", "ivoa:ucd", "ivoa:unit", "fits:tunit", "description"})
-"""Column fields shown in the columns table, and therefore left out of the
-column details.
+_COLUMN_FIELDS = (
+    "name",
+    "datatype",
+    "ivoa:ucd",
+    "ivoa:unit",
+    "fits:tunit",
+    "description",
+    "tap:column_index",
+    "tap:principal",
+    "tap:std",
+    "nullable",
+    "votable:arraysize",
+    "votable:datatype",
+    "votable:xtype",
+    "votable:utype",
+    "value",
+    "length",
+    "precision",
+    "autoincrement",
+)
+"""Column fields shown in the columns table, in order, by their names in the
+schema YAML.
 """
+
+_COLUMN_ATTRIBUTES = {field.alias or name: name for name, field in Column.model_fields.items()}
+"""Column model attribute names, keyed by schema YAML field name."""
 
 
 def _slugify(value: str) -> str:
@@ -90,9 +112,11 @@ def _format_field_value(value: object) -> str:
     Returns
     -------
     str
-        "true" or "false" for booleans, comma-separated values for lists,
-        and ``str(value)`` otherwise.
+        An empty string for `None`, "true" or "false" for booleans,
+        comma-separated values for lists, and ``str(value)`` otherwise.
     """
+    if value is None:
+        return ""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, list):
@@ -100,15 +124,22 @@ def _format_field_value(value: object) -> str:
     return str(value)
 
 
-def _column_details(column: Column) -> list[tuple[str, str]]:
-    """Return the fields shown in a column's details, as ``(key, value)``
-    pairs, leaving out empty fields and those in the columns table.
+def _column_field(column: Column, field: str) -> str:
+    """Return a column's value for a schema YAML field, formatted for display.
+
+    Parameters
+    ----------
+    column
+        The column.
+    field
+        The field's name in the schema YAML, such as ``tap:principal``.
+
+    Returns
+    -------
+    str
+        The formatted value, or an empty string if the column has none.
     """
-    return [
-        (key, _format_field_value(value))
-        for key, value in column.model_dump(by_alias=True).items()
-        if key not in _SUMMARY_FIELDS and value is not None
-    ]
+    return _format_field_value(getattr(column, _COLUMN_ATTRIBUTES[field]))
 
 
 def _schema_version(schema: Schema) -> str | None:
@@ -338,13 +369,14 @@ def _environment(site: SiteMap) -> Environment:
             _resolve_column(context["schema"], ref) for ref in ([refs] if isinstance(refs, str) else refs)
         ]
 
+    env.globals["column_fields"] = _COLUMN_FIELDS
     env.filters.update(
         href=href,
         path=site.path,
         anchor=site.anchor,
         table_of=site.table_of,
         columns=columns,
-        details=_column_details,
+        field=_column_field,
         version=_schema_version,
     )
     return env
