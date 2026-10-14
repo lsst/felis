@@ -655,24 +655,24 @@ def dump(
 @cli.command("browser", help="Generate a static schema browser site from YAML files")
 @click.option(
     "--output-dir",
-    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+    type=click.Path(file_okay=False, dir_okay=True),
     required=True,
     help="Output directory for generated static HTML",
 )
 @click.argument(
     "files",
     nargs=-1,
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    type=click.Path(exists=True, dir_okay=False),
     required=True,
 )
 @click.pass_context
 def browser(
     ctx: click.Context,
-    output_dir: Path,
-    files: tuple[Path, ...],
+    output_dir: str,
+    files: tuple[str, ...],
 ) -> None:
     """Generate a static HTML browser for one or more YAML schema files."""
-    paths = sorted(files)
+    paths = sorted(Path(file) for file in files)
 
     for path in paths:
         if path.suffix.lower() not in {".yaml", ".yml"}:
@@ -695,7 +695,7 @@ def browser(
         schemas.append(schema)
 
     try:
-        render_static_site(schemas=schemas, output_dir=output_dir)
+        render_static_site(schemas=schemas, output_dir=Path(output_dir))
     except Exception as e:
         raise click.ClickException(f"Failed rendering browser site: {e}") from e
 
