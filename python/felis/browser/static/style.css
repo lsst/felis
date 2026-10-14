@@ -12,9 +12,11 @@
     /* Fonts */
     --font-body: "Source Sans Pro", "Source Sans 3", "Noto Sans", sans-serif;
     --font-mono: monospace;
+    --font-table: var(--font-body);
     --line-height: 1.4;
     --font-size-small: 0.9rem;
     --font-size-button: 0.78rem;
+    --font-size-table: 0.875rem;
 
     /* Sizes and spacing */
     --header-height: 48px;
@@ -22,7 +24,7 @@
     --sidebar-collapsed-width: 30px;
     --sidebar-padding: 0.75rem 1rem 1rem;
     --content-padding: 1rem;
-    --cell-padding: 0.5rem;
+    --cell-padding: 0.25rem 0.5rem;
 
     /* Text */
     --color-text: #1e293b;
@@ -350,6 +352,8 @@
   table {
     width: 100%;
     border-collapse: collapse;
+    font-family: var(--font-table);
+    font-size: var(--font-size-table);
   }
 
   th,
@@ -390,7 +394,7 @@
   }
 
   .column-details-row > td {
-    padding: 0.45rem;
+    padding: 0.25rem;
     background: var(--color-surface);
   }
 
