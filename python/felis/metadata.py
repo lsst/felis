@@ -225,7 +225,7 @@ class MetaDataBuilder:
         Postgres, as Felis does not support any table options for this dialect.
         """
         # Process mysql table options.
-        optargs = {}
+        optargs: dict[str, Any] = {}
         if table_obj.mysql_engine:
             optargs["mysql_engine"] = table_obj.mysql_engine
         if table_obj.mysql_charset:
@@ -241,7 +241,7 @@ class MetaDataBuilder:
             self.metadata,
             *columns,
             comment=description,
-            **optargs,  # type: ignore[arg-type]
+            **optargs,
         )
 
         self._objects[id] = table
