@@ -7,6 +7,10 @@
  * the variables in :root.
  */
 
+/* Third-party styles (DataTables, on table pages) go in their own layer,
+   below this one. */
+@layer datatables, felis;
+
 @layer felis {
   :root {
     /* Fonts */
@@ -411,6 +415,34 @@
     background: var(--color-page);
     border: 1px solid var(--color-border);
     border-radius: 7px;
+  }
+
+  /* Numbers are right-aligned, using DataTables' detection of numeric
+     columns. Every sort arrow stays at the right edge of its heading:
+     DataTables moves it to the left for numeric columns, so undo that and
+     push their heading text to the right instead. */
+  .columns-table .dt-type-numeric {
+    text-align: right;
+  }
+
+  .columns-table .dt-column-header {
+    flex-direction: row;
+  }
+
+  /* Centre DataTables' row count in the row holding the CSV button and the
+     search box. */
+  .dt-container > .dt-layout-row:first-child {
+    position: relative;
+  }
+
+  .dt-container > .dt-layout-row:first-child .dt-info {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .columns-table th.dt-type-numeric .dt-column-header {
+    justify-content: flex-end;
   }
 
   .columns-table [data-field="description"] {

@@ -250,7 +250,11 @@ tables:
                 self.assertEqual(body.get("data-table-path"), table_path)
                 self.assertIsNotNone(soup.find("nav", id="sidebar-tree"))
                 scripts = [str(script.get("src")).rsplit("/", 1)[-1] for script in soup.find_all("script")]
-                self.assertEqual(scripts, ["nav-data.js", "sidebar.js"])
+                datatables = ["dataTables.min.js", "dataTables.buttons.min.js"] if table_path else []
+                self.assertEqual(scripts, [*datatables, "nav-data.js", "sidebar.js"])
+                for script in soup.find_all("script", src=lambda src: "cdn.datatables.net" in src):
+                    self.assertTrue(str(script.get("integrity")).startswith("sha384-"))
+                    self.assertEqual(script.get("crossorigin"), "anonymous")
 
             # A schema without a version shows no version line.
             self.assertIsNone(schema_soup.find(class_="schema-version"))
@@ -303,6 +307,14 @@ tables:
                     "autoincrement",
                 ],
             )
+            # DataTables sorts and exports the name cells by their plain name,
+            # leaving out the primary key tag, and names the CSV file after
+            # the table.
+            self.assertEqual(columns_table.get("data-export-name"), "demo.ChildTable")
+            id_cell = child_table_soup.find("tr", id="column-id").find("td", attrs={"data-field": "name"})
+            self.assertEqual(id_cell.get("data-order"), "id")
+            self.assertIsNotNone(id_cell.find(class_="primary-key-tag"))
+
             code_row = child_table_soup.find("tr", id="column-code")
             assert code_row is not None
             cells = dict(

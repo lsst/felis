@@ -174,6 +174,34 @@
     });
   }
 
+  // Sorting, search and CSV export for the columns table, using DataTables,
+  // which table pages load from a CDN. Without it the table still works as a
+  // plain table.
+  var columnsTable = null;
+
+  function initColumnsTable() {
+    var table = document.querySelector(".columns-table");
+    if (!table || typeof window.DataTable === "undefined") {
+      return;
+    }
+
+    columnsTable = new window.DataTable(table, {
+      paging: false,
+      order: [],
+      // The row count ("Showing 1 to N of N entries") is centred in the top
+      // row by style.css; DataTables has no centre position.
+      layout: { topStart: ["buttons", "info"], topEnd: "search", bottomStart: null, bottomEnd: null },
+      buttons: [
+        {
+          extend: "csvHtml5",
+          filename: table.dataset.exportName,
+          // Export the name cells' data-order value, without the primary key tag.
+          exportOptions: { orthogonal: "sort" },
+        },
+      ],
+    });
+  }
+
   // Jumping to a column, index or constraint row should only scroll the
   // content pane vertically: keep it scrolled fully left, even if it was
   // scrolled right before the jump.
@@ -187,7 +215,21 @@
       pane.scrollLeft = 0;
     }
 
-    window.addEventListener("hashchange", scrollFullyLeft);
+    // A search hides non-matching columns, so a jump to one of them clears the
+    // search to bring the row back before scrolling to it.
+    function showTarget() {
+      var id = decodeURIComponent(window.location.hash.slice(1));
+      if (id && !document.getElementById(id) && columnsTable && columnsTable.search()) {
+        columnsTable.search("").draw();
+        var target = document.getElementById(id);
+        if (target) {
+          target.scrollIntoView();
+        }
+      }
+      scrollFullyLeft();
+    }
+
+    window.addEventListener("hashchange", showTarget);
     window.addEventListener("load", function () {
       if (window.location.hash) {
         scrollFullyLeft();
@@ -197,6 +239,7 @@
 
   function init() {
     initSidebarTree();
+    initColumnsTable();
     initJumpScrolling();
     initSidebarToggle();
     initSidebarResize();

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% if table is defined %}{{ table.name }} - {% endif %}{% if schema is defined %}{{ schema.name }} - Felis Browser{% else %}Home{% endif %}</title>
     <link rel="stylesheet" href="{{ site_root }}/assets/style.css" />
+    {% block head %}{% endblock %}
     {% for stylesheet in custom_stylesheets %}
     <link rel="stylesheet" href="{{ site_root }}/assets/{{ stylesheet }}" />
     {% endfor %}
@@ -48,6 +49,7 @@
         </div>
       </main>
     </div>
+    {% block scripts %}{% endblock %}
     <script src="{{ site_root }}/assets/nav-data.js"></script>
     <script src="{{ site_root }}/assets/sidebar.js"></script>
   </body>

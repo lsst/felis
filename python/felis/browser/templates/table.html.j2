@@ -1,4 +1,17 @@
 {% extends "base.html.j2" %}
+{# DataTables adds sorting, search and CSV export to the columns table. Its
+   stylesheets are imported into the "datatables" cascade layer, which
+   style.css places below the "felis" layer, so the site's own rules win. #}
+{% block head %}
+    <style>
+      @import url("https://cdn.datatables.net/3.1.4/css/dataTables.dataTables.min.css") layer(datatables);
+      @import url("https://cdn.datatables.net/buttons/4.1.2/css/buttons.dataTables.min.css") layer(datatables);
+    </style>
+{% endblock %}
+{% block scripts %}
+    <script src="https://cdn.datatables.net/3.1.4/js/dataTables.min.js" integrity="sha384-Lg8qwUDhp1uuDJinT3SMR9sxQyVjC/2NPPFkbPahEVgqBRrWGI6zfmrgPYTaVgrS" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/buttons/4.1.2/js/dataTables.buttons.min.js" integrity="sha384-6XJm6yvMgGW3Vi8lCMi02aAI35eZ1syl8TQ8UovEVyHxaYv65hcG9XQG3CGMaK52" crossorigin="anonymous"></script>
+{% endblock %}
 {% block content %}
           <section id="{{ table | anchor }}">
           {% if table.description %}
@@ -6,7 +19,7 @@
           {% endif %}
           <h3 id="{{ table | anchor }}-columns">Columns</h3>
           {% set primary_key = table.primary_key | columns if table.primary_key else [] %}
-          <table class="columns-table">
+          <table class="columns-table" data-export-name="{{ schema.name }}.{{ table.name }}">
             <thead>
               <tr>
                 {% for field in column_fields %}
@@ -18,7 +31,7 @@
               {% for column in table.columns %}
               <tr id="{{ column | anchor }}">
                 {% for field in column_fields %}
-                <td data-field="{{ field }}">
+                <td data-field="{{ field }}"{% if field == "name" %} data-order="{{ column.name }}"{% endif %}>
                   {{- column | field(field) -}}
                   {% if field == "name" and column in primary_key %} <span class="primary-key-tag" title="Part of the table's primary key">primary key</span>{% endif -%}
                 </td>
