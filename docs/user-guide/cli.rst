@@ -41,14 +41,27 @@ in the order given, so later ones take precedence:
    felis browser --output-dir ./site --stylesheet theme.css ../sdm_schemas/yml/*.yaml
 
 The built-in stylesheet defines its colors, fonts and spacing as CSS variables
-in ``:root``, so a theme can usually just redefine those:
+in ``:root``, so a theme can usually just redefine those.
+
+To change the font and text size of the tables:
+
+.. code-block:: css
+
+   :root {
+     --font-table: Verdana, Tahoma, sans-serif;
+     --font-size-table: 0.75rem;
+   }
+
+To change the color of links:
 
 .. code-block:: css
 
    :root {
      --color-link: #0b7a80;
-     --font-body: "Inter", sans-serif;
    }
+
+``--font-body`` sets the font for the whole site. The tables use it too unless
+``--font-table`` is also set.
 
 Only the stylesheets themselves are copied, so any fonts or images they use
 must be referenced by absolute URL.
