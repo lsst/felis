@@ -6,7 +6,7 @@ Command Line Interface
    :nested: full
 
 Browser prototype
-================
+=================
 
 The ``browser`` command generates a static HTML site for browsing schema
 structure (schemas, tables, and columns):
