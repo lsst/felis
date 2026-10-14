@@ -375,6 +375,18 @@
     white-space: nowrap;
   }
 
+  /* Keep the header row visible at the top of the content pane while
+     scrolling down the columns table. The negative offset cancels the pane's
+     padding and the table's top border, so no scrolled text shows above the
+     header. Collapsed table borders don't move with sticky cells, so the
+     header's bottom border is drawn as a shadow. */
+  .columns-table th {
+    position: sticky;
+    top: calc(-1 * var(--content-padding) - 1px);
+    z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+
   .primary-key-tag {
     margin-left: 0.5rem;
     padding: 0.1rem 0.3rem;
