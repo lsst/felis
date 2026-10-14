@@ -26,7 +26,9 @@ The output directory contains:
 - ``index.html``: the home page, listing all schemas.
 - ``schemas/<schema>/index.html``: one page per schema, listing its tables.
 - ``schemas/<schema>/<table>.html``: one page per table, showing its columns,
-  primary key, indexes, and constraints.
+  primary key, indexes, and constraints. The columns table can be sorted,
+  searched, and exported as CSV, using DataTables loaded from a CDN (without
+  internet access it is shown as a plain table).
 - ``assets/``: the stylesheet and scripts shared by all pages, including the
   data for the navigation sidebar.
 
