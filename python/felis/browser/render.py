@@ -110,11 +110,11 @@ def _column_details(column: Column) -> list[tuple[str, str]]:
     ]
 
 
-def _schema_version(schema: Schema) -> str:
-    """Return the schema version for display."""
+def _schema_version(schema: Schema) -> str | None:
+    """Return the schema version for display, or `None` if it has none."""
     if isinstance(schema.version, SchemaVersion):
         return schema.version.current
-    return schema.version if isinstance(schema.version, str) else "None"
+    return schema.version
 
 
 def _resolve_column(schema: Schema, ref: str) -> Column | str:

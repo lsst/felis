@@ -71,7 +71,6 @@
             <thead>
               <tr>
                 <th>Index</th>
-                <th>Type</th>
                 <th>Definition</th>
                 <th>Description</th>
               </tr>
@@ -80,7 +79,6 @@
               {% for index in table.indexes %}
               <tr id="{{ index | anchor }}">
                 <td>{{ index.name }}</td>
-                <td>{{ "expressions" if index.columns is none else "columns" }}</td>
                 <td>
                   {% if index.columns is not none %}
                   {{- page_macros.column_links(index.columns | columns) -}}

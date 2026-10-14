@@ -1,5 +1,7 @@
 {% extends "base.html.j2" %}
 {% block content %}
+          {% if schema.version %}
           <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
+          {% endif %}
 {{ page_macros.entry_list(schema.tables, "columns", "column", "columns") }}
 {% endblock %}

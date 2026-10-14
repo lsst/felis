@@ -247,6 +247,19 @@ tables:
                 scripts = [str(script.get("src")).rsplit("/", 1)[-1] for script in soup.find_all("script")]
                 self.assertEqual(scripts, ["nav-data.js", "sidebar.js"])
 
+            # A schema without a version shows no version line.
+            self.assertIsNone(schema_soup.find(class_="schema-version"))
+
+            # The indexes table has no Type column.
+            indexes_heading = child_table_soup.find(id="table-childtable-indexes")
+            assert indexes_heading is not None
+            indexes_table = indexes_heading.find_next("table")
+            assert indexes_table is not None
+            self.assertEqual(
+                [th.get_text(strip=True) for th in indexes_table.find_all("th")],
+                ["Index", "Definition", "Description"],
+            )
+
             # Validate columns/details table content and detail-toggle wiring.
             self.assertIsNotNone(child_table_soup.find(id="table-childtable-primary-key"))
             self.assertIsNotNone(child_table_soup.find(string="IDX_ChildTable_code"))
