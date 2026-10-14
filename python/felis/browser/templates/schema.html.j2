@@ -1,17 +1,17 @@
 {% extends "base.html.j2" %}
 {% import "page_macros.j2" as page_macros %}
-{% block title %}{{ current_schema.name }} - Felis Browser{% endblock %}
+{% block title %}{{ schema.name }} - Felis Browser{% endblock %}
 {% block breadcrumb %}
             <a href="{{ home_href }}">schemas</a>
             {{ page_macros.breadcrumb_separator() | indent(12) }}
-            <span>{{ current_schema.name }}</span>
+            <span>{{ schema.name }}</span>
 {% endblock %}
 {% block content %}
-          <p class="schema-version"><strong>Version:</strong> {{ current_schema.version }}</p>
+          <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
           <ul class="schema-list">
-            {% for table in current_schema.tables %}
+            {% for table in schema.tables %}
             <li>
-              <a href="{{ table.output_path | href }}">{{ table.name }}</a>
+              <a href="{{ table | href }}">{{ table.name }}</a>
               {% set column_count = table.columns | length %}
               <span class="muted">({{ column_count }} {{ "column" if column_count == 1 else "columns" }})</span>
               {% if table.description %}

@@ -679,7 +679,6 @@ def browser(
             raise click.ClickException(f"Input file must be .yaml or .yml: {path}")
 
     schemas: list[Schema] = []
-    source_paths: list[str] = []
     for path in paths:
         try:
             schema = Schema.from_uri(
@@ -694,14 +693,9 @@ def browser(
         except Exception as e:
             raise click.ClickException(f"Failed loading schema '{path}': {e}") from e
         schemas.append(schema)
-        source_paths.append(str(path))
 
     try:
-        render_static_site(
-            schemas=schemas,
-            source_paths=source_paths,
-            output_dir=output_dir,
-        )
+        render_static_site(schemas=schemas, output_dir=output_dir)
     except Exception as e:
         raise click.ClickException(f"Failed rendering browser site: {e}") from e
 

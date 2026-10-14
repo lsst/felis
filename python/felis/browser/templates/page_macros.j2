@@ -9,14 +9,15 @@
 </span>
 {%- endmacro %}
 
-{# Render comma-separated column names, linked to their rows on this page #}
+{# Render comma-separated column names, linked to their rows on this page;
+   unresolved references are shown as given #}
 {% macro column_links(columns) -%}
 {%- for column in columns -%}
 {%- if not loop.first %}, {% endif -%}
-{%- if column.anchor -%}
-<a href="#{{ column.anchor }}">{{ column.name }}</a>
+{%- if column is string -%}
+{{ column }}
 {%- else -%}
-{{ column.name }}
+<a href="#{{ column | anchor }}">{{ column.name }}</a>
 {%- endif -%}
 {%- endfor -%}
 {%- endmacro %}

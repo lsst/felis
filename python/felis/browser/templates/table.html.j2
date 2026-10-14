@@ -1,25 +1,25 @@
 {% extends "base.html.j2" %}
 {% import "page_macros.j2" as page_macros %}
-{% block title %}{{ current_table.name }} - {{ current_schema.name }} - Felis Browser{% endblock %}
+{% block title %}{{ table.name }} - {{ schema.name }} - Felis Browser{% endblock %}
 {% block breadcrumb %}
             <a href="{{ home_href }}">schemas</a>
             {{ page_macros.breadcrumb_separator() | indent(12) }}
-            <a href="{{ current_schema.output_path | href }}">{{ current_schema.name }}</a>
+            <a href="{{ schema | href }}">{{ schema.name }}</a>
             {{ page_macros.breadcrumb_separator() | indent(12) }}
-            <a href="{{ current_table.output_path | href }}">{{ current_table.name }}</a>
+            <a href="{{ table | href }}">{{ table.name }}</a>
 {% endblock %}
 {% block content %}
-          <section class="panel panel-plain" id="{{ current_table.anchor }}">
-          {% if current_table.description %}
-          <p>{{ current_table.description }}</p>
+          <section class="panel panel-plain" id="{{ table | anchor }}">
+          {% if table.description %}
+          <p>{{ table.description }}</p>
           {% endif %}
-          {% if current_table.primary_key %}
-          <h3 id="{{ current_table.anchor }}-primary-key">Primary Key</h3>
+          {% if table.primary_key %}
+          <h3 id="{{ table | anchor }}-primary-key">Primary Key</h3>
           <p>
-            {% with columns = current_table.primary_key %}{{ page_macros.column_links(columns) }}{% endwith %}
+            {% with columns = table.primary_key | columns %}{{ page_macros.column_links(columns) }}{% endwith %}
           </p>
           {% endif %}
-          <h3 id="{{ current_table.anchor }}-columns">Columns</h3>
+          <h3 id="{{ table | anchor }}-columns">Columns</h3>
           <div class="column-details-actions" role="group" aria-label="Column details controls">
             <button type="button" class="tree-action-button" data-column-details-action="expand-all">Show all details</button>
             <button type="button" class="tree-action-button" data-column-details-action="collapse-all">Hide all details</button>
@@ -35,12 +35,13 @@
               </tr>
             </thead>
             <tbody>
-              {% for column in current_table.columns %}
-              <tr id="{{ column.anchor }}">
+              {% for column in table.columns %}
+              {% set details = column | details %}
+              <tr id="{{ column | anchor }}">
                 <td
-                  {% if column.has_details %}
+                  {% if details %}
                   class="column-details-toggle-cell"
-                  data-column-details-target="{{ column.details_anchor }}"
+                  data-column-details-target="{{ column | anchor }}-details"
                   aria-expanded="false"
                   title="Click to show details."
                   tabindex="0"
@@ -50,19 +51,19 @@
                   {{ column.name }}
                 </td>
                 <td>{{ column.datatype }}</td>
-                <td>{{ column.ucd }}</td>
-                <td>{{ column.unit }}</td>
+                <td>{{ column.ivoa_ucd }}</td>
+                <td>{{ column.ivoa_unit or column.fits_tunit }}</td>
                 <td>{{ column.description }}</td>
               </tr>
-              {% if column.has_details %}
-              <tr id="{{ column.details_anchor }}" class="column-details-row" hidden>
+              {% if details %}
+              <tr id="{{ column | anchor }}-details" class="column-details-row" hidden>
                 <td colspan="5">
                   <table class="column-details-table">
                     <tbody>
-                      {% for field in column.details_fields %}
+                      {% for key, value in details %}
                       <tr>
-                        <th class="field-key">{{ field.key }}</th>
-                        <td class="field-value">{{ field.display_value }}</td>
+                        <th class="field-key">{{ key }}</th>
+                        <td class="field-value">{{ value }}</td>
                       </tr>
                       {% endfor %}
                     </tbody>
@@ -73,8 +74,8 @@
               {% endfor %}
             </tbody>
           </table>
-          {% if current_table.indexes %}
-          <h3 id="{{ current_table.anchor }}-indexes">Indexes</h3>
+          {% if table.indexes %}
+          <h3 id="{{ table | anchor }}-indexes">Indexes</h3>
           <table>
             <thead>
               <tr>
@@ -85,15 +86,15 @@
               </tr>
             </thead>
             <tbody>
-              {% for index in current_table.indexes %}
-              <tr id="{{ index.anchor }}">
+              {% for index in table.indexes %}
+              <tr id="{{ index | anchor }}">
                 <td>{{ index.name }}</td>
-                <td>{{ index.definition_kind }}</td>
+                <td>{{ "expressions" if index.columns is none else "columns" }}</td>
                 <td>
-                  {% if index.definition_kind == "columns" %}
-                  {{- page_macros.column_links(index.definition_values) -}}
+                  {% if index.columns is not none %}
+                  {{- page_macros.column_links(index.columns | columns) -}}
                   {% else %}
-                  {{ index.definition_values | join(', ') }}
+                  {{ index.expressions | join(', ') }}
                   {% endif %}
                 </td>
                 <td>{{ index.description }}</td>
@@ -102,8 +103,8 @@
             </tbody>
           </table>
           {% endif %}
-          {% if current_table.constraints %}
-          <h3 id="{{ current_table.anchor }}-constraints">Constraints</h3>
+          {% if table.constraints %}
+          <h3 id="{{ table | anchor }}-constraints">Constraints</h3>
           <table>
             <thead>
               <tr>
@@ -114,28 +115,29 @@
               </tr>
             </thead>
             <tbody>
-              {% for constraint in current_table.constraints %}
-              <tr id="{{ constraint.anchor }}">
+              {% for constraint in table.constraints %}
+              <tr id="{{ constraint | anchor }}">
                 <td>{{ constraint.name }}</td>
                 <td>{{ constraint.type }}</td>
                 <td>
                   {% if constraint.type == "Check" %}
                   <code>{{ constraint.expression }}</code>
                   {% elif constraint.type == "Unique" %}
-                  {{- page_macros.column_links(constraint.columns) -}}
+                  {{- page_macros.column_links(constraint.columns | columns) -}}
                   {% elif constraint.type == "ForeignKey" %}
                   <div>
                     <strong>Columns:</strong>&#32;
-                    {{- page_macros.column_links(constraint.columns) -}}
+                    {{- page_macros.column_links(constraint.columns | columns) -}}
                   </div>
                   <div>
                     <strong>References:</strong>&#32;
-                    {%- for ref_col in constraint.referenced_columns -%}
+                    {%- for column in constraint.referenced_columns | columns -%}
                     {%- if not loop.first %}, {% endif -%}
-                    {%- if ref_col.table_output_path -%}
-                    <a href="{{ ref_col.table_output_path | href }}">{{ ref_col.table_name }}</a>.{% if ref_col.anchor %}<a href="{{ ref_col.table_output_path | href }}#{{ ref_col.anchor }}">{{ ref_col.name }}</a>{% else %}{{ ref_col.name }}{% endif %}
+                    {%- if column is string -%}
+                    {{ column }}
                     {%- else -%}
-                    {{ ref_col.id }}
+                    {%- set referenced_table = column | table_of -%}
+                    <a href="{{ referenced_table | href }}">{{ referenced_table.name }}</a>.<a href="{{ column | href }}">{{ column.name }}</a>
                     {%- endif -%}
                     {%- endfor -%}
                   </div>

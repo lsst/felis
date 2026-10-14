@@ -36,19 +36,11 @@ def render_browser_site(
         if os.path.splitext(path)[1].lower() not in {".yaml", ".yml"}:
             raise ValueError(f"Input file must be .yaml or .yml: {path}")
 
-    schemas: list[Schema] = []
-    source_paths: list[str] = []
-    for path in paths:
-        schemas.append(
-            Schema.from_uri(path, context={"id_generation": True, "column_ref_index_increment": None})
-        )
-        source_paths.append(path)
-
-    render_static_site(
-        schemas=schemas,
-        source_paths=source_paths,
-        output_dir=Path(output_dir),
-    )
+    schemas = [
+        Schema.from_uri(path, context={"id_generation": True, "column_ref_index_increment": None})
+        for path in paths
+    ]
+    render_static_site(schemas=schemas, output_dir=Path(output_dir))
 
 
 def parse_html(content: str) -> BeautifulSoup:

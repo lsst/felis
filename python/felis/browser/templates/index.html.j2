@@ -7,7 +7,7 @@
           <ul class="schema-list">
             {% for schema in schemas %}
             <li>
-              <a href="{{ schema.output_path | href }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
+              <a href="{{ schema | href }}"{% if schema.description %} title="{{ schema.description }}"{% endif %}>{{ schema.name }}</a>
               {% set table_count = schema.tables | length %}
               <span class="muted">({{ table_count }} {{ "table" if table_count == 1 else "tables" }})</span>
               {% if schema.description %}

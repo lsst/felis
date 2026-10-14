@@ -6,7 +6,7 @@
     <title>{% block title %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ stylesheet_href }}" />
   </head>
-  <body data-site-root="{{ site_root }}"{% if current_schema is defined %} data-schema-path="{{ current_schema.output_path }}"{% endif %}{% if current_table is defined %} data-table-path="{{ current_table.output_path }}"{% endif %}>
+  <body data-site-root="{{ site_root }}"{% if schema is defined %} data-schema-path="{{ schema | path }}"{% endif %}{% if table is defined %} data-table-path="{{ table | path }}"{% endif %}>
     <div class="layout">
       <aside class="sidebar">
         <div class="sidebar-header">
