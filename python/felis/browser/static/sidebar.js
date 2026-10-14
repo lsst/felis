@@ -237,6 +237,25 @@
     });
   }
 
+  // Content pinned while the columns table scrolls sideways is sized to the
+  // pane's visible content width, which CSS can't measure because it excludes
+  // the pane's vertical scrollbar. Keep --pane-width up to date.
+  function initPaneWidth() {
+    var pane = document.querySelector(".content-body");
+    if (!pane || typeof window.ResizeObserver === "undefined") {
+      return;
+    }
+
+    function update() {
+      var style = window.getComputedStyle(pane);
+      var width = pane.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      pane.style.setProperty("--pane-width", width + "px");
+    }
+
+    new window.ResizeObserver(update).observe(pane);
+    update();
+  }
+
   // The "Top" button in the header scrolls the content pane back to its start.
   function initScrollToTop() {
     var button = document.getElementById("scroll-to-top");
@@ -256,6 +275,7 @@
     initColumnsTable();
     initJumpScrolling();
     initScrollToTop();
+    initPaneWidth();
     initSidebarToggle();
     initSidebarResize();
   }

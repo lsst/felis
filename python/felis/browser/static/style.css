@@ -445,10 +445,45 @@
     flex-direction: row;
   }
 
-  /* Centre DataTables' row count in the row holding the CSV button and the
-     search box. */
+  /* Keep the DataTables bar (CSV button, row count and search box) in view
+     while the table scrolls sideways, and centre the row count in it. A
+     sticky element can only move within its parent, so the DataTables
+     container is made as wide as the table, and the bar as wide as the
+     visible pane. sidebar.js sets --pane-width to the pane's visible content
+     width, which excludes its vertical scrollbar; 100cqw (with the content
+     pane as the size container) is the fallback, but includes the scrollbar,
+     so it shifts slightly at the end of the scroll. */
+  .content-body {
+    container-type: inline-size;
+    /* No elastic bounce past the ends of a sideways scroll (touchpads), which
+       would visibly move the pinned content. */
+    overscroll-behavior-x: none;
+  }
+
+  .dt-container {
+    width: fit-content;
+    min-width: 100%;
+  }
+
+  /* Likewise, only the columns table scrolls sideways on a table page: the
+     page's section is as wide as that table, and everything else in it (the
+     description, headings, and the index and constraint tables) is pinned at
+     the width of the visible pane. */
+  .content-body > section {
+    width: fit-content;
+    min-width: 100%;
+  }
+
+  .content-body > section > :not(.dt-container, .columns-table) {
+    position: sticky;
+    left: 0;
+    width: var(--pane-width, 100cqw);
+  }
+
   .dt-container > .dt-layout-row:first-child {
-    position: relative;
+    position: sticky;
+    left: 0;
+    width: var(--pane-width, 100cqw);
   }
 
   .dt-container > .dt-layout-row:first-child .dt-info {
