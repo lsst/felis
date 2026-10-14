@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Iterable
 from enum import StrEnum
 from importlib import resources
 from pathlib import Path
@@ -44,6 +45,11 @@ from felis.datamodel import (
 )
 
 logger = logging.getLogger(__name__)
+
+_ASSETS = {"stylesheet_href": "style.css", "script_href": "sidebar.js"}
+"""Static assets copied into the site's ``assets`` directory, keyed by the
+template variable holding each asset's href.
+"""
 
 
 class AnchorToken(StrEnum):
@@ -161,23 +167,59 @@ def _relative_href(current_output_path: str, target_output_path: str) -> str:
     return Path(os.path.relpath(target_output_path, start=current_dir)).as_posix()
 
 
-def _column_entry(
-    column_id: str,
-    schema_column_targets: dict[str, dict[str, str]],
-    column_anchors: dict[str, str],
-) -> dict[str, str]:
-    """Build a column entry dict, resolving cross-schema references when
-    available.
+def _anchor(token: AnchorToken, name: str) -> str:
+    """Build an HTML element ID from an anchor token and a name."""
+    return f"{token.value}-{_slugify(name)}"
+
+
+class _UniqueNames:
+    """Hand out unique names, appending ``-2``, ``-3``, ... to repeats."""
+
+    def __init__(self) -> None:
+        self._counts: dict[str, int] = {}
+
+    def claim(self, base: str) -> str:
+        """Claim a unique name derived from ``base``.
+
+        Parameters
+        ----------
+        base
+            The preferred name.
+
+        Returns
+        -------
+        str
+            ``base`` the first time it is claimed and ``base-N`` for the Nth
+            repeat.
+        """
+        count = self._counts.get(base, 0) + 1
+        self._counts[base] = count
+        return base if count == 1 else f"{base}-{count}"
+
+
+def _column_entries(
+    column_ids: Iterable[object],
+    column_targets: dict[str, dict[str, str]],
+) -> list[dict[str, str]]:
+    """Resolve column IDs to entries describing where each column is
+    rendered, falling back to labels parsed from the ID for columns that are
+    not in the schema.
     """
-    if column_id in schema_column_targets:
-        return dict(schema_column_targets[column_id])
-    return {
-        "id": column_id,
-        "name": _column_label(column_id),
-        "anchor": column_anchors.get(column_id, ""),
-        "table_name": _table_label(column_id),
-        "table_output_path": "",
-    }
+    entries: list[dict[str, str]] = []
+    for column_id in map(str, column_ids):
+        if column_id in column_targets:
+            entries.append(column_targets[column_id])
+        else:
+            entries.append(
+                {
+                    "id": column_id,
+                    "name": _column_label(column_id),
+                    "anchor": "",
+                    "table_name": _table_label(column_id),
+                    "table_output_path": "",
+                }
+            )
+    return entries
 
 
 @pass_context
@@ -216,8 +258,7 @@ def _write_page(
         env.get_template(template_name).render(
             page_path=page_path,
             home_href=_relative_href(page_path, "index.html"),
-            stylesheet_href=_relative_href(page_path, "assets/style.css"),
-            script_href=_relative_href(page_path, "assets/sidebar.js"),
+            **{key: _relative_href(page_path, f"assets/{name}") for key, name in _ASSETS.items()},
             **context,
         ),
         encoding="utf-8",
@@ -244,7 +285,6 @@ def render_static_site(
         Directory where the rendered HTML files will be saved.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "assets").mkdir(parents=True, exist_ok=True)
 
     env = Environment(
         loader=PackageLoader("felis.browser", "templates"),
@@ -255,32 +295,27 @@ def render_static_site(
     env.filters["href"] = _href
 
     schema_pages: list[dict[str, object]] = []
-    schema_dir_counts: dict[str, int] = {}
+    schema_dirs = _UniqueNames()
 
     for schema, source_path in zip(schemas, source_paths, strict=True):
         name = _schema_name(schema, source_path)
         logger.debug("Building schema: %s", name)
-        schema_slug = _slugify(name)
-        count = schema_dir_counts.get(schema_slug, 0) + 1
-        schema_dir_counts[schema_slug] = count
-        schema_dir = f"schemas/{schema_slug}" if count == 1 else f"schemas/{schema_slug}-{count}"
+        schema_dir = f"schemas/{schema_dirs.claim(_slugify(name))}"
         schema_output_path = f"{schema_dir}/index.html"
 
-        prepared_tables: list[dict[str, object]] = []
-        table_filename_counts: dict[str, int] = {}
+        # First pass: build each table's columns, recording where every column
+        # is rendered so that references from any table in the schema can be
+        # resolved in the second pass.
+        table_entries: list[dict[str, object]] = []
+        column_targets: dict[str, dict[str, str]] = {}
+        table_filenames = _UniqueNames()
         for table in schema.tables:
             logger.debug("Building table: %s.%s", name, table.name)
-            table_anchor = f"{AnchorToken.TABLE.value}-{_slugify(table.name)}"
-            table_base = _slugify(table.name)
-            table_count = table_filename_counts.get(table_base, 0) + 1
-            table_filename_counts[table_base] = table_count
-            table_filename = f"{table_base}.html" if table_count == 1 else f"{table_base}-{table_count}.html"
-            table_output_path = f"{schema_dir}/{table_filename}"
+            table_output_path = f"{schema_dir}/{table_filenames.claim(_slugify(table.name))}.html"
 
             columns: list[dict[str, object]] = []
             for column in table.columns:
                 logger.debug("Building column: %s.%s.%s", name, table.name, column.name)
-                col_slug = _slugify(column.name)
                 details_fields: list[dict[str, str]] = []
                 summary_aliases = {
                     "name",
@@ -302,6 +337,7 @@ def render_static_site(
                     details_fields.append({"key": key, "display_value": _format_field_value(value)})
 
                 has_details = len(details_fields) > 0
+                column_anchor = _anchor(AnchorToken.COLUMN, column.name)
                 columns.append(
                     {
                         "id": column.id,
@@ -310,72 +346,50 @@ def render_static_site(
                         "ucd": column.ivoa_ucd or "",
                         "description": column.description or "",
                         "unit": column.ivoa_unit or column.fits_tunit or "",
-                        "anchor": f"{AnchorToken.COLUMN.value}-{col_slug}",
+                        "anchor": column_anchor,
                         "details_anchor": (
-                            f"{AnchorToken.COLUMN.value}-{col_slug}-{AnchorToken.DETAILS.value}"
-                            if has_details
-                            else ""
+                            f"{column_anchor}-{AnchorToken.DETAILS.value}" if has_details else ""
                         ),
                         "has_details": has_details,
                         "details_fields": details_fields,
                     }
                 )
+                column_targets[column.id] = {
+                    "id": column.id,
+                    "name": column.name,
+                    "anchor": column_anchor,
+                    "table_name": table.name,
+                    "table_output_path": table_output_path,
+                }
 
-            prepared_tables.append(
+            table_entries.append(
                 {
-                    "table": table,
-                    "anchor": table_anchor,
+                    "name": table.name,
+                    "description": table.description or "",
+                    "anchor": _anchor(AnchorToken.TABLE, table.name),
                     "output_path": table_output_path,
                     "columns": columns,
                 }
             )
 
-        schema_column_targets: dict[str, dict[str, str]] = {}
-        for prepared in prepared_tables:
-            table_name = str(getattr(prepared["table"], "name"))
-            table_output_path = str(prepared["output_path"])
-            for column in prepared["columns"]:
-                column_id = str(column["id"])
-                schema_column_targets[column_id] = {
-                    "id": column_id,
-                    "name": str(column["name"]),
-                    "anchor": str(column["anchor"]),
-                    "table_name": table_name,
-                    "table_output_path": table_output_path,
-                }
-
-        table_entries: list[dict[str, object]] = []
-        for prepared in prepared_tables:
-            table = prepared["table"]
-            table_anchor = str(prepared["anchor"])
-            table_filename = str(prepared["output_path"])
-            columns: list[dict[str, object]] = prepared["columns"]
-            column_anchors = {str(column["id"]): str(column["anchor"]) for column in columns}
-
-            primary_key_entries: list[dict[str, str]] = []
-            if table.primary_key is not None:
-                primary_key_columns = (
-                    table.primary_key if isinstance(table.primary_key, list) else [table.primary_key]
-                )
-                for column_id in primary_key_columns:
-                    column_id_str = str(column_id)
-                    primary_key_entries.append(
-                        _column_entry(column_id_str, schema_column_targets, column_anchors)
-                    )
+        # Second pass: resolve the column references of primary keys, indexes
+        # and constraints.
+        for table, table_entry in zip(schema.tables, table_entries, strict=True):
+            if table.primary_key is None:
+                primary_key_ids = []
+            elif isinstance(table.primary_key, list):
+                primary_key_ids = table.primary_key
+            else:
+                primary_key_ids = [table.primary_key]
+            table_entry["primary_key"] = _column_entries(primary_key_ids, column_targets)
 
             index_entries: list[dict[str, object]] = []
-            index_filename_counts: dict[str, int] = {}
+            index_anchors = _UniqueNames()
             for index in table.indexes:
-                index_base = f"{AnchorToken.INDEX.value}-{_slugify(index.name)}"
-                index_count = index_filename_counts.get(index_base, 0) + 1
-                index_filename_counts[index_base] = index_count
-                index_anchor = f"{index_base}" if index_count == 1 else f"{index_base}-{index_count}"
+                definition_values: list[dict[str, str]] | list[str]
                 if index.columns is not None:
                     definition_kind = "columns"
-                    definition_values = [
-                        _column_entry(str(column_id), schema_column_targets, column_anchors)
-                        for column_id in index.columns
-                    ]
+                    definition_values = _column_entries(index.columns, column_targets)
                 else:
                     definition_kind = "expressions"
                     definition_values = list(index.expressions or [])
@@ -383,26 +397,21 @@ def render_static_site(
                     {
                         "name": index.name,
                         "description": index.description or "",
-                        "anchor": index_anchor,
+                        "anchor": index_anchors.claim(_anchor(AnchorToken.INDEX, index.name)),
                         "definition_kind": definition_kind,
                         "definition_values": definition_values,
                     }
                 )
+            table_entry["indexes"] = index_entries
 
             constraint_entries: list[dict[str, object]] = []
-            constraint_filename_counts: dict[str, int] = {}
+            constraint_anchors = _UniqueNames()
             for constraint in table.constraints:
-                constraint_base = f"{AnchorToken.CONSTRAINT.value}-{_slugify(constraint.name)}"
-                constraint_count = constraint_filename_counts.get(constraint_base, 0) + 1
-                constraint_filename_counts[constraint_base] = constraint_count
-                constraint_anchor = (
-                    f"{constraint_base}" if constraint_count == 1 else f"{constraint_base}-{constraint_count}"
-                )
                 entry: dict[str, object] = {
                     "name": constraint.name,
                     "type": constraint.type,
                     "description": constraint.description or "",
-                    "anchor": constraint_anchor,
+                    "anchor": constraint_anchors.claim(_anchor(AnchorToken.CONSTRAINT, constraint.name)),
                     "deferrable": constraint.deferrable,
                     "initially": constraint.initially or "",
                 }
@@ -410,36 +419,17 @@ def render_static_site(
                 if isinstance(constraint, CheckConstraint):
                     entry["expression"] = constraint.expression
                 elif isinstance(constraint, UniqueConstraint):
-                    entry["columns"] = [
-                        _column_entry(str(column_id), schema_column_targets, column_anchors)
-                        for column_id in constraint.columns
-                    ]
+                    entry["columns"] = _column_entries(constraint.columns, column_targets)
                 elif isinstance(constraint, ForeignKeyConstraint):
-                    entry["columns"] = [
-                        _column_entry(str(column_id), schema_column_targets, column_anchors)
-                        for column_id in constraint.columns
-                    ]
-                    entry["referenced_columns"] = [
-                        _column_entry(str(column_id), schema_column_targets, column_anchors)
-                        for column_id in constraint.referenced_columns
-                    ]
+                    entry["columns"] = _column_entries(constraint.columns, column_targets)
+                    entry["referenced_columns"] = _column_entries(
+                        constraint.referenced_columns, column_targets
+                    )
                     entry["on_delete"] = constraint.on_delete or ""
                     entry["on_update"] = constraint.on_update or ""
 
                 constraint_entries.append(entry)
-
-            table_entries.append(
-                {
-                    "name": table.name,
-                    "description": table.description or "",
-                    "anchor": table_anchor,
-                    "output_path": table_filename,
-                    "primary_key": primary_key_entries,
-                    "columns": columns,
-                    "indexes": index_entries,
-                    "constraints": constraint_entries,
-                }
-            )
+            table_entry["constraints"] = constraint_entries
 
         if isinstance(schema.version, str):
             version = schema.version
@@ -483,7 +473,8 @@ def render_static_site(
                 current_table=table_page,
             )
 
-    css_source = resources.files("felis.browser").joinpath("static/style.css").read_text(encoding="utf-8")
-    (output_dir / "assets" / "style.css").write_text(css_source, encoding="utf-8")
-    js_source = resources.files("felis.browser").joinpath("static/sidebar.js").read_text(encoding="utf-8")
-    (output_dir / "assets" / "sidebar.js").write_text(js_source, encoding="utf-8")
+    assets_dir = output_dir / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    for asset_name in _ASSETS.values():
+        source = resources.files("felis.browser").joinpath(f"static/{asset_name}").read_text(encoding="utf-8")
+        (assets_dir / asset_name).write_text(source, encoding="utf-8")
