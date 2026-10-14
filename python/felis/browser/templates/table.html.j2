@@ -4,13 +4,8 @@
           {% if table.description %}
           <p>{{ table.description }}</p>
           {% endif %}
-          {% if table.primary_key %}
-          <h3 id="{{ table | anchor }}-primary-key">Primary Key</h3>
-          <p>
-            {{ page_macros.column_links(table.primary_key | columns) }}
-          </p>
-          {% endif %}
           <h3 id="{{ table | anchor }}-columns">Columns</h3>
+          {% set primary_key = table.primary_key | columns if table.primary_key else [] %}
           <table class="columns-table">
             <thead>
               <tr>
@@ -23,7 +18,10 @@
               {% for column in table.columns %}
               <tr id="{{ column | anchor }}">
                 {% for field in column_fields %}
-                <td data-field="{{ field }}">{{ column | field(field) }}</td>
+                <td data-field="{{ field }}">
+                  {{- column | field(field) -}}
+                  {% if field == "name" and column in primary_key %} <span class="primary-key-tag" title="Part of the table's primary key">primary key</span>{% endif -%}
+                </td>
                 {% endfor %}
               </tr>
               {% endfor %}

@@ -266,7 +266,12 @@ tables:
             )
 
             # Validate the columns table content.
-            self.assertIsNotNone(child_table_soup.find(id="table-childtable-primary-key"))
+            # The primary key is shown as a tag on its column, not a section.
+            self.assertIsNone(child_table_soup.find(id="table-childtable-primary-key"))
+            for column_id, is_key in (("column-id", True), ("column-code", False)):
+                row = child_table_soup.find("tr", id=column_id)
+                assert row is not None
+                self.assertEqual(row.find(class_="primary-key-tag") is not None, is_key)
             self.assertIsNotNone(child_table_soup.find(string="IDX_ChildTable_code"))
             self.assertIsNotNone(child_table_soup.find("td", string="meta.code"))
 
@@ -569,8 +574,8 @@ tables:
                     ],
                 )
 
-    def test_browser_compound_primary_key_spacing(self) -> None:
-        """Render compound primary keys without whitespace before commas."""
+    def test_browser_compound_primary_key(self) -> None:
+        """Every column of a compound primary key is tagged as part of it."""
         schema_yaml = """
 name: demo
 "@id": "#demo"
@@ -583,6 +588,9 @@ tables:
         datatype: int
       - name: second_id
         "@id": "#CompoundKeyTable.second_id"
+        datatype: int
+      - name: value
+        "@id": "#CompoundKeyTable.value"
         datatype: int
     primaryKey:
       - "#CompoundKeyTable.first_id"
@@ -598,21 +606,17 @@ tables:
             render_browser_site(output_dir=output_dir, files=[schema_path])
 
             table_soup = get_page_soup_by_title(output_dir, "CompoundKeyTable - demo - Felis Browser")
-
-            # Validate both primary key links are present and comma spacing is
-            # normalized.
-            primary_key_header = table_soup.find(id="table-compoundkeytable-primary-key")
-            self.assertIsNotNone(primary_key_header)
-            if primary_key_header is not None:
-                primary_key_value = primary_key_header.find_next("p")
-                self.assertIsNotNone(primary_key_value)
-                if primary_key_value is not None:
-                    self.assertEqual(
-                        primary_key_value.get_text(" ", strip=True).replace(" ,", ","),
-                        "first_id, second_id",
-                    )
-                    self.assertIsNotNone(find_link(primary_key_value, "#column-first-id"))
-                    self.assertIsNotNone(find_link(primary_key_value, "#column-second-id"))
+            for column_id, is_key in (
+                ("column-first-id", True),
+                ("column-second-id", True),
+                ("column-value", False),
+            ):
+                row = table_soup.find("tr", id=column_id)
+                assert row is not None
+                tag = row.find(class_="primary-key-tag")
+                self.assertEqual(tag is not None, is_key)
+                if tag is not None:
+                    self.assertEqual(tag.get_text(strip=True), "primary key")
 
     def test_browser_non_yaml_file_error(self) -> None:
         """Fail when input file is not YAML."""

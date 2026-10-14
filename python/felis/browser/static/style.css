@@ -368,6 +368,16 @@
     white-space: nowrap;
   }
 
+  .primary-key-tag {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.85em;
+    color: var(--color-muted);
+    background: var(--color-page);
+    border: 1px solid var(--color-border);
+    border-radius: 7px;
+  }
+
   .columns-table [data-field="description"] {
     min-width: 20rem;
     white-space: normal;
