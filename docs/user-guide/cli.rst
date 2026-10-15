@@ -61,6 +61,11 @@ The configuration file is YAML; every setting is optional:
    # every page (default: none).
    repository: https://github.com/lsst/sdm_schemas
 
+   # Show every column field in the columns tables, including fields that none
+   # of a table's columns set (default: false, leaving those out; name,
+   # datatype, description, unit and nullable are always shown).
+   show_empty_columns: true
+
    # Show a relationship diagram, drawn from the foreign keys, on the page of
    # each schema that has them (default: false). The diagrams are drawn in the
    # browser by Mermaid, loaded from a CDN.
