@@ -218,9 +218,16 @@
     columnsTable = new window.DataTable(table, {
       paging: false,
       order: [],
-      // The row count ("Showing 1 to N of N entries") is centred in the top
-      // row by style.css; DataTables has no centre position.
+      // The row count is centred in the top row by style.css; DataTables has
+      // no centre position.
       layout: { topStart: ["buttons", "info"], topEnd: "search", bottomStart: null, bottomEnd: null },
+      // Every row is always shown, so the count is just the number of rows,
+      // or "N of M rows" while searching.
+      infoCallback: function (settings, start, end, max, total) {
+        var count = total.toLocaleString("en-US");
+        var noun = max === 1 ? " row" : " rows";
+        return (total === max ? count : count + " of " + max.toLocaleString("en-US")) + noun;
+      },
       buttons: [
         {
           extend: "csvHtml5",
