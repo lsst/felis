@@ -32,7 +32,7 @@ import click
 from pydantic import ValidationError
 
 from . import __version__
-from .browser import render_static_site
+from .browser import SiteConfig, render_static_site
 from .datamodel import Schema
 from .db.database_context import create_database_context
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
@@ -660,11 +660,10 @@ def dump(
     help="Output directory for generated static HTML",
 )
 @click.option(
-    "--stylesheet",
-    "stylesheets",
+    "--config",
+    "config_file",
     type=click.Path(exists=True, dir_okay=False),
-    multiple=True,
-    help="Additional stylesheet applied after the built-in one (repeatable; later ones take precedence)",
+    help="Site configuration file (YAML) setting how the site looks",
 )
 @click.argument(
     "files",
@@ -676,10 +675,15 @@ def dump(
 def browser(
     ctx: click.Context,
     output_dir: str,
-    stylesheets: tuple[str, ...],
+    config_file: str | None,
     files: tuple[str, ...],
 ) -> None:
     """Generate a static HTML browser for one or more YAML schema files."""
+    try:
+        config = SiteConfig.from_file(Path(config_file)) if config_file else SiteConfig()
+    except ValidationError as e:
+        raise click.ClickException(f"Invalid site configuration '{config_file}': {e}") from e
+
     paths = sorted(Path(file) for file in files)
 
     for path in paths:
@@ -706,7 +710,7 @@ def browser(
         render_static_site(
             schemas=schemas,
             output_dir=Path(output_dir),
-            stylesheets=[Path(stylesheet) for stylesheet in stylesheets],
+            config=config,
         )
     except Exception as e:
         raise click.ClickException(f"Failed rendering browser site: {e}") from e

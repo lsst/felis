@@ -39,6 +39,8 @@ from jinja2.runtime import Context
 
 from felis.datamodel import BaseObject, Column, Schema, SchemaVersion, Table
 
+from .config import SiteConfig
+
 logger = logging.getLogger(__name__)
 
 _ASSETS = ("style.css", "sidebar.js")
@@ -416,7 +418,7 @@ def _write_page(
     )
 
 
-def render_static_site(schemas: Iterable[Schema], output_dir: Path, stylesheets: Iterable[Path] = ()) -> None:
+def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: SiteConfig | None = None) -> None:
     """Render a static browser site for browsing schemas.
 
     The generated pages include schema, table, and column navigation.
@@ -427,17 +429,18 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, stylesheets:
         Schemas to render.
     output_dir
         Directory where the rendered HTML files will be saved.
-    stylesheets
-        Additional stylesheets, applied in order after the built-in one, so
-        later stylesheets take precedence. Each is copied into the site's
-        ``assets`` directory as ``custom-<N>-<name>``.
+    config
+        How the site looks; the defaults if not given. Its stylesheets are
+        copied into the site's ``assets`` directory as ``custom-<N>-<name>``.
     """
+    config = config or SiteConfig()
     site = SiteMap(schemas)
     env = _environment(site)
     custom_stylesheets = {
-        f"custom-{number}-{path.name}": path for number, path in enumerate(stylesheets, start=1)
+        f"custom-{number}-{path.name}": path for number, path in enumerate(config.stylesheets, start=1)
     }
     env.globals["custom_stylesheets"] = list(custom_stylesheets)
+    env.globals["site_title"] = config.title
 
     _write_page(env, output_dir, "index.html.j2", "index.html", schemas=site.schemas)
     for schema in site.schemas:

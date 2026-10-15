@@ -19,8 +19,9 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+from pydantic import ValidationError
 
-from felis.browser.render import render_static_site
+from felis.browser import SiteConfig, render_static_site
 from felis.datamodel import Schema
 
 TEST_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -29,7 +30,7 @@ TEST_DIR = os.path.abspath(os.path.dirname(__file__))
 def render_browser_site(
     output_dir: str,
     files: list[str],
-    stylesheets: list[str] | None = None,
+    config: SiteConfig | None = None,
 ) -> None:
     """Render browser pages from schema files using renderer directly."""
     paths = sorted(files)
@@ -44,7 +45,7 @@ def render_browser_site(
     render_static_site(
         schemas=schemas,
         output_dir=Path(output_dir),
-        stylesheets=[Path(stylesheet) for stylesheet in stylesheets or []],
+        config=config,
     )
 
 
@@ -178,8 +179,8 @@ tables:
             render_browser_site(output_dir=output_dir, files=[schema_path])
 
             self.assertTrue(os.path.exists(os.path.join(output_dir, "index.html")))
-            schema_soup = get_page_soup_by_title(output_dir, "demo - Felis Browser")
-            child_table_soup = get_page_soup_by_title(output_dir, "ChildTable - demo - Felis Browser")
+            schema_soup = get_page_soup_by_title(output_dir, "Home - demo")
+            child_table_soup = get_page_soup_by_title(output_dir, "Home - demo - ChildTable")
 
             # Validate base breadcrumb navigation.
             self.assertIsNotNone(find_link(schema_soup, "../../index.html"))
@@ -573,7 +574,13 @@ tables:
                     f.write(rule)
             output_dir = os.path.join(tmpdir, "browser")
 
-            render_browser_site(output_dir=output_dir, files=[schema_path], stylesheets=stylesheets)
+            config_path = os.path.join(tmpdir, "site.yaml")
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write("stylesheets:\n  - theme.css\n  - local.css\n")
+
+            render_browser_site(
+                output_dir=output_dir, files=[schema_path], config=SiteConfig.from_file(Path(config_path))
+            )
 
             assets = os.path.join(output_dir, "assets")
             for copied, original in (
@@ -586,7 +593,7 @@ tables:
                 ):
                     self.assertEqual(f.read(), g.read())
 
-            for title, prefix in (("Home", "."), ("Data - styled - Felis Browser", "../..")):
+            for title, prefix in (("Home", "."), ("Home - styled - Data", "../..")):
                 soup = get_page_soup_by_title(output_dir, title)
                 self.assertEqual(
                     [link["href"] for link in soup.find_all("link", rel="stylesheet")],
@@ -596,6 +603,69 @@ tables:
                         f"{prefix}/assets/custom-2-local.css",
                     ],
                 )
+
+    def test_browser_site_title(self) -> None:
+        """The configured title is the first breadcrumb item and starts every
+        page title.
+        """
+        schema_yaml = """
+name: titled
+"@id": "#titled"
+tables:
+  - name: Data
+    "@id": "#Data"
+    columns:
+      - name: id
+        "@id": "#Data.id"
+        datatype: int
+        description: Key.
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            schema_path = os.path.join(tmpdir, "titled.yaml")
+            with open(schema_path, "w", encoding="utf-8") as f:
+                f.write(schema_yaml)
+            output_dir = os.path.join(tmpdir, "browser")
+
+            render_browser_site(
+                output_dir=output_dir, files=[schema_path], config=SiteConfig(title="SDM Schemas")
+            )
+
+            for title in ("SDM Schemas", "SDM Schemas - titled", "SDM Schemas - titled - Data"):
+                soup = get_page_soup_by_title(output_dir, title)
+                breadcrumb = soup.find("nav", class_="breadcrumb")
+                assert breadcrumb is not None
+                home = breadcrumb.find(["a", "span"])
+                assert home is not None
+                self.assertEqual(home.get_text(strip=True), "SDM Schemas")
+
+    def test_site_config(self) -> None:
+        """Site configuration defaults, file loading and validation."""
+        self.assertEqual(SiteConfig().title, "Home")
+        self.assertEqual(SiteConfig().stylesheets, [])
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            config_dir = Path(tmpdir)
+            (config_dir / "theme.css").write_text(":root {}\n", encoding="utf-8")
+
+            # Stylesheet paths are relative to the configuration file.
+            config_path = config_dir / "site.yaml"
+            config_path.write_text("title: SDM Schemas\nstylesheets: [theme.css]\n", encoding="utf-8")
+            config = SiteConfig.from_file(config_path)
+            self.assertEqual(config.title, "SDM Schemas")
+            self.assertEqual(config.stylesheets, [config_dir / "theme.css"])
+
+            # An empty file gives the defaults.
+            config_path.write_text("", encoding="utf-8")
+            self.assertEqual(SiteConfig.from_file(config_path), SiteConfig())
+
+            # Unknown settings and missing stylesheets are errors.
+            config_path.write_text("titel: SDM Schemas\n", encoding="utf-8")
+            with self.assertRaises(ValidationError):
+                SiteConfig.from_file(config_path)
+            config_path.write_text("stylesheets: [missing.css]\n", encoding="utf-8")
+            with self.assertRaises(ValidationError):
+                SiteConfig.from_file(config_path)
 
     def test_browser_compound_primary_key(self) -> None:
         """Every column of a compound primary key is tagged as part of it."""
@@ -628,7 +698,7 @@ tables:
 
             render_browser_site(output_dir=output_dir, files=[schema_path])
 
-            table_soup = get_page_soup_by_title(output_dir, "CompoundKeyTable - demo - Felis Browser")
+            table_soup = get_page_soup_by_title(output_dir, "Home - demo - CompoundKeyTable")
             for column_id, is_key in (
                 ("column-first-id", True),
                 ("column-second-id", True),

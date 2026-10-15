@@ -85,29 +85,37 @@ class CliTestCase(unittest.TestCase):
             ]
         )
 
-    def test_browser_with_stylesheets(self) -> None:
-        """Test browser command with custom stylesheets."""
+    def test_browser_with_config(self) -> None:
+        """Test browser command with a site configuration file."""
         output_dir = os.path.join(self.tmpdir, "site")
-        stylesheets = []
         for name in ("theme.css", "local.css"):
-            stylesheets.append(os.path.join(self.tmpdir, name))
-            with open(stylesheets[-1], "w", encoding="utf-8") as f:
+            with open(os.path.join(self.tmpdir, name), "w", encoding="utf-8") as f:
                 f.write(":root { --color-link: red; }\n")
+        config_path = os.path.join(self.tmpdir, "site.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("title: SDM Schemas\nstylesheets:\n  - theme.css\n  - local.css\n")
+        run_cli(["browser", "--output-dir", output_dir, "--config", config_path, TEST_YAML])
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-1-theme.css")))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-2-local.css")))
+        with open(os.path.join(output_dir, "index.html"), encoding="utf-8") as f:
+            self.assertIn("<title>SDM Schemas</title>", f.read())
+
+    def test_browser_with_invalid_config(self) -> None:
+        """Test browser command with an invalid site configuration file."""
+        config_path = os.path.join(self.tmpdir, "site.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("unknown: setting\n")
         run_cli(
             [
                 "browser",
                 "--output-dir",
-                output_dir,
-                "--stylesheet",
-                stylesheets[0],
-                "--stylesheet",
-                stylesheets[1],
+                os.path.join(self.tmpdir, "site"),
+                "--config",
+                config_path,
                 TEST_YAML,
-            ]
+            ],
+            expect_error=True,
         )
-        self.assertTrue(os.path.exists(os.path.join(output_dir, "index.html")))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-1-theme.css")))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-2-local.css")))
 
     def test_validate(self) -> None:
         """Test validate command."""
