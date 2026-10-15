@@ -41,6 +41,7 @@
     --color-white: #ffffff;
     --color-page: #f4f6f9;
     --color-surface: #f8fafc;
+    --color-current: #e9eef5;
 
     /* Borders */
     --color-border: #dbe1ea;
@@ -332,6 +333,16 @@
     color: var(--color-tree-hover);
   }
 
+  /* The sidebar entry for the current page, marked by sidebar.js. The
+     negative margin keeps the text in place while the background extends a
+     little around it. */
+  .tree summary:has(> a[aria-current="page"]) {
+    margin: 0 -0.3rem;
+    padding-inline: 0.3rem;
+    background: var(--color-current);
+    border-radius: 4px;
+  }
+
   .tree-node ul {
     margin-top: 0.2rem;
   }
@@ -385,6 +396,19 @@
      scroll past the padding and table border. */
   tr[id] {
     scroll-margin-left: calc(var(--content-padding) + 1px);
+  }
+
+  /* In the columns table, stop a jump just below the pinned header row
+     instead of underneath it. sidebar.js sets --columns-header-height to the
+     header row's measured height; 2.5rem is the fallback. */
+  .columns-table tr[id] {
+    scroll-margin-top: var(--columns-header-height, 2.5rem);
+  }
+
+  /* Highlight the row a link jumped to (the column, index or constraint in
+     the URL's #fragment), including the pinned name cell. */
+  tr:target > td {
+    background: var(--color-current);
   }
 
   /* Columns table: values stay on one line, except descriptions, which wrap

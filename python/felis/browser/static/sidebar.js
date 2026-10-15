@@ -123,6 +123,28 @@
     }
   }
 
+  // Mark the sidebar entry for the current page (styled by style.css and
+  // announced by screen readers), and scroll the sidebar to it if it's out
+  // of view. Only the sidebar scrolls; the content pane is separate.
+  function markCurrent(link) {
+    if (!link) {
+      return;
+    }
+    link.setAttribute("aria-current", "page");
+
+    var sidebar = document.querySelector(".sidebar");
+    var header = document.querySelector(".sidebar-header");
+    if (!sidebar) {
+      return;
+    }
+    var view = sidebar.getBoundingClientRect();
+    var top = view.top + (header ? header.offsetHeight : 0);
+    var entry = link.getBoundingClientRect();
+    if (entry.top < top || entry.bottom > view.bottom) {
+      link.scrollIntoView({ block: "center" });
+    }
+  }
+
   // Build the sidebar tree from the shared navigation data (window.FELIS_NAV,
   // defined by nav-data.js). Only schemas and tables are built up front; a
   // table's sections are added the first time it is expanded.
@@ -137,14 +159,21 @@
     var root = page.siteRoot || ".";
     var schemaList = document.createElement("ul");
     schemaList.className = "tree";
+    var currentLink = null;
 
     nav.schemas.forEach(function (schema) {
-      var schemaNode = treeNode(navLink(root, schema.path, "", schema.name, schema.description));
+      var schemaLink = navLink(root, schema.path, "", schema.name, schema.description);
+      var schemaNode = treeNode(schemaLink);
+      if (schema.path === page.schemaPath && !page.tablePath) {
+        currentLink = schemaLink;
+      }
       var tableList = document.createElement("ul");
 
       schema.tables.forEach(function (table) {
-        var tableNode = treeNode(navLink(root, table.path, "", table.name, table.description));
+        var tableLink = navLink(root, table.path, "", table.name, table.description);
+        var tableNode = treeNode(tableLink);
         if (table.path === page.tablePath) {
+          currentLink = tableLink;
           fillTableSections(tableNode, root, table);
           tableNode.open = true;
         } else {
@@ -162,6 +191,7 @@
     });
 
     container.appendChild(schemaList);
+    markCurrent(currentLink);
 
     // Clicking a schema or table link navigates without toggling its node,
     // preventing the flash of the node collapsing on click.
@@ -254,6 +284,15 @@
 
     new window.ResizeObserver(update).observe(pane);
     update();
+
+    // Jumps to a row of the columns table should stop just below its pinned
+    // header row, so keep --columns-header-height set to that row's height.
+    var header = document.querySelector(".columns-table thead");
+    if (header) {
+      new window.ResizeObserver(function () {
+        pane.style.setProperty("--columns-header-height", header.offsetHeight + "px");
+      }).observe(header);
+    }
   }
 
   // The "Top" button in the header scrolls the content pane back to its start.
