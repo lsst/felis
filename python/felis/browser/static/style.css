@@ -581,17 +581,17 @@
   }
 
   /* Numbers are right-aligned, using DataTables' detection of numeric
-     columns. Every sort arrow sits just before its heading text (DataTables
-     puts it at the far right, or far left for numeric columns): the header
-     is reversed and the text no longer stretches, so both are pushed to the
-     left, or to the right for numeric columns. */
+     columns. Every sort arrow sits just after its heading text (DataTables
+     puts it at the far right, or far left for numeric columns): the text no
+     longer stretches, so both are pushed to the left, or to the right for
+     numeric columns. */
   .dataTable .dt-type-numeric {
     text-align: right;
   }
 
   .dataTable .dt-column-header {
-    flex-direction: row-reverse;
-    justify-content: flex-end;
+    flex-direction: row;
+    justify-content: flex-start;
   }
 
   .dataTable .dt-column-header .dt-column-title {
@@ -647,7 +647,7 @@
   }
 
   .dataTable th.dt-type-numeric .dt-column-header {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .columns-table [data-field="description"] {
