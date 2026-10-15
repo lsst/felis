@@ -57,6 +57,11 @@ The configuration file is YAML; every setting is optional:
    # (default: none). Relative to the configuration file.
    icon: logo.png
 
+   # Show a relationship diagram, drawn from the foreign keys, on the page of
+   # each schema that has them (default: false). The diagrams are drawn in the
+   # browser by Mermaid, loaded from a CDN.
+   diagrams: true
+
 The stylesheets and the icon are copied into ``assets/``. The built-in
 stylesheet defines its colors, fonts and spacing as CSS variables
 in ``:root``, so a theme can usually just redefine those.
