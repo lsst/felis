@@ -34,3 +34,23 @@
   {% endfor %}
 </ul>
 {% endmacro %}
+
+{# DataTables stylesheets and scripts, loaded from a CDN; the Buttons
+   extension (CSV export) only where it's used. The stylesheets are imported
+   into the "datatables" cascade layer, which style.css places below the
+   "felis" layer, so the site's own rules win. #}
+{% macro datatables_styles(buttons=false) %}
+    <style>
+      @import url("https://cdn.datatables.net/3.1.4/css/dataTables.dataTables.min.css") layer(datatables);
+      {% if buttons %}
+      @import url("https://cdn.datatables.net/buttons/4.1.2/css/buttons.dataTables.min.css") layer(datatables);
+      {% endif %}
+    </style>
+{%- endmacro %}
+
+{% macro datatables_scripts(buttons=false) %}
+    <script src="https://cdn.datatables.net/3.1.4/js/dataTables.min.js" integrity="sha384-Lg8qwUDhp1uuDJinT3SMR9sxQyVjC/2NPPFkbPahEVgqBRrWGI6zfmrgPYTaVgrS" crossorigin="anonymous"></script>
+    {% if buttons %}
+    <script src="https://cdn.datatables.net/buttons/4.1.2/js/dataTables.buttons.min.js" integrity="sha384-6XJm6yvMgGW3Vi8lCMi02aAI35eZ1syl8TQ8UovEVyHxaYv65hcG9XQG3CGMaK52" crossorigin="anonymous"></script>
+    {% endif %}
+{%- endmacro %}

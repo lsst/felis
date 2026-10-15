@@ -232,6 +232,24 @@
     });
   }
 
+  // Sorting for the tables table on schema pages, using DataTables, which
+  // schema pages load from a CDN. Only sorting: no search, row count or
+  // export.
+  function initTablesTable() {
+    var table = document.querySelector(".tables-table");
+    if (!table || typeof window.DataTable === "undefined") {
+      return;
+    }
+
+    new window.DataTable(table, {
+      paging: false,
+      searching: false,
+      info: false,
+      order: [],
+      layout: { topStart: null, topEnd: null, bottomStart: null, bottomEnd: null },
+    });
+  }
+
   // Jumping to a column, index or constraint row should only scroll the
   // content pane vertically: keep it scrolled fully left, even if it was
   // scrolled right before the jump.
@@ -359,6 +377,7 @@
   function init() {
     initSidebarTree();
     initColumnsTable();
+    initTablesTable();
     initJumpScrolling();
     initScrollToTop();
     initPaneWidth();

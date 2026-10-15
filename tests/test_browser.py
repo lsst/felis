@@ -267,7 +267,11 @@ tables:
                 assert top_button is not None
                 self.assertEqual(top_button.get_text(strip=True), "Top")
                 scripts = [str(script.get("src")).rsplit("/", 1)[-1] for script in soup.find_all("script")]
-                datatables = ["dataTables.min.js", "dataTables.buttons.min.js"] if table_path else []
+                # DataTables on table pages (with Buttons for CSV export) and
+                # schema pages (sorting only), but not the home page.
+                datatables = ["dataTables.min.js"] if schema_path else []
+                if table_path:
+                    datatables.append("dataTables.buttons.min.js")
                 self.assertEqual(scripts, [*datatables, "nav-data.js", "sidebar.js"])
                 for script in soup.find_all("script", src=lambda src: "cdn.datatables.net" in src):
                     self.assertTrue(str(script.get("integrity")).startswith("sha384-"))
@@ -406,17 +410,12 @@ tables:
                 self.assertIn("On Update:", fk_text)
                 self.assertIn("NO ACTION", fk_text)
 
-            # Validate schema-page singular/plural column count grammar.
-            schema_list = schema_soup.find("ul", class_="schema-list")
-            self.assertIsNotNone(schema_list)
-            if schema_list is not None:
-                count_labels = [
-                    element.get_text(strip=True)
-                    for element in schema_list.find_all(class_="muted")
-                    if element.get_text(strip=True).startswith("(")
-                ]
-                self.assertIn("(1 column)", count_labels)
-                self.assertIn("(4 columns)", count_labels)
+            # Validate the schema page's tables table and its column counts.
+            tables_table = schema_soup.find("table", class_="tables-table")
+            assert tables_table is not None
+            counts = [cell.get_text(strip=True) for cell in tables_table.select("tbody td.count")]
+            self.assertIn("1", counts)
+            self.assertIn("4", counts)
 
     def test_browser_file_list(self) -> None:
         """Generate browser output from multiple schema files.

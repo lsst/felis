@@ -1,9 +1,34 @@
 {% extends "base.html.j2" %}
+{# DataTables adds sorting to the tables table. #}
+{% block head %}
+{{ page_macros.datatables_styles() }}
+{% endblock %}
+{% block scripts %}
+{{ page_macros.datatables_scripts() }}
+{% endblock %}
 {% block content %}
           {% if schema.version %}
           <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
           {% endif %}
-{{ page_macros.entry_list(schema.tables, "columns", "column", "columns") }}
+          <h3 id="tables">Tables</h3>
+          <table class="tables-table">
+            <thead>
+              <tr>
+                <th>name</th>
+                <th>description</th>
+                <th>columns</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for table in schema.tables %}
+              <tr>
+                <td><a href="{{ table | href }}">{{ table.name }}</a></td>
+                <td>{{ table.description or "" }}</td>
+                <td class="count">{{ table.columns | length }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
           {% set diagram = schema | relationship_diagram if diagrams else none %}
           {% if diagram %}
           <h3 id="relationships">Relationships</h3>

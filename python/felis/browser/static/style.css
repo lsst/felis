@@ -142,6 +142,12 @@
     padding: var(--content-padding);
   }
 
+  /* Start the page's content right below the pane's padding. */
+  .content-body > :first-child,
+  .content-body > section > :first-child {
+    margin-top: 0;
+  }
+
   /* Page footer, at the end of the content pane: pushed to the bottom of
      the pane on short pages (the pane is a flex column). */
   .site-footer {
@@ -154,7 +160,7 @@
     border-top: 1px solid var(--color-border);
   }
 
-  .content-body > :not(.site-footer):last-of-type {
+  .content-body > :has(+ .site-footer) {
     margin-bottom: 1.5rem;
   }
 
@@ -430,6 +436,35 @@
     background: var(--color-white);
   }
 
+  /* Keep the schema version close to the tables below it. */
+  .schema-version {
+    margin-bottom: 0;
+  }
+
+  .schema-version + h3 {
+    margin-top: 1rem;
+  }
+
+  /* Keep the tables table close to its heading: DataTables adds space above
+     the table, which is only needed below its controls on table pages. */
+  #tables {
+    margin-bottom: 0.5rem;
+  }
+
+  .dt-layout-table:has(.tables-table) {
+    margin-top: 0;
+  }
+
+  /* The schema page's list of tables: names and counts on one line, the
+     description taking the remaining width. */
+  .tables-table td:first-child {
+    white-space: nowrap;
+  }
+
+  .tables-table .count {
+    width: 1%;
+  }
+
   /* When jumping to a row from a link, keep the content pane scrolled fully
      left instead of lining the row up with the pane's edge, which would
      scroll past the padding and table border. */
@@ -532,15 +567,21 @@
   }
 
   /* Numbers are right-aligned, using DataTables' detection of numeric
-     columns. Every sort arrow stays at the right edge of its heading:
-     DataTables moves it to the left for numeric columns, so undo that and
-     push their heading text to the right instead. */
-  .columns-table .dt-type-numeric {
+     columns. Every sort arrow sits just before its heading text (DataTables
+     puts it at the far right, or far left for numeric columns): the header
+     is reversed and the text no longer stretches, so both are pushed to the
+     left, or to the right for numeric columns. */
+  .dataTable .dt-type-numeric {
     text-align: right;
   }
 
-  .columns-table .dt-column-header {
-    flex-direction: row;
+  .dataTable .dt-column-header {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+
+  .dataTable .dt-column-header .dt-column-title {
+    flex-grow: 0;
   }
 
   /* Keep the DataTables bar (CSV button, row count and search box) in view
@@ -591,8 +632,8 @@
     transform: translateX(-50%);
   }
 
-  .columns-table th.dt-type-numeric .dt-column-header {
-    justify-content: flex-end;
+  .dataTable th.dt-type-numeric .dt-column-header {
+    justify-content: flex-start;
   }
 
   .columns-table [data-field="description"] {
