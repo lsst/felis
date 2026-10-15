@@ -61,6 +61,13 @@ The configuration file is YAML; every setting is optional:
    # every page (default: none).
    repository: https://github.com/lsst/sdm_schemas
 
+   # Organization maintaining the schemas, shown as "Maintained by" in the
+   # footer of every page (default: none). The URL is optional; if given, the
+   # name links to it.
+   maintainer:
+     name: Rubin Observatory
+     url: https://rubinobservatory.org/
+
    # Show every column field in the columns tables, including fields that none
    # of a table's columns set (default: false, leaving those out; name,
    # datatype, description, unit and nullable are always shown).
