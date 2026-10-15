@@ -323,8 +323,9 @@ tables:
             self.assertIsNotNone(child_table_soup.find(string="IDX_ChildTable_code"))
             self.assertIsNotNone(child_table_soup.find("td", string="meta.code"))
 
-            # Every column field is a table column, in a fixed order, blank
-            # where a column has no value.
+            # The column fields set by any of the table's columns are table
+            # columns, in a fixed order, blank where a column has no value;
+            # name, datatype, description, unit and nullable are always shown.
             columns_table = child_table_soup.find("table", class_="columns-table")
             assert columns_table is not None
             headers = [th.get_text(strip=True) for th in columns_table.find_all("th")]
@@ -333,21 +334,12 @@ tables:
                 [
                     "name",
                     "datatype",
-                    "ivoa:ucd",
-                    "unit",
                     "description",
-                    "tap:column_index",
+                    "unit",
+                    "nullable",
+                    "ivoa:ucd",
                     "tap:principal",
                     "tap:std",
-                    "nullable",
-                    "votable:arraysize",
-                    "votable:datatype",
-                    "votable:xtype",
-                    "votable:utype",
-                    "value",
-                    "length",
-                    "precision",
-                    "autoincrement",
                 ],
             )
             # DataTables sorts and exports the name cells by their plain name,
@@ -379,7 +371,6 @@ tables:
             self.assertEqual(amount_unit.get_text(strip=True), "m")
             self.assertEqual(cells["tap:std"], "0")
             self.assertEqual(cells["nullable"], "true")
-            self.assertEqual(cells["length"], "")
 
             # There are no expandable details rows or controls.
             self.assertIsNone(child_table_soup.find(class_="column-details-row"))
@@ -838,12 +829,71 @@ tables:
             soup = get_page_soup_by_title(output_dir, "Home - unlinked")
             self.assertIsNone(soup.find(class_="schema-diagram"))
 
+    def test_browser_show_empty_columns(self) -> None:
+        """With ``show_empty_columns``, every column field is a column of the
+        columns table, even if no column sets it.
+        """
+        schema_yaml = """
+name: sparse
+"@id": "#sparse"
+tables:
+  - name: Data
+    "@id": "#Data"
+    columns:
+      - name: id
+        "@id": "#Data.id"
+        datatype: int
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            schema_path = os.path.join(tmpdir, "sparse.yaml")
+            with open(schema_path, "w", encoding="utf-8") as f:
+                f.write(schema_yaml)
+
+            for show_empty, expected in (
+                # tap:principal and tap:std have default values.
+                (False, ["name", "datatype", "description", "unit", "nullable", "tap:principal", "tap:std"]),
+                (
+                    True,
+                    [
+                        "name",
+                        "datatype",
+                        "description",
+                        "unit",
+                        "nullable",
+                        "ivoa:ucd",
+                        "tap:column_index",
+                        "tap:principal",
+                        "tap:std",
+                        "votable:arraysize",
+                        "votable:datatype",
+                        "votable:xtype",
+                        "votable:utype",
+                        "value",
+                        "length",
+                        "precision",
+                        "autoincrement",
+                    ],
+                ),
+            ):
+                output_dir = os.path.join(tmpdir, f"browser-{show_empty}")
+                render_browser_site(
+                    output_dir=output_dir,
+                    files=[schema_path],
+                    config=SiteConfig(show_empty_columns=show_empty),
+                )
+                soup = get_page_soup_by_title(output_dir, "Home - sparse - Data")
+                columns_table = soup.find("table", class_="columns-table")
+                assert columns_table is not None
+                self.assertEqual([th.get_text(strip=True) for th in columns_table.find_all("th")], expected)
+
     def test_site_config(self) -> None:
         """Site configuration defaults, file loading and validation."""
         self.assertEqual(SiteConfig().title, "Home")
         self.assertEqual(SiteConfig().stylesheets, [])
         self.assertFalse(SiteConfig().diagrams)
         self.assertIsNone(SiteConfig().repository)
+        self.assertFalse(SiteConfig().show_empty_columns)
 
         with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
             config_dir = Path(tmpdir)

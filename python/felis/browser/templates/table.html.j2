@@ -13,10 +13,11 @@
           {% endif %}
           <h3 id="{{ table | anchor }}-columns">Columns</h3>
           {% set tags = table | column_tags %}
+          {% set fields = table | column_fields(show_empty_columns) %}
           <table class="columns-table" data-export-name="{{ schema.name }}.{{ table.name }}">
             <thead>
               <tr>
-                {% for field in column_fields %}
+                {% for field in fields %}
                 <th data-field="{{ field }}">{{ field }}</th>
                 {% endfor %}
               </tr>
@@ -24,7 +25,7 @@
             <tbody>
               {% for column in table.columns %}
               <tr id="{{ column | anchor }}">
-                {% for field in column_fields %}
+                {% for field in fields %}
                 <td data-field="{{ field }}"{% if field == "name" %} data-order="{{ column.name }}"{% endif %}>
                   {{- column | field(field) -}}
                   {% if field == "name" %}{% for tag in tags.get(column.name, []) %} <span class="column-tag column-tag-{{ tag.kind }}" title="{{ tag.title }}">{{ tag.label }}</span>{% endfor %}{% endif -%}

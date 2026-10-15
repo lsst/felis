@@ -60,6 +60,13 @@ class SiteConfig(BaseModel):
     every page; no link by default.
     """
 
+    show_empty_columns: bool = False
+    """Show every column field in each table's columns table, including
+    fields that none of the table's columns set; by default those are left
+    out (``name``, ``datatype``, ``description``, ``unit`` and ``nullable``
+    are always shown).
+    """
+
     diagrams: bool = False
     """Show a relationship diagram, drawn from the foreign keys, on the page
     of each schema that has them. The diagrams are drawn in the browser by

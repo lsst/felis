@@ -56,13 +56,13 @@ shared by all pages.
 _COLUMN_FIELDS = (
     "name",
     "datatype",
-    "ivoa:ucd",
-    "unit",
     "description",
+    "unit",
+    "nullable",
+    "ivoa:ucd",
     "tap:column_index",
     "tap:principal",
     "tap:std",
-    "nullable",
     "votable:arraysize",
     "votable:datatype",
     "votable:xtype",
@@ -76,6 +76,9 @@ _COLUMN_FIELDS = (
 schema YAML, except ``unit``: a column's ``ivoa:unit`` or ``fits:tunit``,
 which are never both set.
 """
+
+_REQUIRED_COLUMN_FIELDS = frozenset({"name", "datatype", "description", "unit", "nullable"})
+"""Column fields always shown in the columns table, even if empty."""
 
 _COLUMN_ATTRIBUTES = {field.alias or name: name for name, field in Column.model_fields.items()}
 """Column model attribute names, keyed by schema YAML field name."""
@@ -147,6 +150,32 @@ def _column_field(column: Column, field: str) -> str:
     if field == "unit":
         return _format_field_value(column.ivoa_unit or column.fits_tunit)
     return _format_field_value(getattr(column, _COLUMN_ATTRIBUTES[field]))
+
+
+def _table_column_fields(table: Table, show_empty: bool) -> list[str]:
+    """Return the column fields to show in a table's columns table.
+
+    Parameters
+    ----------
+    table
+        The table.
+    show_empty
+        Whether to show fields that none of the table's columns set.
+
+    Returns
+    -------
+    list [ `str` ]
+        The fields, in display order: all of them if ``show_empty`` is true,
+        otherwise those set by at least one column, plus ``name``,
+        ``datatype``, ``description``, ``unit`` and ``nullable``.
+    """
+    return [
+        field
+        for field in _COLUMN_FIELDS
+        if show_empty
+        or field in _REQUIRED_COLUMN_FIELDS
+        or any(_column_field(column, field) for column in table.columns)
+    ]
 
 
 def _schema_version(schema: Schema) -> str | None:
@@ -531,7 +560,6 @@ def _environment(site: SiteMap) -> Environment:
         # Tags for the columns of a table in the current schema.
         return _column_tags(context["schema"], site, table)
 
-    env.globals["column_fields"] = _COLUMN_FIELDS
     env.filters.update(
         href=href,
         path=site.path,
@@ -539,6 +567,7 @@ def _environment(site: SiteMap) -> Environment:
         table_of=site.table_of,
         columns=columns,
         field=_column_field,
+        column_fields=_table_column_fields,
         version=_schema_version,
         column_tags=column_tags,
         relationship_diagram=relationship_diagram,
@@ -604,6 +633,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
     env.globals["custom_stylesheets"] = list(custom_stylesheets)
     env.globals["site_title"] = config.title
     env.globals["diagrams"] = config.diagrams
+    env.globals["show_empty_columns"] = config.show_empty_columns
     env.globals["repository"] = str(config.repository) if config.repository else None
     env.globals["felis_version"] = __version__
     today = datetime.now(UTC)
