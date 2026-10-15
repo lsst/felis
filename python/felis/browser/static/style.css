@@ -20,6 +20,7 @@
     --line-height: 1.4;
     --font-size-small: 0.9rem;
     --font-size-table: 0.875rem;
+    --font-size-sidebar: 0.8125rem;
 
     /* Sizes and spacing */
     --header-height: 56px;
@@ -216,6 +217,7 @@
 
   .sidebar > nav {
     padding: var(--sidebar-padding);
+    font-size: var(--font-size-sidebar);
   }
 
   .sidebar-header {
@@ -342,7 +344,6 @@
 
   .tree-node > summary {
     padding: 0.1rem 0;
-    font-size: var(--font-size-small);
     font-weight: 600;
     color: var(--color-text-strong);
     white-space: nowrap;
