@@ -53,7 +53,12 @@ The configuration file is YAML; every setting is optional:
    stylesheets:
      - theme.css
 
-The stylesheets are copied into ``assets/``. The built-in stylesheet defines its colors, fonts and spacing as CSS variables
+   # Site icon shown at the top left of every page, linking to the home page
+   # (default: none). Relative to the configuration file.
+   icon: logo.png
+
+The stylesheets and the icon are copied into ``assets/``. The built-in
+stylesheet defines its colors, fonts and spacing as CSS variables
 in ``:root``, so a theme can usually just redefine those.
 
 To change the font and text size of the tables:
