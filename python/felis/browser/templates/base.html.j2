@@ -38,7 +38,9 @@
             {% if table is defined %}
             <a href="{{ schema | href }}">{{ schema.name }}</a>
             {{ page_macros.breadcrumb_separator() }}
-            <span>{{ table.name }}</span>
+            {# A link to the page itself, without any #fragment, clearing a
+               jumped-to row. #}
+            <a href="{{ table | href }}" aria-current="page">{{ table.name }}</a>
             {% else %}
             <span>{{ schema.name }}</span>
             {% endif %}

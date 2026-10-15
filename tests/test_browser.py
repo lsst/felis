@@ -260,6 +260,12 @@ tables:
                 self.assertEqual(home.get_text(strip=True), "Home")
                 if table_path or schema_path:
                     self.assertEqual(home.get("href"), "../../index.html")
+                if table_path:
+                    # The table links to its own page, without a #fragment.
+                    current = breadcrumb.find("a", attrs={"aria-current": "page"})
+                    assert current is not None
+                    self.assertEqual(current.get_text(strip=True), "ChildTable")
+                    self.assertEqual(current.get("href"), "childtable.html")
                 self.assertIsNone(soup.find(class_="site-icon"))
                 self.assertIsNone(soup.find(class_="repository-link"))
                 footer = soup.find("footer", class_="site-footer")

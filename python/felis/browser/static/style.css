@@ -187,12 +187,11 @@
     color: var(--color-black);
   }
 
+  /* Breadcrumb links are in the link color: the parent pages, and on table
+     pages the table itself, linking to the page without any jumped-to row.
+     The current schema or home page, last, is plain text. */
   .breadcrumb a {
-    color: var(--color-black);
-  }
-
-  .breadcrumb a:hover {
-    text-decoration: none;
+    color: var(--color-link);
   }
 
   /* Link to the schemas' repository, when configured, left of the Top
