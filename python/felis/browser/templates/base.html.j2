@@ -46,6 +46,9 @@
             <span>{{ site_title }}</span>
             {% endif %}
           </nav>
+          {% if repository %}
+          <a class="repository-link" href="{{ repository }}">Repository</a>
+          {% endif %}
           <button id="scroll-to-top" type="button" class="scroll-to-top" title="Scroll to the top of the page">Top</button>
         </header>
         <div class="content-body">

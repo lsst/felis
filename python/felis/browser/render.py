@@ -601,6 +601,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
     env.globals["custom_stylesheets"] = list(custom_stylesheets)
     env.globals["site_title"] = config.title
     env.globals["diagrams"] = config.diagrams
+    env.globals["repository"] = str(config.repository) if config.repository else None
     env.globals["felis_version"] = __version__
     today = datetime.now(UTC)
     env.globals["build_date"] = f"{today:%b} {today.day}, {today.year}"

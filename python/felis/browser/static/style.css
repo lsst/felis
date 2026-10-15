@@ -195,6 +195,14 @@
     text-decoration: none;
   }
 
+  /* Link to the schemas' repository, when configured, left of the Top
+     button. */
+  .repository-link {
+    flex: none;
+    margin-right: 1rem;
+    font-size: var(--font-size-small);
+  }
+
   .scroll-to-top {
     flex: none;
     padding: 0.15rem 0.6rem;

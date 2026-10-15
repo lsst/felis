@@ -26,7 +26,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, FilePath
+from pydantic import BaseModel, ConfigDict, FilePath, HttpUrl
 
 __all__ = ["SiteConfig"]
 
@@ -53,6 +53,11 @@ class SiteConfig(BaseModel):
     """Site icon (an image file), shown at the top left of every page and
     linking to the home page; none by default. It is copied into the site's
     ``assets`` directory.
+    """
+
+    repository: HttpUrl | None = None
+    """URL of the repository the schemas come from, linked from the header of
+    every page; no link by default.
     """
 
     diagrams: bool = False

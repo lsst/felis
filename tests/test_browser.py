@@ -259,6 +259,7 @@ tables:
                 if table_path or schema_path:
                     self.assertEqual(home.get("href"), "../../index.html")
                 self.assertIsNone(soup.find(class_="site-icon"))
+                self.assertIsNone(soup.find(class_="repository-link"))
                 footer = soup.find("footer", class_="site-footer")
                 assert footer is not None
                 self.assertIn(f"Felis version: {__version__}", footer.get_text())
@@ -675,7 +676,8 @@ tables:
 
     def test_browser_site_icon(self) -> None:
         """A configured icon is copied into the site and shown in every
-        page's header, linking to the home page.
+        page's header, linking to the home page; a configured repository is
+        linked from every page's header.
         """
         schema_yaml = """
 name: iconic
@@ -701,7 +703,9 @@ tables:
             render_browser_site(
                 output_dir=output_dir,
                 files=[schema_path],
-                config=SiteConfig(title="SDM Schemas", icon=icon_path),
+                config=SiteConfig(
+                    title="SDM Schemas", icon=icon_path, repository="https://github.com/lsst/sdm_schemas"
+                ),
             )
 
             copied = Path(output_dir) / "assets" / "site-icon-logo.png"
@@ -714,6 +718,9 @@ tables:
                 soup = get_page_soup_by_title(output_dir, title)
                 header = soup.find(class_="sidebar-header")
                 assert header is not None
+                repository = soup.find("a", class_="repository-link")
+                assert repository is not None
+                self.assertEqual(repository.get("href"), "https://github.com/lsst/sdm_schemas")
                 link = header.find("a", class_="site-icon")
                 assert link is not None
                 self.assertEqual(link.get("href"), f"{prefix}/index.html")
@@ -828,6 +835,7 @@ tables:
         self.assertEqual(SiteConfig().title, "Home")
         self.assertEqual(SiteConfig().stylesheets, [])
         self.assertFalse(SiteConfig().diagrams)
+        self.assertIsNone(SiteConfig().repository)
 
         with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
             config_dir = Path(tmpdir)
@@ -858,6 +866,9 @@ tables:
             with self.assertRaises(ValidationError):
                 SiteConfig.from_file(config_path)
             config_path.write_text("icon: missing.png\n", encoding="utf-8")
+            with self.assertRaises(ValidationError):
+                SiteConfig.from_file(config_path)
+            config_path.write_text("repository: not a url\n", encoding="utf-8")
             with self.assertRaises(ValidationError):
                 SiteConfig.from_file(config_path)
 
