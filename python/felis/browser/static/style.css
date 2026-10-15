@@ -183,7 +183,7 @@
     align-items: center;
     gap: 0.35rem;
     height: 100%;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-black);
   }
 
@@ -200,6 +200,7 @@
     flex: none;
     margin-right: 1rem;
     font-size: var(--font-size-small);
+    font-weight: 600;
   }
 
   .scroll-to-top {
