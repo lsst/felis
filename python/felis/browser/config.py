@@ -49,6 +49,12 @@ class SiteConfig(BaseModel):
     take precedence. Each is copied into the site's ``assets`` directory.
     """
 
+    icon: FilePath | None = None
+    """Site icon (an image file), shown at the top left of every page and
+    linking to the home page; none by default. It is copied into the site's
+    ``assets`` directory.
+    """
+
     @classmethod
     def from_file(cls, path: Path) -> SiteConfig:
         """Read a site configuration from a YAML file.
@@ -56,8 +62,8 @@ class SiteConfig(BaseModel):
         Parameters
         ----------
         path
-            The configuration file. Relative stylesheet paths in it are
-            relative to the file's directory.
+            The configuration file. Relative stylesheet and icon paths in it
+            are relative to the file's directory.
 
         Returns
         -------
@@ -68,9 +74,11 @@ class SiteConfig(BaseModel):
         ------
         pydantic.ValidationError
             Raised if the file has unknown settings, values of the wrong type,
-            or stylesheets that don't exist.
+            or stylesheets or an icon that don't exist.
         """
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if isinstance(data, dict) and isinstance(data.get("stylesheets"), list):
             data["stylesheets"] = [path.parent / str(stylesheet) for stylesheet in data["stylesheets"]]
+        if isinstance(data, dict) and isinstance(data.get("icon"), str):
+            data["icon"] = path.parent / data["icon"]
         return cls.model_validate(data)

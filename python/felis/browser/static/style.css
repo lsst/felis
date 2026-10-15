@@ -22,7 +22,7 @@
     --font-size-table: 0.875rem;
 
     /* Sizes and spacing */
-    --header-height: 48px;
+    --header-height: 56px;
     --sidebar-width: 300px;
     --sidebar-collapsed-width: 30px;
     --sidebar-padding: 0.75rem 1rem 1rem;
@@ -228,6 +228,22 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  /* The site icon, if configured, at the left of the sidebar header. Its
+     height is fixed for now; the width follows the image's proportions. */
+  /* Left-aligned with the sidebar items: the sidebar's padding plus the
+     tree's indent. */
+  .site-icon {
+    display: flex;
+    align-items: center;
+    padding-left: 2rem;
+  }
+
+  .site-icon img {
+    display: block;
+    width: auto;
+    height: 40px;
+  }
+
   .sidebar-toggle {
     display: flex;
     flex-shrink: 0;
@@ -285,7 +301,8 @@
   }
 
   body.sidebar-collapsed .sidebar > nav,
-  body.sidebar-collapsed .sidebar-resizer {
+  body.sidebar-collapsed .sidebar-resizer,
+  body.sidebar-collapsed .site-icon {
     display: none;
   }
 

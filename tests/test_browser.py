@@ -257,6 +257,7 @@ tables:
                 self.assertEqual(home.get_text(strip=True), "Home")
                 if table_path or schema_path:
                     self.assertEqual(home.get("href"), "../../index.html")
+                self.assertIsNone(soup.find(class_="site-icon"))
                 top_button = soup.find("button", id="scroll-to-top")
                 self.assertIsNotNone(top_button)
                 assert top_button is not None
@@ -639,6 +640,55 @@ tables:
                 assert home is not None
                 self.assertEqual(home.get_text(strip=True), "SDM Schemas")
 
+    def test_browser_site_icon(self) -> None:
+        """A configured icon is copied into the site and shown in every
+        page's header, linking to the home page.
+        """
+        schema_yaml = """
+name: iconic
+"@id": "#iconic"
+tables:
+  - name: Data
+    "@id": "#Data"
+    columns:
+      - name: id
+        "@id": "#Data.id"
+        datatype: int
+        description: Key.
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            schema_path = os.path.join(tmpdir, "iconic.yaml")
+            with open(schema_path, "w", encoding="utf-8") as f:
+                f.write(schema_yaml)
+            icon_path = Path(tmpdir) / "logo.png"
+            icon_path.write_bytes(b"not really a png")
+            output_dir = os.path.join(tmpdir, "browser")
+
+            render_browser_site(
+                output_dir=output_dir,
+                files=[schema_path],
+                config=SiteConfig(title="SDM Schemas", icon=icon_path),
+            )
+
+            copied = Path(output_dir) / "assets" / "site-icon-logo.png"
+            self.assertEqual(copied.read_bytes(), icon_path.read_bytes())
+            for title, prefix in (
+                ("SDM Schemas", "."),
+                ("SDM Schemas - iconic", "../.."),
+                ("SDM Schemas - iconic - Data", "../.."),
+            ):
+                soup = get_page_soup_by_title(output_dir, title)
+                header = soup.find(class_="sidebar-header")
+                assert header is not None
+                link = header.find("a", class_="site-icon")
+                assert link is not None
+                self.assertEqual(link.get("href"), f"{prefix}/index.html")
+                image = link.find("img")
+                assert image is not None
+                self.assertEqual(image.get("src"), f"{prefix}/assets/site-icon-logo.png")
+                self.assertEqual(image.get("alt"), "SDM Schemas")
+
     def test_site_config(self) -> None:
         """Site configuration defaults, file loading and validation."""
         self.assertEqual(SiteConfig().title, "Home")
@@ -655,6 +705,12 @@ tables:
             self.assertEqual(config.title, "SDM Schemas")
             self.assertEqual(config.stylesheets, [config_dir / "theme.css"])
 
+            # A relative icon path is relative to the configuration file too.
+            (config_dir / "logo.png").write_bytes(b"png")
+            config_path.write_text("icon: logo.png\n", encoding="utf-8")
+            self.assertEqual(SiteConfig.from_file(config_path).icon, config_dir / "logo.png")
+            self.assertIsNone(SiteConfig().icon)
+
             # An empty file gives the defaults.
             config_path.write_text("", encoding="utf-8")
             self.assertEqual(SiteConfig.from_file(config_path), SiteConfig())
@@ -664,6 +720,9 @@ tables:
             with self.assertRaises(ValidationError):
                 SiteConfig.from_file(config_path)
             config_path.write_text("stylesheets: [missing.css]\n", encoding="utf-8")
+            with self.assertRaises(ValidationError):
+                SiteConfig.from_file(config_path)
+            config_path.write_text("icon: missing.png\n", encoding="utf-8")
             with self.assertRaises(ValidationError):
                 SiteConfig.from_file(config_path)
 

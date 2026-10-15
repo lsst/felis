@@ -15,6 +15,9 @@
     <div class="layout">
       <aside class="sidebar">
         <div class="sidebar-header">
+          {% if site_icon %}
+          <a class="site-icon" href="{{ site_root }}/index.html"><img src="{{ site_root }}/assets/{{ site_icon }}" alt="{{ site_title }}" /></a>
+          {% endif %}
           <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-expanded="true" title="Toggle sidebar">
             <svg viewBox="0 0 24 24" class="sidebar-toggle-icon" aria-hidden="true" focusable="false">
               <rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/>

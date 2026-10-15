@@ -441,6 +441,8 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
     }
     env.globals["custom_stylesheets"] = list(custom_stylesheets)
     env.globals["site_title"] = config.title
+    site_icon = f"site-icon-{config.icon.name}" if config.icon else None
+    env.globals["site_icon"] = site_icon
 
     _write_page(env, output_dir, "index.html.j2", "index.html", schemas=site.schemas)
     for schema in site.schemas:
@@ -455,5 +457,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
         (assets_dir / asset_name).write_text(source, encoding="utf-8")
     for asset_name, path in custom_stylesheets.items():
         shutil.copyfile(path, assets_dir / asset_name)
+    if config.icon and site_icon:
+        shutil.copyfile(config.icon, assets_dir / site_icon)
     nav_json = json.dumps(site.nav_data(), separators=(",", ":"))
     (assets_dir / _NAV_DATA).write_text(f"window.FELIS_NAV = {nav_json};\n", encoding="utf-8")
