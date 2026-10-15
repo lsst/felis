@@ -25,12 +25,14 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
+from pathlib import Path
 from typing import IO
 
 import click
 from pydantic import ValidationError
 
 from . import __version__
+from .browser import SiteConfig, render_static_site
 from .datamodel import Schema
 from .db.database_context import create_database_context
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
@@ -648,6 +650,73 @@ def dump(
         elif format == "json":
             schema.dump_json(f, strip_ids=strip_ids, sort_columns=sort_columns)
     logger.info("Dumped '%s' to '%s'", uris[0], uris[1])
+
+
+@cli.command("browser", help="Generate a static schema browser site from YAML files")
+@click.option(
+    "--output-dir",
+    type=click.Path(file_okay=False, dir_okay=True),
+    required=True,
+    help="Output directory for generated static HTML",
+)
+@click.option(
+    "--config",
+    "config_file",
+    type=click.Path(exists=True, dir_okay=False),
+    help="Site configuration file (YAML) setting how the site looks",
+)
+@click.argument(
+    "files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False),
+    required=True,
+)
+@click.pass_context
+def browser(
+    ctx: click.Context,
+    output_dir: str,
+    config_file: str | None,
+    files: tuple[str, ...],
+) -> None:
+    """Generate a static HTML browser for one or more YAML schema files."""
+    try:
+        config = SiteConfig.from_file(Path(config_file)) if config_file else SiteConfig()
+    except ValidationError as e:
+        raise click.ClickException(f"Invalid site configuration '{config_file}': {e}") from e
+
+    paths = sorted(Path(file) for file in files)
+
+    for path in paths:
+        if path.suffix.lower() not in {".yaml", ".yml"}:
+            raise click.ClickException(f"Input file must be .yaml or .yml: {path}")
+
+    schemas: list[Schema] = []
+    for path in paths:
+        try:
+            schema = Schema.from_uri(
+                str(path),
+                context={
+                    "id_generation": ctx.obj["id_generation"],
+                    "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
+                },
+            )
+        except ValidationError as e:
+            raise click.ClickException(f"Schema validation failed for '{path}': {e}") from e
+        except Exception as e:
+            raise click.ClickException(f"Failed loading schema '{path}': {e}") from e
+        schemas.append(schema)
+
+    try:
+        render_static_site(
+            schemas=schemas,
+            output_dir=Path(output_dir),
+            config=config,
+        )
+    except Exception as e:
+        raise click.ClickException(f"Failed rendering browser site: {e}") from e
+
+    click.echo(f"Generated browser site at: {output_dir}")
+    click.echo(f"Loaded {len(paths)} file(s), rendered {len(schemas)} schema page(s)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,74 @@
+{% import "page_macros.j2" as page_macros with context %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ site_title }}{% if schema is defined %} - {{ schema.name }}{% endif %}{% if table is defined %} - {{ table.name }}{% endif %}</title>
+    <link rel="stylesheet" href="{{ site_root }}/assets/style.css" />
+    {% block head %}{% endblock %}
+    {% for stylesheet in custom_stylesheets %}
+    <link rel="stylesheet" href="{{ site_root }}/assets/{{ stylesheet }}" />
+    {% endfor %}
+  </head>
+  <body data-site-root="{{ site_root }}"{% if schema is defined %} data-schema-path="{{ schema | path }}"{% endif %}{% if table is defined %} data-table-path="{{ table | path }}"{% endif %}>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          {% if site_icon %}
+          <a class="site-icon" href="{{ site_root }}/index.html"><img src="{{ site_root }}/assets/{{ site_icon }}" alt="{{ site_title }}" /></a>
+          {% endif %}
+          <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-expanded="true" title="Toggle sidebar">
+            <svg viewBox="0 0 24 24" class="sidebar-toggle-icon" aria-hidden="true" focusable="false">
+              <rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M9 5.2v13.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <nav id="sidebar-tree" aria-label="Schemas"></nav>
+      </aside>
+      <div class="sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
+
+      <main class="content">
+        <header class="content-header">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            {% if schema is defined %}
+            <a href="{{ site_root }}/index.html">{{ site_title }}</a>
+            {{ page_macros.breadcrumb_separator() }}
+            {% if table is defined %}
+            <a href="{{ schema | href }}">{{ schema.name }}</a>
+            {{ page_macros.breadcrumb_separator() }}
+            {# A link to the page itself, without any #fragment, clearing a
+               jumped-to row. #}
+            <a href="{{ table | href }}" aria-current="page">{{ table.name }}</a>
+            {% else %}
+            <span>{{ schema.name }}</span>
+            {% endif %}
+            {% else %}
+            <span>{{ site_title }}</span>
+            {% endif %}
+          </nav>
+          {% if repository %}
+          <a class="repository-link" href="{{ repository }}">Repository</a>
+          {% endif %}
+          <button id="scroll-to-top" type="button" class="scroll-to-top" title="Scroll to the top of the page">Top</button>
+        </header>
+        <div class="content-body">
+          {% block content %}{% endblock %}
+          <footer class="site-footer">
+            {% if maintainer %}
+            <span>Maintained by: <strong>
+              {%- if maintainer.url %}<a href="{{ maintainer.url }}">{{ maintainer.name }}</a>{% else %}{{ maintainer.name }}{% endif -%}
+            </strong></span>
+            {% endif %}
+            <span>Created: <strong>{{ build_date }}</strong></span>
+            <span>Felis version: <strong>{{ felis_version }}</strong></span>
+          </footer>
+        </div>
+      </main>
+    </div>
+    {% block scripts %}{% endblock %}
+    <script src="{{ site_root }}/assets/nav-data.js"></script>
+    <script src="{{ site_root }}/assets/sidebar.js"></script>
+  </body>
+</html>

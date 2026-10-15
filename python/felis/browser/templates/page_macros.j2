@@ -1,0 +1,56 @@
+{# Macros shared by the page templates #}
+
+{# Render the arrow separating breadcrumb items #}
+{% macro breadcrumb_separator() -%}
+<span class="breadcrumb-separator" aria-hidden="true"><svg viewBox="0 0 16 16" class="breadcrumb-separator-icon" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+{%- endmacro %}
+
+{# Render comma-separated column names, linked to their rows on this page;
+   unresolved references are shown as given #}
+{% macro column_links(columns) -%}
+{%- for column in columns -%}
+{%- if not loop.first %}, {% endif -%}
+{%- if column is string -%}
+{{ column }}
+{%- else -%}
+<a href="#{{ column | anchor }}">{{ column.name }}</a>
+{%- endif -%}
+{%- endfor -%}
+{%- endmacro %}
+
+{# Render a list of linked schemas or tables, each with a count of its
+   children (e.g. "tables") and its description #}
+{% macro entry_list(entries, children, singular, plural) %}
+<ul class="schema-list">
+  {% for entry in entries %}
+  <li>
+    <a href="{{ entry | href }}"{% if entry.description %} title="{{ entry.description }}"{% endif %}>{{ entry.name }}</a>
+    {% set count = entry[children] | length %}
+    <span class="muted">({{ count }} {{ singular if count == 1 else plural }})</span>
+    {% if entry.description %}
+    <div class="muted">{{ entry.description }}</div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+{# DataTables stylesheets and scripts, loaded from a CDN; the Buttons
+   extension (CSV export) only where it's used. The stylesheets are imported
+   into the "datatables" cascade layer, which style.css places below the
+   "felis" layer, so the site's own rules win. #}
+{% macro datatables_styles(buttons=false) %}
+    <style>
+      @import url("https://cdn.datatables.net/3.1.4/css/dataTables.dataTables.min.css") layer(datatables);
+      {% if buttons %}
+      @import url("https://cdn.datatables.net/buttons/4.1.2/css/buttons.dataTables.min.css") layer(datatables);
+      {% endif %}
+    </style>
+{%- endmacro %}
+
+{% macro datatables_scripts(buttons=false) %}
+    <script src="https://cdn.datatables.net/3.1.4/js/dataTables.min.js" integrity="sha384-Lg8qwUDhp1uuDJinT3SMR9sxQyVjC/2NPPFkbPahEVgqBRrWGI6zfmrgPYTaVgrS" crossorigin="anonymous"></script>
+    {% if buttons %}
+    <script src="https://cdn.datatables.net/buttons/4.1.2/js/dataTables.buttons.min.js" integrity="sha384-6XJm6yvMgGW3Vi8lCMi02aAI35eZ1syl8TQ8UovEVyHxaYv65hcG9XQG3CGMaK52" crossorigin="anonymous"></script>
+    {% endif %}
+{%- endmacro %}
