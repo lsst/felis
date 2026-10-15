@@ -10,6 +10,9 @@
           {% if schema.version %}
           <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
           {% endif %}
+          {% if schema.description %}
+          <p class="schema-description">{{ schema.description }}</p>
+          {% endif %}
           <h3 id="tables">Tables</h3>
           <table class="tables-table">
             <thead>

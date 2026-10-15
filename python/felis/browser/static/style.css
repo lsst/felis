@@ -436,12 +436,18 @@
     background: var(--color-white);
   }
 
-  /* Keep the schema version close to the tables below it. */
-  .schema-version {
+  /* Keep the schema version and description close together and to the
+     tables below them. */
+  .schema-version,
+  .schema-description {
     margin-bottom: 0;
   }
 
-  .schema-version + h3 {
+  .schema-version + .schema-description {
+    margin-top: 0.75rem;
+  }
+
+  :is(.schema-version, .schema-description) + h3 {
     margin-top: 1rem;
   }
 

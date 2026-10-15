@@ -277,8 +277,9 @@ tables:
                     self.assertTrue(str(script.get("integrity")).startswith("sha384-"))
                     self.assertEqual(script.get("crossorigin"), "anonymous")
 
-            # A schema without a version shows no version line.
+            # A schema without a version or description shows neither.
             self.assertIsNone(schema_soup.find(class_="schema-version"))
+            self.assertIsNone(schema_soup.find(class_="schema-description"))
 
             # The indexes table has no Type column.
             indexes_heading = child_table_soup.find(id="table-childtable-indexes")
@@ -478,6 +479,12 @@ tables:
             self.assertIsNotNone(find_link(index_soup, "schemas/beta/index.html"))
             self.assertIsNotNone(index_soup.find(string="Alpha schema."))
             self.assertIsNotNone(index_soup.find(string="Beta schema."))
+
+            # Each schema page shows its description.
+            alpha_soup = get_page_soup_by_title(output_dir, "Home - alpha")
+            description = alpha_soup.find("p", class_="schema-description")
+            assert description is not None
+            self.assertEqual(description.get_text(strip=True), "Alpha schema.")
 
             # Validate singular/plural table count grammar per schema.
             schema_list = index_soup.find("ul", class_="schema-list")
