@@ -57,8 +57,7 @@ _COLUMN_FIELDS = (
     "name",
     "datatype",
     "ivoa:ucd",
-    "ivoa:unit",
-    "fits:tunit",
+    "unit",
     "description",
     "tap:column_index",
     "tap:principal",
@@ -74,7 +73,8 @@ _COLUMN_FIELDS = (
     "autoincrement",
 )
 """Column fields shown in the columns table, in order, by their names in the
-schema YAML.
+schema YAML, except ``unit``: a column's ``ivoa:unit`` or ``fits:tunit``,
+which are never both set.
 """
 
 _COLUMN_ATTRIBUTES = {field.alias or name: name for name, field in Column.model_fields.items()}
@@ -136,13 +136,16 @@ def _column_field(column: Column, field: str) -> str:
     column
         The column.
     field
-        The field's name in the schema YAML, such as ``tap:principal``.
+        The field's name in the schema YAML, such as ``tap:principal``, or
+        ``unit`` for the column's ``ivoa:unit`` or ``fits:tunit``.
 
     Returns
     -------
     str
         The formatted value, or an empty string if the column has none.
     """
+    if field == "unit":
+        return _format_field_value(column.ivoa_unit or column.fits_tunit)
     return _format_field_value(getattr(column, _COLUMN_ATTRIBUTES[field]))
 
 

@@ -129,6 +129,7 @@ tables:
         "@id": "#ChildTable.code"
         datatype: int
         "ivoa:ucd": "meta.code"
+        "fits:tunit": "deg"
         "tap:std": 0
         description: Business code.
       - name: parent_id
@@ -138,6 +139,7 @@ tables:
       - name: amount
         "@id": "#ChildTable.amount"
         datatype: int
+        "ivoa:unit": "m"
         description: Positive amount.
     primaryKey: "#ChildTable.id"
     indexes:
@@ -332,8 +334,7 @@ tables:
                     "name",
                     "datatype",
                     "ivoa:ucd",
-                    "ivoa:unit",
-                    "fits:tunit",
+                    "unit",
                     "description",
                     "tap:column_index",
                     "tap:principal",
@@ -369,6 +370,13 @@ tables:
             self.assertEqual(str(name_cell.contents[0]).strip(), "code")
             self.assertEqual(cells["datatype"], "int")
             self.assertEqual(cells["ivoa:ucd"], "meta.code")
+            # The unit column shows either ivoa:unit or fits:tunit.
+            self.assertEqual(cells["unit"], "deg")
+            amount_row = child_table_soup.find("tr", id="column-amount")
+            assert amount_row is not None
+            amount_unit = amount_row.find("td", attrs={"data-field": "unit"})
+            assert amount_unit is not None
+            self.assertEqual(amount_unit.get_text(strip=True), "m")
             self.assertEqual(cells["tap:std"], "0")
             self.assertEqual(cells["nullable"], "true")
             self.assertEqual(cells["length"], "")
