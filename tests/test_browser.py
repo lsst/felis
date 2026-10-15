@@ -283,12 +283,31 @@ tables:
             )
 
             # Validate the columns table content.
-            # The primary key is shown as a tag on its column, not a section.
+            # Columns that are part of the primary key, a foreign key or an
+            # index are tagged after their name (no Primary Key section).
             self.assertIsNone(child_table_soup.find(id="table-childtable-primary-key"))
-            for column_id, is_key in (("column-id", True), ("column-code", False)):
+            expected_tags = {
+                "column-id": [("primary-key", "primary key", "Part of the table's primary key")],
+                "column-code": [("index", "indexed", "In index IDX_ChildTable_code")],
+                "column-parent-id": [("foreign-key", "foreign key", "References ParentTable.id")],
+                "column-amount": [],
+            }
+            for column_id, tags in expected_tags.items():
                 row = child_table_soup.find("tr", id=column_id)
                 assert row is not None
-                self.assertEqual(row.find(class_="primary-key-tag") is not None, is_key)
+                self.assertEqual(
+                    [
+                        (
+                            next(c for c in tag["class"] if c.startswith("column-tag-"))[
+                                len("column-tag-") :
+                            ],
+                            tag.get_text(strip=True),
+                            tag.get("title"),
+                        )
+                        for tag in row.find_all(class_="column-tag")
+                    ],
+                    tags,
+                )
             self.assertIsNotNone(child_table_soup.find(string="IDX_ChildTable_code"))
             self.assertIsNotNone(child_table_soup.find("td", string="meta.code"))
 
@@ -326,14 +345,18 @@ tables:
             self.assertEqual(columns_table.get("data-export-name"), "demo.ChildTable")
             id_cell = child_table_soup.find("tr", id="column-id").find("td", attrs={"data-field": "name"})
             self.assertEqual(id_cell.get("data-order"), "id")
-            self.assertIsNotNone(id_cell.find(class_="primary-key-tag"))
+            self.assertIsNotNone(id_cell.find(class_="column-tag-primary-key"))
 
             code_row = child_table_soup.find("tr", id="column-code")
             assert code_row is not None
             cells = dict(
                 zip(headers, (td.get_text(strip=True) for td in code_row.find_all("td")), strict=True)
             )
-            self.assertEqual(cells["name"], "code")
+            # The name cell holds the name, followed by any tags.
+            self.assertEqual(cells["name"], "code" + "indexed")
+            name_cell = code_row.find("td", attrs={"data-field": "name"})
+            assert name_cell is not None
+            self.assertEqual(str(name_cell.contents[0]).strip(), "code")
             self.assertEqual(cells["datatype"], "int")
             self.assertEqual(cells["ivoa:ucd"], "meta.code")
             self.assertEqual(cells["tap:std"], "0")
@@ -747,6 +770,11 @@ tables:
     primaryKey:
       - "#CompoundKeyTable.first_id"
       - "#CompoundKeyTable.second_id"
+    indexes:
+      - name: IDX_first_id
+        "@id": "#IDX_first_id"
+        columns:
+          - "#CompoundKeyTable.first_id"
 """.strip()
 
         with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
@@ -765,10 +793,18 @@ tables:
             ):
                 row = table_soup.find("tr", id=column_id)
                 assert row is not None
-                tag = row.find(class_="primary-key-tag")
+                tag = row.find(class_="column-tag-primary-key")
                 self.assertEqual(tag is not None, is_key)
                 if tag is not None:
                     self.assertEqual(tag.get_text(strip=True), "primary key")
+
+            # A column can have several tags, in a fixed order.
+            first_id = table_soup.find("tr", id="column-first-id")
+            assert first_id is not None
+            self.assertEqual(
+                [tag.get_text(strip=True) for tag in first_id.find_all(class_="column-tag")],
+                ["primary key", "indexed"],
+            )
 
     def test_browser_non_yaml_file_error(self) -> None:
         """Fail when input file is not YAML."""

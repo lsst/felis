@@ -32,12 +32,12 @@ import shutil
 from collections.abc import Iterable
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from jinja2 import Environment, PackageLoader, pass_context, select_autoescape
 from jinja2.runtime import Context
 
-from felis.datamodel import BaseObject, Column, Schema, SchemaVersion, Table
+from felis.datamodel import BaseObject, Column, ForeignKeyConstraint, Schema, SchemaVersion, Table
 
 from .config import SiteConfig
 
@@ -177,6 +177,75 @@ def _resolve_column(schema: Schema, ref: str) -> Column | str:
         if isinstance(obj, Column):
             return obj
     return ref
+
+
+class ColumnTag(NamedTuple):
+    """A tag shown after a column's name in the columns table."""
+
+    kind: str
+    """Kind of tag, used in its CSS class: ``primary-key``, ``foreign-key``
+    or ``index``.
+    """
+
+    label: str
+    """Text of the tag."""
+
+    title: str
+    """Hover text explaining the tag."""
+
+
+def _column_tags(schema: Schema, site: SiteMap, table: Table) -> dict[str, list[ColumnTag]]:
+    """Return the tags of a table's columns, keyed by column name.
+
+    Parameters
+    ----------
+    schema
+        The schema containing the table.
+    site
+        The site map, used to find the tables of referenced columns.
+    table
+        The table.
+
+    Returns
+    -------
+    dict
+        For each tagged column, its tags in a fixed order: primary key,
+        foreign key, index. Columns without tags are left out.
+    """
+    tags: dict[str, dict[str, list[str]]] = {}
+
+    def add(column: Column | str, kind: str, detail: str) -> None:
+        if isinstance(column, Column):
+            tags.setdefault(column.name, {}).setdefault(kind, []).append(detail)
+
+    primary_key = table.primary_key or []
+    for column in primary_key if isinstance(primary_key, list) else [primary_key]:
+        add(_resolve_column(schema, column), "primary-key", "")
+    for constraint in table.constraints:
+        if isinstance(constraint, ForeignKeyConstraint):
+            for ref, referenced_ref in zip(constraint.columns, constraint.referenced_columns, strict=True):
+                referenced = _resolve_column(schema, referenced_ref)
+                target = (
+                    f"{site.table_of(referenced).name}.{referenced.name}"
+                    if isinstance(referenced, Column)
+                    else referenced
+                )
+                add(_resolve_column(schema, ref), "foreign-key", target)
+    for index in table.indexes:
+        for ref in index.columns or []:
+            add(_resolve_column(schema, ref), "index", index.name)
+
+    def tag(kind: str, details: list[str]) -> ColumnTag:
+        if kind == "primary-key":
+            return ColumnTag(kind, "primary key", "Part of the table's primary key")
+        if kind == "foreign-key":
+            return ColumnTag(kind, "foreign key", "References " + ", ".join(details))
+        return ColumnTag(
+            kind, "indexed", ("In indexes " if len(details) > 1 else "In index ") + ", ".join(details)
+        )
+
+    order = ("primary-key", "foreign-key", "index")
+    return {name: [tag(kind, kinds[kind]) for kind in order if kind in kinds] for name, kinds in tags.items()}
 
 
 class _UniqueNames:
@@ -371,6 +440,11 @@ def _environment(site: SiteMap) -> Environment:
             _resolve_column(context["schema"], ref) for ref in ([refs] if isinstance(refs, str) else refs)
         ]
 
+    @pass_context
+    def column_tags(context: Context, table: Table) -> dict[str, list[ColumnTag]]:
+        # Tags for the columns of a table in the current schema.
+        return _column_tags(context["schema"], site, table)
+
     env.globals["column_fields"] = _COLUMN_FIELDS
     env.filters.update(
         href=href,
@@ -380,6 +454,7 @@ def _environment(site: SiteMap) -> Environment:
         columns=columns,
         field=_column_field,
         version=_schema_version,
+        column_tags=column_tags,
     )
     return env
 

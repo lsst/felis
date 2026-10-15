@@ -18,7 +18,7 @@
           <p>{{ table.description }}</p>
           {% endif %}
           <h3 id="{{ table | anchor }}-columns">Columns</h3>
-          {% set primary_key = table.primary_key | columns if table.primary_key else [] %}
+          {% set tags = table | column_tags %}
           <table class="columns-table" data-export-name="{{ schema.name }}.{{ table.name }}">
             <thead>
               <tr>
@@ -33,7 +33,7 @@
                 {% for field in column_fields %}
                 <td data-field="{{ field }}"{% if field == "name" %} data-order="{{ column.name }}"{% endif %}>
                   {{- column | field(field) -}}
-                  {% if field == "name" and column in primary_key %} <span class="primary-key-tag" title="Part of the table's primary key">primary key</span>{% endif -%}
+                  {% if field == "name" %}{% for tag in tags.get(column.name, []) %} <span class="column-tag column-tag-{{ tag.kind }}" title="{{ tag.title }}">{{ tag.label }}</span>{% endfor %}{% endif -%}
                 </td>
                 {% endfor %}
               </tr>

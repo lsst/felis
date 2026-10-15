@@ -42,6 +42,9 @@
     --color-page: #f4f6f9;
     --color-surface: #f8fafc;
     --color-current: #e9eef5;
+    --color-tag-primary-key: #fbf1d9;
+    --color-tag-foreign-key: #e3eefb;
+    --color-tag-index: #e2f3e7;
 
     /* Borders */
     --color-border: #dbe1ea;
@@ -464,7 +467,9 @@
       inset 0 -1px 0 var(--color-border);
   }
 
-  .primary-key-tag {
+  /* Tags after a column's name: primary key, foreign key and index, each with
+     its own background color. */
+  .column-tag {
     margin-left: 0.5rem;
     padding: 0.1rem 0.3rem;
     font-size: 0.85em;
@@ -472,6 +477,22 @@
     background: var(--color-page);
     border: 1px solid var(--color-border);
     border-radius: 7px;
+  }
+
+  .column-tag + .column-tag {
+    margin-left: 0.25rem;
+  }
+
+  .column-tag-primary-key {
+    background: var(--color-tag-primary-key);
+  }
+
+  .column-tag-foreign-key {
+    background: var(--color-tag-foreign-key);
+  }
+
+  .column-tag-index {
+    background: var(--color-tag-index);
   }
 
   /* Numbers are right-aligned, using DataTables' detection of numeric
