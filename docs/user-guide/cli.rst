@@ -57,6 +57,10 @@ The configuration file is YAML; every setting is optional:
    # (default: none). Relative to the configuration file.
    icon: logo.png
 
+   # URL of the repository the schemas come from, linked from the header of
+   # every page (default: none).
+   repository: https://github.com/lsst/sdm_schemas
+
    # Show a relationship diagram, drawn from the foreign keys, on the page of
    # each schema that has them (default: false). The diagrams are drawn in the
    # browser by Mermaid, loaded from a CDN.
