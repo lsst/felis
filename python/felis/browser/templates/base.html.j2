@@ -54,6 +54,11 @@
         <div class="content-body">
           {% block content %}{% endblock %}
           <footer class="site-footer">
+            {% if maintainer %}
+            <span>Maintained by: <strong>
+              {%- if maintainer.url %}<a href="{{ maintainer.url }}">{{ maintainer.name }}</a>{% else %}{{ maintainer.name }}{% endif -%}
+            </strong></span>
+            {% endif %}
             <span>Created: <strong>{{ build_date }}</strong></span>
             <span>Felis version: <strong>{{ felis_version }}</strong></span>
           </footer>

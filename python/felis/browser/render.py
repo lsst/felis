@@ -635,6 +635,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
     env.globals["diagrams"] = config.diagrams
     env.globals["show_empty_columns"] = config.show_empty_columns
     env.globals["repository"] = str(config.repository) if config.repository else None
+    env.globals["maintainer"] = config.maintainer
     env.globals["felis_version"] = __version__
     today = datetime.now(UTC)
     env.globals["build_date"] = f"{today:%b} {today.day}, {today.year}"

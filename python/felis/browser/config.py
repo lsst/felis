@@ -28,7 +28,19 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, FilePath, HttpUrl
 
-__all__ = ["SiteConfig"]
+__all__ = ["Maintainer", "SiteConfig"]
+
+
+class Maintainer(BaseModel):
+    """The organization maintaining the schemas, named in the page footer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    """Name of the organization."""
+
+    url: HttpUrl | None = None
+    """Website of the organization, linked from its name; none by default."""
 
 
 class SiteConfig(BaseModel):
@@ -58,6 +70,11 @@ class SiteConfig(BaseModel):
     repository: HttpUrl | None = None
     """URL of the repository the schemas come from, linked from the header of
     every page; no link by default.
+    """
+
+    maintainer: Maintainer | None = None
+    """Organization maintaining the schemas, shown as "Maintained by" in the
+    footer of every page; none by default.
     """
 
     show_empty_columns: bool = False

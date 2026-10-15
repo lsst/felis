@@ -22,7 +22,7 @@ from bs4.element import Tag
 from pydantic import ValidationError
 
 from felis import __version__
-from felis.browser import SiteConfig, render_static_site
+from felis.browser import Maintainer, SiteConfig, render_static_site
 from felis.datamodel import Schema
 
 TEST_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -265,6 +265,7 @@ tables:
                 footer = soup.find("footer", class_="site-footer")
                 assert footer is not None
                 self.assertIn(f"Felis version: {__version__}", footer.get_text())
+                self.assertNotIn("Maintained by", footer.get_text())
                 top_button = soup.find("button", id="scroll-to-top")
                 self.assertIsNotNone(top_button)
                 assert top_button is not None
@@ -887,6 +888,47 @@ tables:
                 assert columns_table is not None
                 self.assertEqual([th.get_text(strip=True) for th in columns_table.find_all("th")], expected)
 
+    def test_browser_maintainer(self) -> None:
+        """A configured maintainer is named in every page's footer, linked to
+        its website if it has one.
+        """
+        schema_yaml = """
+name: kept
+"@id": "#kept"
+tables:
+  - name: Data
+    "@id": "#Data"
+    columns:
+      - name: id
+        "@id": "#Data.id"
+        datatype: int
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            schema_path = os.path.join(tmpdir, "kept.yaml")
+            with open(schema_path, "w", encoding="utf-8") as f:
+                f.write(schema_yaml)
+
+            for url in ("https://rubinobservatory.org/", None):
+                output_dir = os.path.join(tmpdir, f"browser-{bool(url)}")
+                render_browser_site(
+                    output_dir=output_dir,
+                    files=[schema_path],
+                    config=SiteConfig(maintainer=Maintainer(name="Rubin Observatory", url=url)),
+                )
+                for title in ("Home", "Home - kept", "Home - kept - Data"):
+                    soup = get_page_soup_by_title(output_dir, title)
+                    footer = soup.find("footer", class_="site-footer")
+                    assert footer is not None
+                    self.assertIn("Maintained by: Rubin Observatory", footer.get_text(" ", strip=True))
+                    link = footer.find("a")
+                    if url:
+                        assert link is not None
+                        self.assertEqual(link.get("href"), url)
+                        self.assertEqual(link.get_text(), "Rubin Observatory")
+                    else:
+                        self.assertIsNone(link)
+
     def test_site_config(self) -> None:
         """Site configuration defaults, file loading and validation."""
         self.assertEqual(SiteConfig().title, "Home")
@@ -894,6 +936,7 @@ tables:
         self.assertFalse(SiteConfig().diagrams)
         self.assertIsNone(SiteConfig().repository)
         self.assertFalse(SiteConfig().show_empty_columns)
+        self.assertIsNone(SiteConfig().maintainer)
 
         with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
             config_dir = Path(tmpdir)
@@ -927,6 +970,19 @@ tables:
             with self.assertRaises(ValidationError):
                 SiteConfig.from_file(config_path)
             config_path.write_text("repository: not a url\n", encoding="utf-8")
+            with self.assertRaises(ValidationError):
+                SiteConfig.from_file(config_path)
+
+            # The maintainer needs a name; its URL is optional.
+            config_path.write_text(
+                "maintainer:\n  name: Rubin Observatory\n  url: https://rubinobservatory.org/\n",
+                encoding="utf-8",
+            )
+            maintainer = SiteConfig.from_file(config_path).maintainer
+            assert maintainer is not None
+            self.assertEqual(maintainer.name, "Rubin Observatory")
+            self.assertEqual(str(maintainer.url), "https://rubinobservatory.org/")
+            config_path.write_text("maintainer:\n  url: https://rubinobservatory.org/\n", encoding="utf-8")
             with self.assertRaises(ValidationError):
                 SiteConfig.from_file(config_path)
 
