@@ -712,10 +712,112 @@ tables:
                 self.assertEqual(image.get("src"), f"{prefix}/assets/site-icon-logo.png")
                 self.assertEqual(image.get("alt"), "SDM Schemas")
 
+    def test_browser_relationship_diagrams(self) -> None:
+        """With diagrams enabled, a schema with foreign keys gets a Mermaid
+        relationship diagram on its page; otherwise there is none.
+        """
+        schema_yaml = """
+name: linked
+"@id": "#linked"
+tables:
+  - name: Parent
+    "@id": "#Parent"
+    columns:
+      - name: id
+        "@id": "#Parent.id"
+        datatype: long
+        description: Key.
+    primaryKey: "#Parent.id"
+  - name: Child
+    "@id": "#Child"
+    columns:
+      - name: id
+        "@id": "#Child.id"
+        datatype: long
+        description: Key.
+      - name: parent_id
+        "@id": "#Child.parent_id"
+        datatype: long
+        description: Parent.
+      - name: value
+        "@id": "#Child.value"
+        datatype: double
+        description: Value.
+    primaryKey: "#Child.id"
+    constraints:
+      - name: FK_Child_Parent
+        "@id": "#FK_Child_Parent"
+        "@type": ForeignKey
+        columns: ["#Child.parent_id"]
+        referencedColumns: ["#Parent.id"]
+  - name: Unrelated
+    "@id": "#Unrelated"
+    columns:
+      - name: id
+        "@id": "#Unrelated.id"
+        datatype: int
+        description: Key.
+""".strip()
+        unlinked_yaml = """
+name: unlinked
+"@id": "#unlinked"
+tables:
+  - name: Lonely
+    "@id": "#Lonely"
+    columns:
+      - name: id
+        "@id": "#Lonely.id"
+        datatype: int
+        description: Key.
+""".strip()
+
+        with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
+            files = []
+            for name, text in (("linked.yaml", schema_yaml), ("unlinked.yaml", unlinked_yaml)):
+                files.append(os.path.join(tmpdir, name))
+                with open(files[-1], "w", encoding="utf-8") as f:
+                    f.write(text)
+
+            # Off by default.
+            output_dir = os.path.join(tmpdir, "default")
+            render_browser_site(output_dir=output_dir, files=files)
+            soup = get_page_soup_by_title(output_dir, "Home - linked")
+            self.assertIsNone(soup.find(class_="schema-diagram"))
+            self.assertIsNone(soup.find(id="relationships"))
+
+            output_dir = os.path.join(tmpdir, "diagrams")
+            render_browser_site(output_dir=output_dir, files=files, config=SiteConfig(diagrams=True))
+
+            soup = get_page_soup_by_title(output_dir, "Home - linked")
+            self.assertIsNotNone(soup.find("h3", id="relationships"))
+            diagram = soup.find(class_="schema-diagram")
+            assert diagram is not None
+            pre = diagram.find("pre", class_="mermaid")
+            assert pre is not None
+            self.assertEqual(
+                pre.get_text().strip().splitlines(),
+                [
+                    "erDiagram",
+                    '  t0["Parent"] {',
+                    "    id long PK",
+                    "  }",
+                    '  t1["Child"] {',
+                    "    id long PK",
+                    "    parent_id long FK",
+                    "  }",
+                    '  t1 }o--|| t0 : "FK_Child_Parent"',
+                ],
+            )
+
+            # A schema without foreign keys has no diagram.
+            soup = get_page_soup_by_title(output_dir, "Home - unlinked")
+            self.assertIsNone(soup.find(class_="schema-diagram"))
+
     def test_site_config(self) -> None:
         """Site configuration defaults, file loading and validation."""
         self.assertEqual(SiteConfig().title, "Home")
         self.assertEqual(SiteConfig().stylesheets, [])
+        self.assertFalse(SiteConfig().diagrams)
 
         with tempfile.TemporaryDirectory(dir=TEST_DIR) as tmpdir:
             config_dir = Path(tmpdir)

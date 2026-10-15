@@ -309,12 +309,60 @@
     });
   }
 
+  // Relationship diagrams on schema pages (when enabled in the site
+  // configuration): Mermaid, loaded from a CDN only on pages that have one,
+  // draws the diagram text into an SVG fitted to the page width. A dynamic
+  // import works when the site is opened from disk, unlike a module script.
+  var MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.esm.min.mjs";
+
+  function initDiagrams() {
+    var diagrams = document.querySelectorAll(".schema-diagram");
+    if (!diagrams.length) {
+      return;
+    }
+
+    import(MERMAID_URL)
+      .then(function (module) {
+        var mermaid = module.default;
+        mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict" });
+        var nodes = Array.prototype.map.call(diagrams, function (diagram) {
+          return diagram.querySelector("pre.mermaid");
+        });
+        return mermaid.run({ nodes: nodes });
+      })
+      .then(function () {
+        diagrams.forEach(initFullSizeLink);
+      })
+      .catch(function () {
+        // Without Mermaid (e.g. offline) the diagram text stays visible.
+      });
+  }
+
+  // "Open full size" shows the drawn diagram on its own in a new tab.
+  function initFullSizeLink(diagram) {
+    var svg = diagram.querySelector("svg");
+    var actions = diagram.querySelector(".schema-diagram-actions");
+    if (!svg || !actions) {
+      return;
+    }
+    actions.hidden = false;
+    actions.querySelector("a").addEventListener("click", function (event) {
+      event.preventDefault();
+      var copy = svg.cloneNode(true);
+      copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      copy.style.maxWidth = "none";
+      var blob = new Blob([copy.outerHTML], { type: "image/svg+xml" });
+      window.open(URL.createObjectURL(blob), "_blank");
+    });
+  }
+
   function init() {
     initSidebarTree();
     initColumnsTable();
     initJumpScrolling();
     initScrollToTop();
     initPaneWidth();
+    initDiagrams();
     initSidebarToggle();
     initSidebarResize();
   }

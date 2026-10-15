@@ -432,6 +432,23 @@
     background: var(--color-current);
   }
 
+  /* Relationship diagram on schema pages: the SVG drawn by Mermaid scales
+     down to the page width; before it is drawn (or without Mermaid), the
+     diagram text is shown. */
+  .schema-diagram svg {
+    display: block;
+    height: auto;
+  }
+
+  .schema-diagram pre.mermaid {
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+  }
+
+  .schema-diagram-actions {
+    font-size: var(--font-size-small);
+  }
+
   /* Columns table: values stay on one line, except descriptions, which wrap
      at a readable width. */
 

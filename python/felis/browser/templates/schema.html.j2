@@ -4,4 +4,15 @@
           <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
           {% endif %}
 {{ page_macros.entry_list(schema.tables, "columns", "column", "columns") }}
+          {% set diagram = schema | relationship_diagram if diagrams else none %}
+          {% if diagram %}
+          <h3 id="relationships">Relationships</h3>
+          {# Drawn by Mermaid in sidebar.js; shown as text if it can't load. #}
+          <div class="schema-diagram">
+            <pre class="mermaid">
+{{ diagram }}
+            </pre>
+            <p class="schema-diagram-actions" hidden><a href="#" class="schema-diagram-full">Open full size</a></p>
+          </div>
+          {% endif %}
 {% endblock %}

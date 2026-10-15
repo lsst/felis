@@ -55,6 +55,12 @@ class SiteConfig(BaseModel):
     ``assets`` directory.
     """
 
+    diagrams: bool = False
+    """Show a relationship diagram, drawn from the foreign keys, on the page
+    of each schema that has them. The diagrams are drawn in the browser by
+    Mermaid, loaded from a CDN.
+    """
+
     @classmethod
     def from_file(cls, path: Path) -> SiteConfig:
         """Read a site configuration from a YAML file.

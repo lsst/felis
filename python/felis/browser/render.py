@@ -179,6 +179,83 @@ def _resolve_column(schema: Schema, ref: str) -> Column | str:
     return ref
 
 
+def _relationship_diagram(schema: Schema, site: SiteMap) -> str | None:
+    """Return a Mermaid entity-relationship diagram of a schema's foreign
+    keys.
+
+    Parameters
+    ----------
+    schema
+        The schema.
+    site
+        The site map, used to find the tables of referenced columns.
+
+    Returns
+    -------
+    str or `None`
+        The diagram's Mermaid text, or `None` if the schema has no foreign
+        keys. It shows the tables involved in foreign keys, in schema order,
+        with their primary and foreign key columns (name, then type), and one
+        many-to-one relationship per foreign key, labelled with its name.
+    """
+
+    def label(text: str) -> str:
+        return text.replace('"', "'")
+
+    def identifier(text: str) -> str:
+        return re.sub(r"[^A-Za-z0-9_-]", "_", text)
+
+    relationships: list[tuple[Table, Table, str]] = []
+    foreign_key_columns: dict[str, set[str]] = {}
+    for table in schema.tables:
+        for constraint in table.constraints:
+            if not isinstance(constraint, ForeignKeyConstraint):
+                continue
+            for ref in constraint.columns:
+                column = _resolve_column(schema, ref)
+                if isinstance(column, Column):
+                    foreign_key_columns.setdefault(table.name, set()).add(column.name)
+            referenced = _resolve_column(schema, constraint.referenced_columns[0])
+            if isinstance(referenced, Column):
+                relationships.append((table, site.table_of(referenced), constraint.name))
+    if not relationships:
+        return None
+
+    involved = {table.name for child, parent, _ in relationships for table in (child, parent)}
+    tables = [table for table in schema.tables if table.name in involved]
+    keys = {table.name: f"t{number}" for number, table in enumerate(tables)}
+
+    lines = ["erDiagram"]
+    for table in tables:
+        primary_key = table.primary_key or []
+        primary_key_columns = {
+            column.name
+            for column in (
+                _resolve_column(schema, ref)
+                for ref in (primary_key if isinstance(primary_key, list) else [primary_key])
+            )
+            if isinstance(column, Column)
+        }
+        lines.append(f'  {keys[table.name]}["{label(table.name)}"] {{')
+        for column in table.columns:
+            marks = [
+                mark
+                for mark, names in (
+                    ("PK", primary_key_columns),
+                    ("FK", foreign_key_columns.get(table.name, set())),
+                )
+                if column.name in names
+            ]
+            if marks:
+                # Mermaid draws its "type name" pairs in that order; writing
+                # the name first shows it in the first column.
+                lines.append(f"    {identifier(column.name)} {column.datatype} {', '.join(marks)}")
+        lines.append("  }")
+    for child, parent, name in relationships:
+        lines.append(f'  {keys[child.name]} }}o--|| {keys[parent.name]} : "{label(name)}"')
+    return "\n".join(lines)
+
+
 class ColumnTag(NamedTuple):
     """A tag shown after a column's name in the columns table."""
 
@@ -440,6 +517,10 @@ def _environment(site: SiteMap) -> Environment:
             _resolve_column(context["schema"], ref) for ref in ([refs] if isinstance(refs, str) else refs)
         ]
 
+    def relationship_diagram(schema: Schema) -> str | None:
+        # Mermaid relationship diagram of a schema's foreign keys.
+        return _relationship_diagram(schema, site)
+
     @pass_context
     def column_tags(context: Context, table: Table) -> dict[str, list[ColumnTag]]:
         # Tags for the columns of a table in the current schema.
@@ -455,6 +536,7 @@ def _environment(site: SiteMap) -> Environment:
         field=_column_field,
         version=_schema_version,
         column_tags=column_tags,
+        relationship_diagram=relationship_diagram,
     )
     return env
 
@@ -516,6 +598,7 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
     }
     env.globals["custom_stylesheets"] = list(custom_stylesheets)
     env.globals["site_title"] = config.title
+    env.globals["diagrams"] = config.diagrams
     site_icon = f"site-icon-{config.icon.name}" if config.icon else None
     env.globals["site_icon"] = site_icon
 
