@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 from pydantic import ValidationError
 
+from felis import __version__
 from felis.browser import SiteConfig, render_static_site
 from felis.datamodel import Schema
 
@@ -258,6 +259,9 @@ tables:
                 if table_path or schema_path:
                     self.assertEqual(home.get("href"), "../../index.html")
                 self.assertIsNone(soup.find(class_="site-icon"))
+                footer = soup.find("footer", class_="site-footer")
+                assert footer is not None
+                self.assertIn(f"Felis version: {__version__}", footer.get_text())
                 top_button = soup.find("button", id="scroll-to-top")
                 self.assertIsNotNone(top_button)
                 assert top_button is not None

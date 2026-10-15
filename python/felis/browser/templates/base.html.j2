@@ -50,6 +50,10 @@
         </header>
         <div class="content-body">
           {% block content %}{% endblock %}
+          <footer class="site-footer">
+            <span>Created: <strong>{{ build_date }}</strong></span>
+            <span>Felis version: <strong>{{ felis_version }}</strong></span>
+          </footer>
         </div>
       </main>
     </div>

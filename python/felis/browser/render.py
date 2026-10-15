@@ -30,6 +30,7 @@ import os
 import re
 import shutil
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -39,6 +40,7 @@ from jinja2.runtime import Context
 
 from felis.datamodel import BaseObject, Column, ForeignKeyConstraint, Schema, SchemaVersion, Table
 
+from .. import __version__
 from .config import SiteConfig
 
 logger = logging.getLogger(__name__)
@@ -599,6 +601,9 @@ def render_static_site(schemas: Iterable[Schema], output_dir: Path, config: Site
     env.globals["custom_stylesheets"] = list(custom_stylesheets)
     env.globals["site_title"] = config.title
     env.globals["diagrams"] = config.diagrams
+    env.globals["felis_version"] = __version__
+    today = datetime.now(UTC)
+    env.globals["build_date"] = f"{today:%b} {today.day}, {today.year}"
     site_icon = f"site-icon-{config.icon.name}" if config.icon else None
     env.globals["site_icon"] = site_icon
 
