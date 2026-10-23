@@ -1,0 +1,118 @@
+{% extends "base.html.j2" %}
+{# DataTables adds sorting, search and CSV export to the columns table. #}
+{% block head %}
+{{ page_macros.datatables_styles(buttons=true) }}
+{% endblock %}
+{% block scripts %}
+{{ page_macros.datatables_scripts(buttons=true) }}
+{% endblock %}
+{% block content %}
+          <section id="{{ table | anchor }}">
+          <h1>{{ table.name }}</h1>
+          {% if table.description %}
+          <p>{{ table.description }}</p>
+          {% endif %}
+          <h2 id="{{ table | anchor }}-columns">Columns</h2>
+          {% set fields = table | column_fields(show_empty_columns) %}
+          <table class="columns-table" data-export-name="{{ schema.name }}.{{ table.name }}">
+            <thead>
+              <tr>
+                {% for field in fields %}
+                <th data-field="{{ field }}">{{ field }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for column in table.columns %}
+              <tr id="{{ column | anchor }}">
+                {% for field in fields %}
+                <td data-field="{{ field }}"{% if field == "name" %} data-order="{{ column.name }}"{% endif %}>
+                  {{- column | field(field) -}}
+                  {% if field == "name" %}{{ page_macros.column_tags(tags.get(column.name, [])) }}{% endif -%}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if table.indexes %}
+          <h2 id="{{ table | anchor }}-indexes">Indexes</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Index</th>
+                <th>Definition</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for index in table.indexes %}
+              <tr id="{{ index | anchor }}">
+                <td>{{ index.name }}</td>
+                <td>
+                  {% if index.columns is not none %}
+                  {{- page_macros.column_links(index.columns | columns) -}}
+                  {% else %}
+                  {{ index.expressions | join(", ") }}
+                  {% endif %}
+                </td>
+                <td>{{ index.description }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+          {% if table.constraints %}
+          <h2 id="{{ table | anchor }}-constraints">Constraints</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Constraint</th>
+                <th>Type</th>
+                <th>Definition</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for constraint in table.constraints %}
+              <tr id="{{ constraint | anchor }}">
+                <td>{{ constraint.name }}</td>
+                <td>{{ constraint.type }}</td>
+                <td>
+                  {% if constraint.type == "Check" %}
+                  <code>{{ constraint.expression }}</code>
+                  {% elif constraint.type == "Unique" %}
+                  {{- page_macros.column_links(constraint.columns | columns) -}}
+                  {% elif constraint.type == "ForeignKey" %}
+                  {# &#32; is the space after each label: a plain space
+                     would be removed by the {{- that follows. #}
+                  <div>
+                    <strong>Columns:</strong>&#32;
+                    {{- page_macros.column_links(constraint.columns | columns) -}}
+                  </div>
+                  <div>
+                    <strong>References:</strong>&#32;
+                    {{- page_macros.column_links(constraint.referenced_columns | columns, with_table=true) -}}
+                  </div>
+                  {% if constraint.on_delete %}
+                  <div><strong>On Delete:</strong> {{ constraint.on_delete }}</div>
+                  {% endif %}
+                  {% if constraint.on_update %}
+                  <div><strong>On Update:</strong> {{ constraint.on_update }}</div>
+                  {% endif %}
+                  {% endif %}
+                  {% if constraint.deferrable %}
+                  <div><strong>Deferrable:</strong> true</div>
+                  {% if constraint.initially %}
+                  <div><strong>Initially:</strong> {{ constraint.initially }}</div>
+                  {% endif %}
+                  {% endif %}
+                </td>
+                <td>{{ constraint.description }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+          </section>
+{% endblock %}

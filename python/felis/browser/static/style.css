@@ -1,0 +1,931 @@
+/* Felis schema browser styles. */
+
+/*
+ * All built-in rules are in the "felis" cascade layer. Rules in stylesheets
+ * loaded after this one that are not in a layer take precedence over these
+ * regardless of selector specificity, so most themes only need to redefine
+ * the variables in :root.
+ */
+
+/* Third-party styles (DataTables, on table pages) go in their own layer,
+   below this one. */
+@layer datatables, felis;
+
+@layer felis {
+  :root {
+    /* Fonts. The site doesn't load any: these are used if installed, or a
+       site stylesheet can load one and set it here. */
+    --font-body: "Source Sans Pro", "Source Sans 3", "Noto Sans", sans-serif;
+    --font-mono: monospace;
+    --font-table: var(--font-body);
+    --line-height: 1.4;
+    --font-size-small: 0.9rem;
+    --font-size-table: 0.875rem;
+    --font-size-sidebar: 0.8125rem;
+    --font-size-search-message: 1.0625rem;
+    --font-weight-tag: 400;
+
+    /* Sizes and spacing */
+    --header-height: 56px;
+    --sidebar-width: 300px;
+    --sidebar-min-width: 220px;
+    --sidebar-max-width: 33vw;
+    --sidebar-collapsed-width: 30px;
+    --sidebar-padding: 0.75rem 1rem 1rem;
+    --content-padding: 1rem;
+    --cell-padding: 0.25rem 0.5rem;
+    --radius-search: 16px;
+    --radius-search-field: 8px;
+
+    /* Text */
+    --color-text: #1e293b;
+    --color-text-strong: #0f172a;
+    --color-muted: #475569;
+    --color-black: #000000;
+    --color-link: #006da8;
+    --color-icon: var(--color-text);
+    --color-icon-hover: var(--color-icon);
+    --color-tree-hover: #0f766e;
+
+    /* Backgrounds */
+    --color-white: #ffffff;
+    --color-page: #f4f6f9;
+    --color-surface: #f8fafc;
+    --color-current: #e9eef5;
+    --color-tag-primary-key: #fdf8dc;
+    --color-tag-foreign-key: #feeedf;
+    --color-tag-index: #eff8f2;
+    --color-tag-text: var(--color-muted);
+    --color-search-match: #fdf0b5;
+    --color-search-backdrop: rgb(15 23 42 / 0.3);
+
+    /* Shadows */
+    --shadow-search: 0 12px 32px rgb(15 23 42 / 0.2);
+
+    /* Borders */
+    --color-border: #dbe1ea;
+    --color-focus: var(--color-black);
+    --color-tag-primary-key-border: #e8d77f;
+    --color-tag-foreign-key-border: #efc195;
+    --color-tag-index-border: #a8d5b5;
+
+    /* Scrollbars and sidebar resizer */
+    --color-scrollbar-track: #f2f4f6;
+    --color-scrollbar: #bfc5cc;
+    --color-scrollbar-hover: #e6eaee;
+    --color-resizer-start: #d3dae3;
+    --color-resizer-end: #edf1f5;
+    --color-resizer-hover-start: #c1cad6;
+    --color-resizer-hover-end: #d8e0e8;
+  }
+
+  /* Base */
+
+  * {
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scrollbar) var(--color-scrollbar-track);
+  }
+
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--color-scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-scrollbar);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-hover);
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    line-height: var(--line-height);
+    background: var(--color-page);
+    color: var(--color-text);
+  }
+
+  a {
+    color: var(--color-link);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  code {
+    font-family: var(--font-mono);
+  }
+
+  /* Layout */
+
+  /* The sidebar's width is kept between its minimum and maximum widths (its
+     min-width and max-width), so the content and the resizer follow the same
+     limits. */
+  .layout {
+    display: flex;
+    height: 100vh;
+    margin-left: clamp(var(--sidebar-min-width), var(--sidebar-width), var(--sidebar-max-width));
+  }
+
+  /* The content pane fills the window next to the sidebar; below its header,
+     the content scrolls on its own, in both directions, so wide tables get a
+     scrollbar at the bottom of the pane rather than widening the page. */
+
+  .content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--color-white);
+  }
+
+  .content-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--content-padding);
+    /* The size container for 100cqw, used by the content pinned while the
+       columns table scrolls sideways (below). */
+    container-type: inline-size;
+    /* No elastic bounce past the ends of a sideways scroll (touchpads), which
+       would visibly move the pinned content. */
+    overscroll-behavior-x: none;
+  }
+
+  /* Start the page's content right below the pane's padding. */
+  .content-body > :first-child,
+  .content-body > section > :first-child {
+    margin-top: 0;
+  }
+
+  /* Page footer, at the end of the content pane: pushed to the bottom of
+     the pane on short pages (the pane is a flex column). */
+  .site-footer {
+    display: flex;
+    gap: 2.5rem;
+    margin-top: auto;
+    padding: 0.75rem 1rem 0;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .content-body > :has(+ .site-footer) {
+    margin-bottom: 1.5rem;
+  }
+
+  /* Header and breadcrumb */
+
+  .content-header {
+    display: flex;
+    flex: none;
+    align-items: center;
+    height: var(--header-height);
+    /* The buttons at the right are as far in from the edge as the site
+       icon is at the left of the sidebar header. */
+    padding: 0 2rem 0 var(--content-padding);
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .breadcrumb {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    height: 100%;
+    font-weight: 600;
+    color: var(--color-black);
+  }
+
+  /* Every breadcrumb item is a link, in the link color, including the
+     current page, last, which links to the page without any jumped-to
+     row. */
+  .breadcrumb a {
+    color: var(--color-link);
+  }
+
+  .scroll-to-top {
+    flex: none;
+    padding: 0.15rem 0.6rem;
+    font: inherit;
+    font-size: var(--font-size-small);
+    color: var(--color-text);
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .scroll-to-top:hover {
+    background: var(--color-surface);
+  }
+
+  .breadcrumb-separator {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .breadcrumb-separator-icon {
+    display: block;
+    width: 0.75rem;
+    height: 0.75rem;
+    stroke: currentColor;
+  }
+
+  /* Sidebar */
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-min-width);
+    max-width: var(--sidebar-max-width);
+    height: 100vh;
+    overflow: auto;
+    background: var(--color-white);
+  }
+
+  .sidebar > nav {
+    padding: var(--sidebar-padding);
+    font-size: var(--font-size-sidebar);
+  }
+
+  /* The header stays in place when the sidebar scrolls, down or sideways
+     (past a long name). */
+  .sidebar-header {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    height: var(--header-height);
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* The site icon, if configured, at the left of the sidebar header. Its
+     height is fixed for now; the width follows the image's proportions. */
+  /* Left-aligned with the sidebar items: the sidebar's padding plus the
+     tree's indent. */
+  .site-icon {
+    display: flex;
+    align-items: center;
+    padding-left: 2rem;
+  }
+
+  .site-icon img {
+    display: block;
+    width: auto;
+    height: 40px;
+  }
+
+  .sidebar-toggle {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: 0.5rem;
+    padding: 0.2rem;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-icon);
+    cursor: pointer;
+  }
+
+  /* The search button, opening the pop-up search, at the right of the
+     content header, left of the Top button, and styled like the sidebar
+     toggle. It stays in view when the sidebar is collapsed. */
+  .search-button {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    padding: 0.2rem;
+    font: inherit;
+    color: var(--color-icon);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .search-button:hover,
+  .sidebar-toggle:hover {
+    color: var(--color-icon-hover);
+  }
+
+  .search-button-icon {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .sidebar-toggle-icon {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .sidebar-resizer {
+    position: fixed;
+    top: 0;
+    left: clamp(var(--sidebar-min-width), var(--sidebar-width), var(--sidebar-max-width));
+    z-index: 99;
+    width: 3px;
+    height: 100vh;
+    background: linear-gradient(to right, var(--color-resizer-start), var(--color-resizer-end));
+    cursor: col-resize;
+    /* A finger dragging the resizer resizes the sidebar, not scrolls. */
+    touch-action: none;
+  }
+
+  .sidebar-resizer:hover {
+    background: linear-gradient(to right, var(--color-resizer-hover-start), var(--color-resizer-hover-end));
+  }
+
+  /* Collapsed sidebar */
+
+  body.sidebar-collapsed .layout {
+    margin-left: var(--sidebar-collapsed-width);
+  }
+
+  body.sidebar-collapsed .sidebar {
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+    max-width: var(--sidebar-collapsed-width);
+    overflow: hidden;
+    border-right: 1px solid var(--color-border);
+  }
+
+  body.sidebar-collapsed .sidebar > nav,
+  body.sidebar-collapsed .sidebar-resizer,
+  body.sidebar-collapsed .site-icon {
+    display: none;
+  }
+
+  body.sidebar-collapsed .sidebar-header {
+    justify-content: flex-start;
+  }
+
+  body.sidebar-collapsed .sidebar-toggle {
+    margin-left: 0;
+  }
+
+  /* Sidebar tree and page lists */
+
+  .tree,
+  .tree ul {
+    margin: 0;
+    padding-left: 1rem;
+    list-style: none;
+  }
+
+  .tree > li {
+    margin-bottom: 0.5rem;
+  }
+
+  .tree a {
+    white-space: nowrap;
+  }
+
+  .tree-node {
+    margin: 0.25rem 0;
+  }
+
+  .tree-node > summary {
+    padding: 0.1rem 0;
+    font-weight: 600;
+    color: var(--color-text-strong);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .tree-node > summary:hover {
+    color: var(--color-tree-hover);
+  }
+
+  /* The sidebar entry for the current page, marked by sidebar.js. The
+     negative margin keeps the text in place while the background extends a
+     little around it. */
+  .tree summary:has(> a[aria-current="page"]) {
+    margin: 0 -0.3rem;
+    padding-inline: 0.3rem;
+    background: var(--color-current);
+    border-radius: 4px;
+  }
+
+  .tree-node ul {
+    margin-top: 0.2rem;
+  }
+
+  .tree-section {
+    margin: 0.2rem 0 0.25rem 1rem;
+  }
+
+  .tree-section-heading {
+    font-weight: 500;
+  }
+
+  .tree-section-count {
+    margin-left: 0.3rem;
+    font-weight: 400;
+    color: var(--color-muted);
+  }
+
+  /* Columns, indexes and constraints are indented by about the width of
+     the section heading's disclosure triangle (1em), so they line up with
+     the heading's text. */
+  .tree-section > ul {
+    margin-top: 0;
+    padding-left: 1em;
+  }
+
+  /* Tables */
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-table);
+    font-size: var(--font-size-table);
+  }
+
+  th,
+  td {
+    padding: var(--cell-padding);
+    text-align: left;
+    vertical-align: top;
+    border: 1px solid var(--color-border);
+  }
+
+  th {
+    background: var(--color-surface);
+  }
+
+  tbody td {
+    background: var(--color-white);
+  }
+
+  /* The page's title, then section headings at the size of the browser's
+     h3, which they used to be. The gap below the title is set on the next
+     element, as margins don't collapse in the content pane (a flex
+     container). */
+  .content-body h1 {
+    margin: 0;
+    font-size: 1.6rem;
+  }
+
+  .content-body h1 + * {
+    margin-top: 0.4rem;
+  }
+
+  .content-body h2 {
+    margin: 1em 0;
+    font-size: 1.17em;
+  }
+
+  /* Keep the site description, or a schema's version and description, close
+     together and to the table below them. */
+  .site-description,
+  .schema-version,
+  .schema-description {
+    margin-bottom: 0;
+  }
+
+  .schema-version + .schema-description {
+    margin-top: 0.75rem;
+  }
+
+  :is(.site-description, .schema-version, .schema-description) + h2 {
+    margin-top: 1rem;
+  }
+
+  /* Keep the table of schemas or tables close to its heading: DataTables adds
+     space above the table, which is only needed below its controls on table
+     pages. */
+  .summary-heading {
+    margin-bottom: 0.5rem;
+  }
+
+  .dt-layout-table:has(.summary-table) {
+    margin-top: 0;
+  }
+
+  /* In the table of schemas or tables, names, versions and counts stay on
+     one line, and the description takes the remaining width. */
+  .summary-table td:not(:nth-last-child(2)) {
+    white-space: nowrap;
+  }
+
+  .summary-table .count {
+    width: 1%;
+  }
+
+  /* When jumping to a row from a link, keep the content pane scrolled fully
+     left instead of lining the row up with the pane's edge, which would
+     scroll past the padding and table border. */
+  tr[id] {
+    scroll-margin-left: calc(var(--content-padding) + 1px);
+  }
+
+  /* In the columns table, stop a jump just below the pinned header row
+     instead of underneath it. page.js sets --columns-header-height to the
+     header row's measured height; 2.5rem is the fallback. */
+  .columns-table tr[id] {
+    scroll-margin-top: var(--columns-header-height, 2.5rem);
+  }
+
+  /* Highlight the row a link jumped to (the column, index or constraint in
+     the URL's #fragment), including the pinned name cell. */
+  tr:target > td {
+    background: var(--color-current);
+  }
+
+  /* Relationship diagram on schema pages: the SVG drawn by Mermaid scales
+     down to the page width; before it is drawn (or without Mermaid), the
+     diagram text is shown. */
+  .schema-diagram svg {
+    display: block;
+    height: auto;
+  }
+
+  .schema-diagram pre.mermaid {
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+  }
+
+  .schema-diagram-actions {
+    font-size: var(--font-size-small);
+  }
+
+  /* "Open full size" is a button, as it runs a script, styled as a link. */
+  .schema-diagram-full {
+    padding: 0;
+    font: inherit;
+    color: var(--color-link);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .schema-diagram-full:hover {
+    text-decoration: underline;
+  }
+
+  /* Columns table: values stay on one line, except descriptions, which wrap
+     at a readable width. */
+
+  .columns-table td {
+    white-space: nowrap;
+  }
+
+  .columns-table [data-field="description"] {
+    min-width: 20rem;
+    white-space: normal;
+  }
+
+  /* Keep the header row visible at the top of the content pane while
+     scrolling down the columns table. The negative offset cancels the pane's
+     padding and the table's top border, so no scrolled text shows above the
+     header. Collapsed table borders don't move with sticky cells, so the
+     header's bottom border is drawn as a shadow. */
+  .columns-table th {
+    position: sticky;
+    top: calc(-1 * var(--content-padding) - 1px);
+    z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+
+  /* Tags after a column's name: primary key, foreign key and index, each with
+     its own background color. */
+  .column-tag {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.85em;
+    font-weight: var(--font-weight-tag);
+    color: var(--color-tag-text);
+    background: var(--color-page);
+    border: 1px solid var(--color-border);
+    border-radius: 7px;
+  }
+
+  .column-tag + .column-tag {
+    margin-left: 0.25rem;
+  }
+
+  .column-tag-primary-key {
+    background: var(--color-tag-primary-key);
+    border-color: var(--color-tag-primary-key-border);
+  }
+
+  .column-tag-foreign-key {
+    background: var(--color-tag-foreign-key);
+    border-color: var(--color-tag-foreign-key-border);
+  }
+
+  .column-tag-index {
+    background: var(--color-tag-index);
+    border-color: var(--color-tag-index-border);
+  }
+
+  /* Numbers are right-aligned, using DataTables' detection of numeric
+     columns. Every sort arrow sits just after its heading text (DataTables
+     puts it at the far right, or far left for numeric columns): the text no
+     longer stretches, so both are pushed to the left, or to the right for
+     numeric columns. */
+  .dataTable .dt-type-numeric {
+    text-align: right;
+  }
+
+  .dataTable .dt-column-header {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+
+  .dataTable .dt-column-header .dt-column-title {
+    flex-grow: 0;
+  }
+
+  /* Keep the DataTables bar (CSV button, row count and search box) in view
+     while the table scrolls sideways, and centre the row count in it. A
+     sticky element can only move within its parent, so the DataTables
+     container is made as wide as the table, and the bar as wide as the
+     visible pane. page.js sets --pane-width to the pane's visible content
+     width, which excludes its vertical scrollbar; 100cqw (with the content
+     pane as the size container) is the fallback, but includes the scrollbar,
+     so it shifts slightly at the end of the scroll. */
+  .dt-container {
+    width: fit-content;
+    min-width: 100%;
+  }
+
+  /* Likewise, only the columns table scrolls sideways on a table page: the
+     page's section is as wide as that table, and everything else in it (the
+     description, headings, and the index and constraint tables) is pinned at
+     the width of the visible pane. */
+  .content-body > section {
+    width: fit-content;
+    min-width: 100%;
+  }
+
+  .content-body > .site-footer,
+  .content-body > section > :not(.dt-container, .columns-table) {
+    position: sticky;
+    left: 0;
+    width: var(--pane-width, 100cqw);
+  }
+
+  .dt-container > .dt-layout-row:first-child {
+    position: sticky;
+    left: 0;
+    width: var(--pane-width, 100cqw);
+  }
+
+  .dt-container > .dt-layout-row:first-child .dt-info {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* In a narrow pane, the centred row count would overlap the search box,
+     so it follows the CSV button instead. */
+  @container (max-width: 45rem) {
+    .dt-container > .dt-layout-row:first-child .dt-info {
+      position: static;
+      transform: none;
+    }
+  }
+
+  .dataTable th.dt-type-numeric .dt-column-header {
+    justify-content: flex-end;
+  }
+
+  /* Pop-up search: a box near the top of the window, with the search field,
+     the results (scrolling inside the box) and a status line. It keeps its
+     full size whether or not there are results. */
+  .search-dialog {
+    width: min(40rem, calc(100vw - 2rem));
+    height: 70vh;
+    margin: 10vh auto auto;
+    padding: 0;
+    color: var(--color-text);
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-search);
+    box-shadow: var(--shadow-search);
+  }
+
+  .search-dialog::backdrop {
+    background: var(--color-search-backdrop);
+  }
+
+  .search-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .search-field {
+    display: flex;
+    flex: none;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .search-field input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.35rem 0.5rem;
+    font: inherit;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-search-field);
+  }
+
+  /* The focused search fields, here and above the columns table. */
+  .search-field input:focus,
+  .dt-search input:focus {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -1px;
+  }
+
+  .search-close {
+    flex: none;
+    padding: 0.2rem 0.45rem;
+    font: inherit;
+    color: var(--color-muted);
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .search-close:hover,
+  .search-close:focus-visible {
+    background: var(--color-surface);
+  }
+
+  /* Tabs choosing the kind of results: All, Schemas, Tables, ... each with
+     its number of results. */
+  .search-tabs {
+    display: flex;
+    flex: none;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .search-tab {
+    flex: none;
+    padding: 0.25rem 0.65rem;
+    font: inherit;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .search-tab:hover:not(:disabled) {
+    background: var(--color-surface);
+  }
+
+  .search-tab[aria-selected="true"] {
+    font-weight: 600;
+    color: var(--color-text-strong);
+    background: var(--color-current);
+  }
+
+  .search-tab:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .search-tab-count {
+    margin-left: 0.35rem;
+    font-weight: 400;
+    color: var(--color-muted);
+  }
+
+  .search-results {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* A message instead of results (e.g. before typing), in the middle of the
+     results area. */
+  .search-results:has(> .search-message) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-message {
+    max-width: 30rem;
+    margin: 0;
+    padding: 0.5rem;
+    font-size: var(--font-size-search-message);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  /* On the All tab, a heading before each kind of result. */
+  .search-group-heading {
+    padding: 0.6rem 0.9rem 0.25rem;
+    font-size: var(--font-size-small);
+    font-weight: 600;
+    color: var(--color-muted);
+  }
+
+  /* One result: its name and location on the first line, the start of its
+     description on the second. */
+  .search-result {
+    display: block;
+    padding: 0.35rem 0.9rem;
+    color: var(--color-text);
+  }
+
+  .search-result:hover {
+    text-decoration: none;
+  }
+
+  .search-result[aria-selected="true"] {
+    background: var(--color-current);
+  }
+
+  .search-result-heading {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+
+  .search-result-name {
+    font-weight: 600;
+    color: var(--color-link);
+    overflow-wrap: anywhere;
+  }
+
+  .search-result-location {
+    margin-left: auto;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  .search-result-ucd {
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
+  }
+
+  .search-result-description {
+    display: block;
+    overflow: hidden;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .search-result mark {
+    color: inherit;
+    background: var(--color-search-match);
+    border-radius: 2px;
+  }
+
+  .search-status {
+    flex: none;
+    margin: 0;
+    padding: 0.5rem 0.9rem;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    border-top: 1px solid var(--color-border);
+  }
+}

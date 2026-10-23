@@ -85,6 +85,114 @@ class CliTestCase(unittest.TestCase):
             ]
         )
 
+    def test_browser_with_config(self) -> None:
+        """Test browser command with a site configuration file."""
+        output_dir = os.path.join(self.tmpdir, "site")
+        for name in ("theme.css", "local.css"):
+            with open(os.path.join(self.tmpdir, name), "w", encoding="utf-8") as f:
+                f.write(":root { --color-link: red; }\n")
+        config_path = os.path.join(self.tmpdir, "site.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("title: SDM Schemas\nstylesheets:\n  - theme.css\n  - local.css\n")
+        run_cli(["browser", "--output-dir", output_dir, "--config", config_path, TEST_YAML])
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-1-theme.css")))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "assets", "custom-2-local.css")))
+        with open(os.path.join(output_dir, "index.html"), encoding="utf-8") as f:
+            self.assertIn("<title>SDM Schemas</title>", f.read())
+
+    def test_browser_with_invalid_config(self) -> None:
+        """Test browser command with an invalid site configuration file."""
+        config_path = os.path.join(self.tmpdir, "site.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("unknown: setting\n")
+        run_cli(
+            [
+                "browser",
+                "--output-dir",
+                os.path.join(self.tmpdir, "site"),
+                "--config",
+                config_path,
+                TEST_YAML,
+            ],
+            expect_error=True,
+        )
+
+    def test_browser_with_malformed_config(self) -> None:
+        """Test browser command with a site configuration file that isn't
+        valid YAML: it fails with an error message, not a traceback.
+        """
+        config_path = os.path.join(self.tmpdir, "site.yaml")
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("title: [unclosed\n")
+        run_cli(
+            [
+                "browser",
+                "--output-dir",
+                os.path.join(self.tmpdir, "site"),
+                "--config",
+                config_path,
+                TEST_YAML,
+            ],
+            expect_error=True,
+        )
+
+    def test_browser_resource(self) -> None:
+        """Test browser command with a schema given as a resource URI."""
+        output_dir = os.path.join(self.tmpdir, "site")
+        run_cli(
+            [
+                "browser",
+                "--output-dir",
+                output_dir,
+                "resource://felis/config/tap_schema/tap_schema_std.yaml",
+            ],
+            id_generation=True,
+        )
+        self.assertTrue(os.path.isfile(os.path.join(output_dir, "schemas", "tap-schema", "index.html")))
+
+    def test_browser_missing_file(self) -> None:
+        """Test browser command with a schema file that doesn't exist."""
+        run_cli(
+            [
+                "browser",
+                "--output-dir",
+                os.path.join(self.tmpdir, "site"),
+                os.path.join(self.tmpdir, "missing.yaml"),
+            ],
+            expect_error=True,
+        )
+
+    def test_browser_unresolved_column(self) -> None:
+        """Test browser command with an index on a column that isn't in the
+        schema: it fails with an error message.
+        """
+        schema_path = os.path.join(self.tmpdir, "refs.yaml")
+        with open(schema_path, "w", encoding="utf-8") as f:
+            f.write(
+                "name: refs\n"
+                "'@id': '#refs'\n"
+                "tables:\n"
+                "  - name: data\n"
+                "    '@id': '#data'\n"
+                "    columns:\n"
+                "      - {name: id, '@id': '#data.id', datatype: int, description: Key}\n"
+                "    indexes:\n"
+                "      - {name: idx_missing, '@id': '#idx_missing', columns: ['#data.missing']}\n"
+            )
+        run_cli(
+            ["browser", "--output-dir", os.path.join(self.tmpdir, "site"), schema_path], expect_error=True
+        )
+
+    def test_browser_non_yaml_file(self) -> None:
+        """Test browser command with an input file that isn't a schema."""
+        bad_file = os.path.join(self.tmpdir, "not_yaml.txt")
+        with open(bad_file, "w", encoding="utf-8") as f:
+            f.write("hello")
+        run_cli(
+            ["browser", "--output-dir", os.path.join(self.tmpdir, "site"), bad_file],
+            expect_error=True,
+        )
+
     def test_validate(self) -> None:
         """Test validate command."""
         run_cli(["validate", TEST_YAML])

@@ -1,0 +1,29 @@
+{% extends "base.html.j2" %}
+{# DataTables adds sorting to the table of tables. #}
+{% block head %}
+{{ page_macros.datatables_styles() }}
+{% endblock %}
+{% block scripts %}
+{{ page_macros.datatables_scripts() }}
+{% endblock %}
+{% block content %}
+          <h1>{{ schema.name }}</h1>
+          {% if schema.version %}
+          <p class="schema-version"><strong>Version:</strong> {{ schema | version }}</p>
+          {% endif %}
+          {% if schema.description %}
+          <p class="schema-description">{{ schema.description }}</p>
+          {% endif %}
+{{ page_macros.summary_table(schema.tables, "columns", "tables", "Tables") }}
+          {% set diagram = schema | relationship_diagram if diagrams else none %}
+          {% if diagram %}
+          <h2 id="relationships">Relationships</h2>
+          {# Drawn by Mermaid in page.js; shown as text if it can't load. #}
+          <div class="schema-diagram">
+            <pre class="mermaid">
+{{ diagram }}
+            </pre>
+            <p class="schema-diagram-actions" hidden><button type="button" class="schema-diagram-full">Open full size</button></p>
+          </div>
+          {% endif %}
+{% endblock %}
