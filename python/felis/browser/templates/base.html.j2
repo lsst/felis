@@ -1,0 +1,104 @@
+{% import "page_macros.j2" as page_macros with context %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ site_title }}{% if schema is defined %} - {{ schema.name }}{% endif %}{% if table is defined %} - {{ table.name }}{% endif %}</title>
+    {% if site_favicon %}
+    <link rel="icon" href="{{ site_root }}/assets/{{ site_favicon }}" />
+    {% endif %}
+    <link rel="stylesheet" href="{{ site_root }}/assets/style.css" />
+    {% block head %}{% endblock %}
+    {% for stylesheet in custom_stylesheets %}
+    <link rel="stylesheet" href="{{ site_root }}/assets/{{ stylesheet }}" />
+    {% endfor %}
+  </head>
+  <body data-site-root="{{ site_root }}"{% if schema is defined %} data-schema-path="{{ schema | path }}"{% endif %}{% if table is defined %} data-table-path="{{ table | path }}"{% endif %}>
+    {# Collapse the sidebar before the page is drawn if it was collapsed on
+       the previous page (sidebar.js saves the choice). #}
+    <script>
+      try {
+        if (sessionStorage.getItem("felis-sidebar-collapsed") === "true") {
+          document.body.classList.add("sidebar-collapsed");
+        }
+      } catch (e) {}
+    </script>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          {% if site_icon %}
+          <a class="site-icon" href="{{ site_root }}/index.html"><img src="{{ site_root }}/assets/{{ site_icon }}" alt="{{ site_title }}" /></a>
+          {% endif %}
+          <button id="sidebar-toggle" type="button" class="sidebar-toggle" aria-label="Toggle sidebar" aria-controls="sidebar-tree" aria-expanded="true" title="Toggle sidebar">
+            <svg viewBox="0 0 24 24" class="sidebar-toggle-icon" aria-hidden="true" focusable="false">
+              <rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M9 5.2v13.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <nav id="sidebar-tree" aria-label="Schemas"></nav>
+      </aside>
+      <div class="sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
+
+      <main class="content">
+        <header class="content-header">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            {% if schema is defined %}
+            <a href="{{ site_root }}/index.html">{{ site_title }}</a>
+            {{ page_macros.breadcrumb_separator() }}
+            {% if table is defined %}
+            <a href="{{ schema | href }}">{{ schema.name }}</a>
+            {{ page_macros.breadcrumb_separator() }}
+            {# A link to the page itself, without any #fragment, clearing a
+               jumped-to row. #}
+            <a href="{{ table | href }}" aria-current="page">{{ table.name }}</a>
+            {% else %}
+            <a href="{{ schema | href }}" aria-current="page">{{ schema.name }}</a>
+            {% endif %}
+            {% else %}
+            <a href="{{ site_root }}/index.html" aria-current="page">{{ site_title }}</a>
+            {% endif %}
+          </nav>
+          {# Opens the pop-up search (search.js). #}
+          <button id="search-open" type="button" class="search-button" title="Search (Ctrl+K)" aria-label="Search" aria-keyshortcuts="Control+K">
+            <svg viewBox="0 0 24 24" class="search-button-icon" aria-hidden="true" focusable="false">
+              <circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button id="scroll-to-top" type="button" class="scroll-to-top" title="Scroll to the top of the page">Top</button>
+        </header>
+        <div class="content-body">
+          {% block content %}{% endblock %}
+          <footer class="site-footer">
+            {% if maintainer %}
+            <span>Maintained by <strong>
+              {%- if maintainer.url %}<a href="{{ maintainer.url }}">{{ maintainer.name }}</a>{% else %}{{ maintainer.name }}{% endif -%}
+            </strong></span>
+            {% endif %}
+            <span>Created on <strong>{{ build_date }}</strong></span>
+            <span>Built with <strong><a href="https://felis.lsst.io/">Felis</a></strong></span>
+          </footer>
+        </div>
+      </main>
+    </div>
+    {# The pop-up search, filled in by search.js. #}
+    <dialog id="search-dialog" class="search-dialog" aria-label="Search the schemas">
+      <div class="search-panel">
+        <div class="search-field">
+          <input id="search-input" type="text" placeholder="Search schemas, tables and columns" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" aria-label="Search" />
+          <button id="search-close" type="button" class="search-close" title="Close (Esc)" aria-label="Close">✕</button>
+        </div>
+        <div id="search-tabs" class="search-tabs" role="tablist" aria-label="Kinds of results"></div>
+        <div id="search-results" class="search-results" role="listbox" aria-label="Results"></div>
+        <p id="search-status" class="search-status" aria-live="polite"></p>
+      </div>
+    </dialog>
+    {% block scripts %}{% endblock %}
+    <script src="{{ site_root }}/assets/nav-data.js"></script>
+    <script src="{{ site_root }}/assets/sidebar.js"></script>
+    <script src="{{ site_root }}/assets/page.js"></script>
+    <script src="{{ site_root }}/assets/search.js"></script>
+  </body>
+</html>

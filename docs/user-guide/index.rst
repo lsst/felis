@@ -12,5 +12,6 @@ User Guide
    validation
    databases
    tap
+   browser
    cli
    examples

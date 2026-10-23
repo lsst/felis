@@ -1,0 +1,1 @@
+Added the ``browser`` command, which generates a static HTML site for browsing and searching schemas, configured with an optional YAML file.
