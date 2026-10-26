@@ -25,12 +25,15 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
+from pathlib import Path
 from typing import IO
 
 import click
+import yaml
 from pydantic import ValidationError
 
 from . import __version__
+from .browser import SiteConfig, render_static_site
 from .datamodel import Schema
 from .db.database_context import create_database_context
 from .diff import DatabaseDiff, FormattedSchemaDiff, SchemaDiff
@@ -648,6 +651,75 @@ def dump(
         elif format == "json":
             schema.dump_json(f, strip_ids=strip_ids, sort_columns=sort_columns)
     logger.info("Dumped '%s' to '%s'", uris[0], uris[1])
+
+
+@cli.command("browser", help="Generate a static schema browser site from one or more Felis schemas")
+@click.option(
+    "--output-dir",
+    type=click.Path(file_okay=False, dir_okay=True),
+    required=True,
+    help="Output directory for generated static HTML; files already in it are kept",
+)
+@click.option(
+    "--config",
+    "config_file",
+    type=click.Path(exists=True, dir_okay=False),
+    help="Site configuration file (YAML) setting how the site looks",
+)
+@click.argument("uris", nargs=-1, type=str, required=True)
+@click.pass_context
+def browser(
+    ctx: click.Context,
+    output_dir: str,
+    config_file: str | None,
+    uris: tuple[str, ...],
+) -> None:
+    """Generate a static HTML browser for one or more Felis schemas.
+
+    Parameters
+    ----------
+    output_dir
+        The directory to write the site to.
+    config_file
+        The site configuration file, if any.
+    uris
+        URIs of the Felis schemas to include. These can be relative or
+        absolute file paths or a URI with a supported scheme such as
+        ``resource://`` for package resources.
+    """
+    try:
+        config = SiteConfig.from_file(Path(config_file)) if config_file else SiteConfig()
+    except (ValidationError, yaml.YAMLError, OSError) as e:
+        raise click.ClickException(f"Invalid site configuration '{config_file}': {e}") from e
+
+    schemas: list[Schema] = []
+    # Sorted, so which of two schemas with the same name gets the "-2" in its
+    # page names doesn't depend on the order the files are given in.
+    for uri in sorted(uris):
+        try:
+            schema = Schema.from_uri(
+                uri,
+                context={
+                    "id_generation": ctx.obj["id_generation"],
+                    "column_ref_index_increment": ctx.obj["column_ref_index_increment"],
+                },
+            )
+        except ValidationError as e:
+            raise click.ClickException(f"Schema validation failed for '{uri}': {e}") from e
+        except Exception as e:
+            raise click.ClickException(f"Failed loading schema '{uri}': {e}") from e
+        schemas.append(schema)
+
+    try:
+        render_static_site(
+            schemas=schemas,
+            output_dir=Path(output_dir),
+            config=config,
+        )
+    except Exception as e:
+        raise click.ClickException(f"Failed rendering browser site: {e}") from e
+
+    logger.info("Generated a browser site with %d schema(s) at '%s'", len(schemas), output_dir)
 
 
 if __name__ == "__main__":

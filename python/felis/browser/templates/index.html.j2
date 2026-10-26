@@ -1,0 +1,15 @@
+{% extends "base.html.j2" %}
+{# DataTables adds sorting to the table of schemas. #}
+{% block head %}
+{{ page_macros.datatables_styles() }}
+{% endblock %}
+{% block scripts %}
+{{ page_macros.datatables_scripts() }}
+{% endblock %}
+{% block content %}
+          <h1>{{ site_title }}</h1>
+          {% if site_description %}
+          <p class="site-description">{{ site_description }}</p>
+          {% endif %}
+{{ page_macros.summary_table(schemas, "tables", "schemas", "Schemas", versions=true) }}
+{% endblock %}

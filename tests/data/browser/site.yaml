@@ -1,0 +1,13 @@
+# Site configuration for the schema browser tests, with every setting.
+title: Test Schemas
+description: "Schemas for <b>testing</b>: tables & columns."
+icon: logo.svg
+favicon: favicon.svg
+stylesheets:
+  - theme.css
+  - local.css
+maintainer:
+  name: Test Observatory
+  url: https://example.org/
+diagrams: true
+show_empty_columns: true

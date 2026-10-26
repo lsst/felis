@@ -48,7 +48,9 @@ def run_cli(
         The logging level to use, by default logging.DEBUG so that all messages
         are emitted.
     expect_error : bool
-        Whether to expect an error, by default False.
+        Whether to expect the command to fail with an error message, by
+        default False. A crash with an unhandled exception still fails the
+        check.
     print_cmd : bool
         Whether to print the command, by default False.
     print_output : bool
@@ -73,5 +75,10 @@ def run_cli(
         print(result.output)
     if expect_error:
         assert result.exit_code != 0
+        # The command should fail with an error message, through click, not
+        # crash with an unhandled exception.
+        assert result.exception is None or isinstance(result.exception, SystemExit), (
+            f"Command crashed instead of reporting an error: {result.exception!r}"
+        )
     else:
         assert result.exit_code == 0, result.output
