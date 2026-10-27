@@ -10,6 +10,7 @@ version:
   - v1
   - v2
   - v3
+displayName: Test Serialization
 tables:
 - name: test_table
   '@id': '#test_table'

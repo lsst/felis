@@ -1275,6 +1275,9 @@ class Schema(BaseObject, Generic[T]):
     version: SchemaVersion | str | None = None
     """The version of the schema."""
 
+    display_name: str | None = Field(None, alias="displayName")
+    """A user-friendly name to display for the schema."""
+
     resources: dict[str, Resource] = Field(default_factory=dict)
     """External resources referenced by this schema."""
 
