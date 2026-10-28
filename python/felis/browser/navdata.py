@@ -49,7 +49,7 @@ class _NavData:
         return {"schemas": [self._schema(schema) for schema in self._site.schemas]}
 
     def _schema(self, schema: Schema) -> dict[str, Any]:
-        tables = [self._table(table) for table in schema.tables]
+        tables = [self._table(table) for table in _sorted_by_name(schema.tables)]
         return self._entry(schema, path=self._site.path(schema), tables=tables)
 
     def _table(self, table: Table) -> dict[str, Any]:

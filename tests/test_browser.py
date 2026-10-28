@@ -160,8 +160,8 @@ class BrowserSiteTestCase(unittest.TestCase):
 
     def test_navigation_data(self) -> None:
         """The navigation data, from which the sidebar tree and the search
-        are built, lists the schema and its tables, with each table's
-        columns, indexes and constraints sorted by name.
+        are built, lists the schema's tables and each table's columns,
+        indexes and constraints, all sorted by name.
         """
         nav = read_nav(self.site)
 
@@ -201,23 +201,6 @@ class BrowserSiteTestCase(unittest.TestCase):
                                 ),
                             },
                             {
-                                "name": "orders",
-                                "path": "schemas/sales/orders.html",
-                                "anchor": "table-orders",
-                                "description": "Customer orders",
-                                "columns": entries(
-                                    ("customer_id", "Customer identifier"),
-                                    ("note", "Order note"),
-                                    ("order_date", "Order date"),
-                                    ("order_id", "Unique order identifier"),
-                                    kind="column",
-                                ),
-                                "indexes": [],
-                                "constraints": entries(
-                                    ("fk_customer_id", "Foreign key to customers"), kind="constraint"
-                                ),
-                            },
-                            {
                                 "name": "items",
                                 "path": "schemas/sales/items.html",
                                 "anchor": "table-items",
@@ -248,6 +231,23 @@ class BrowserSiteTestCase(unittest.TestCase):
                                 ),
                                 "indexes": [],
                                 "constraints": [],
+                            },
+                            {
+                                "name": "orders",
+                                "path": "schemas/sales/orders.html",
+                                "anchor": "table-orders",
+                                "description": "Customer orders",
+                                "columns": entries(
+                                    ("customer_id", "Customer identifier"),
+                                    ("note", "Order note"),
+                                    ("order_date", "Order date"),
+                                    ("order_id", "Unique order identifier"),
+                                    kind="column",
+                                ),
+                                "indexes": [],
+                                "constraints": entries(
+                                    ("fk_customer_id", "Foreign key to customers"), kind="constraint"
+                                ),
                             },
                         ],
                     }
