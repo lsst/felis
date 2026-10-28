@@ -23,7 +23,8 @@
               </tr>
             </thead>
             <tbody>
-              {% for column in table.columns %}
+              {# Columns by name, not in the order of the schema's YAML file. #}
+              {% for column in table.columns | sorted_by_name %}
               <tr id="{{ column | anchor }}">
                 {% for field in fields %}
                 <td data-field="{{ field }}"{% if field == "name" %} data-order="{{ column.name }}"{% endif %}>

@@ -327,7 +327,7 @@ class BrowserSiteTestCase(unittest.TestCase):
 
     def test_schema_page(self) -> None:
         """The schema page shows the schema's description, and lists each table
-        with its description and number of columns.
+        by name with its description and number of columns.
         """
         soup = self.page("schemas/sales/index.html")
         self.assertEqual(soup.find(class_="schema-description").get_text(), "Simple sales schema")
@@ -338,22 +338,22 @@ class BrowserSiteTestCase(unittest.TestCase):
             [cell_texts(row) for row in table.select("tbody tr")],
             [
                 ["customers", "Customer information", "3"],
-                ["orders", "Customer orders", "4"],
                 ["items", "Items", "5"],
                 ["order_items", "Order items", "2"],
+                ["orders", "Customer orders", "4"],
             ],
         )
 
     def test_columns_table(self) -> None:
-        """A table page's columns table has a row for each column, in the
-        schema's order, with the value of each column field.
+        """A table page's columns table has a row for each column, by name,
+        with the value of each column field.
         """
         table = self.page("schemas/sales/customers.html").find("table", class_="columns-table")
         headers = [th.get_text() for th in table.find_all("th")]
         rows = {
             row["id"]: dict(zip(headers, cell_texts(row), strict=True)) for row in table.select("tbody tr")
         }
-        self.assertEqual(list(rows), ["column-customer-id", "column-name", "column-address"])
+        self.assertEqual(list(rows), ["column-address", "column-customer-id", "column-name"])
         name = rows["column-name"]
         # The name cell also holds the column's tags.
         self.assertEqual(name["name"], "name indexed")
