@@ -345,15 +345,15 @@ class BrowserSiteTestCase(unittest.TestCase):
         )
 
     def test_columns_table(self) -> None:
-        """A table page's columns table has a row for each column, in the
-        schema's order, with the value of each column field.
+        """A table page's columns table has a row for each column, by name,
+        with the value of each column field.
         """
         table = self.page("schemas/sales/customers.html").find("table", class_="columns-table")
         headers = [th.get_text() for th in table.find_all("th")]
         rows = {
             row["id"]: dict(zip(headers, cell_texts(row), strict=True)) for row in table.select("tbody tr")
         }
-        self.assertEqual(list(rows), ["column-customer-id", "column-name", "column-address"])
+        self.assertEqual(list(rows), ["column-address", "column-customer-id", "column-name"])
         name = rows["column-name"]
         # The name cell also holds the column's tags.
         self.assertEqual(name["name"], "name indexed")
