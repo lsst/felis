@@ -14,7 +14,8 @@
           {% if schema.description %}
           <p class="schema-description">{{ schema.description }}</p>
           {% endif %}
-{{ page_macros.summary_table(schema.tables, "columns", "tables", "Tables") }}
+{# Tables by name, not in the order of the schema's YAML file. #}
+{{ page_macros.summary_table(schema.tables | sorted_by_name, "columns", "tables", "Tables") }}
           {% set diagram = schema | relationship_diagram if diagrams else none %}
           {% if diagram %}
           <h2 id="relationships">Relationships</h2>

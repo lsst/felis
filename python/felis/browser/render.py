@@ -43,7 +43,7 @@ from .columns import _column_field, _column_tags, _table_column_fields
 from .config import SiteConfig
 from .diagram import _RelationshipDiagram
 from .navdata import _NavData
-from .schemas import _resolve_column, _schema_version, _version_order
+from .schemas import _resolve_column, _schema_version, _sorted_by_name, _version_order
 from .sitemap import SiteMap, _relative_href
 
 _ASSETS = ("style.css", "sidebar.js", "page.js", "search.js")
@@ -91,6 +91,7 @@ class _TemplateFilters:
             "column_fields": _table_column_fields,
             "version": _schema_version,
             "version_order": _version_order,
+            "sorted_by_name": _sorted_by_name,
         }
 
 

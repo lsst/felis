@@ -327,7 +327,7 @@ class BrowserSiteTestCase(unittest.TestCase):
 
     def test_schema_page(self) -> None:
         """The schema page shows the schema's description, and lists each table
-        with its description and number of columns.
+        by name with its description and number of columns.
         """
         soup = self.page("schemas/sales/index.html")
         self.assertEqual(soup.find(class_="schema-description").get_text(), "Simple sales schema")
@@ -338,9 +338,9 @@ class BrowserSiteTestCase(unittest.TestCase):
             [cell_texts(row) for row in table.select("tbody tr")],
             [
                 ["customers", "Customer information", "3"],
-                ["orders", "Customer orders", "4"],
                 ["items", "Items", "5"],
                 ["order_items", "Order items", "2"],
+                ["orders", "Customer orders", "4"],
             ],
         )
 
