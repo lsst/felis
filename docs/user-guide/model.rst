@@ -89,12 +89,11 @@ Table
 A :py:class:`table <felis.datamodel.Table>` represents a collection of
 columns along with their indexes and constraints and has these attributes:
 
-:``columns``: The list of columns in the table. (**Required**)
+:``columns``: The list of :ref:`columns <Column>` in the table. (**Required**)
 :``primaryKey``: The ID of the table's primary key column or a list of IDs that make up a composite primary
    key.
-:``constraints``: The list of constraints for the table. Refer to the :ref:`Constraint` section for more
-   information.
-:``indexes``: The list of indexes for the table. Refer to the :ref:`Index` section for more information.
+:``constraints``: The list of :ref:`constraints <Constraint>` for the table.
+:``indexes``: The list of :ref:`indexes <Index>` for the table.
 
 A table may also have the following attributes:
 
@@ -105,6 +104,8 @@ A table may also have the following attributes:
 :``mysql:engine``: The
    `MySQL storage engine <https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html>`__ for the table.
    (Default: ``MyISAM``)
+
+.. _Column:
 
 ******
 Column
