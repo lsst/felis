@@ -58,6 +58,7 @@ __all__ = (
     "BaseObject",
     "CheckConstraint",
     "Column",
+    "ColumnGroup",
     "ColumnOverrides",
     "ColumnResourceRef",
     "Constraint",
