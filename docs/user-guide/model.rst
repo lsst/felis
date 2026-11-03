@@ -375,8 +375,8 @@ a rule that enforces referential integrity between two tables.
 The constraint is defined by a column in the current table that references a column in another table.
 Foreign key constraints have the following additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the foreign key.
-   This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
+:``columns``: The IDs of one or more columns in the current table that are part of the foreign key.
+   (**Required**)
 :``referencedColumns``: The columns referenced by the foreign key.
    This should be one or more ``@id`` values pointing to columns in another table. (**Required**)
 :``on_update``: The action to take when the referenced column is updated.
@@ -408,8 +408,8 @@ that enforces uniqueness of values in a column or set of columns.
 The constraint is defined by one or more columns in the table. Unique constraints have the following
 additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the unique constraint.
-   This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
+:``columns``: The IDs of one or more columns in the current table that are part of the unique constraint.
+   (**Required**)
 
 .. _Index:
 
