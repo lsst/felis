@@ -121,8 +121,8 @@ Columns have the following primary attributes:
 :``length``: The length of the column. This is required for the ``char``, ``string``, ``unicode``, and
    ``binary`` datatypes and is ignored, with a warning, for all other types.
 :``nullable``: A boolean flag indicating whether this column can be null. (Default: ``true``)
-:``precision``: The precision of the column. This is current only applicable to columns with the
-   ``timestamp`` datatype.
+:``precision``: The fractional seconds precision of the column. This is currently only applicable to columns
+   with the ``timestamp`` datatype. If not set, the default precision of the database being used applies.
 :``value``: The default value for this column.
 
 A column may also have the following optional properties:
