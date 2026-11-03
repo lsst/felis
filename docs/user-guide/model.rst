@@ -2,88 +2,110 @@
 Data Model
 ##########
 
-Felis's `data model <../dev/internals.html#module-felis.datamodel>`__ is defined by a set of
-`Pydantic <https://docs.pydantic.dev/latest/>`__ classes defining the semantics of tabular data.
+Felis's :py:mod:`data model <felis.datamodel>` is defined by a set of
+`Pydantic <https://docs.pydantic.dev/latest/>`__ classes representing the semantics of an astronomical data catalog.
 In addition to the standard conceptual constructs of a relational database schema, such as tables and columns,
 Felis provides a way to attach extra metadata to these elements, like units of measurement on columns.
+
+Unless otherwise noted, all of the data model fields shown below are optional and default to ``null``
+or an empty data structure where applicable, e.g., an empty list or dictionary.
+Fields marked (**Required**) after the description are required by the data model and not including them will
+result in a validation error at runtime when loading the schema from YAML data.
+Fields with a non-null or non-empty default show that in
+parentheses after the description as
+(Default: **value**).
+
+*************
+Common Fields
+*************
+
+The following fields apply to all database objects in the model: schemas,
+tables, columns, column groups, constraints, and indexes.
+
+:``name``: The name of the database object. When instantiating a schema in a database, this is typically used to name the object in Data Manipulation
+   Language (DML). (**Required**)
+:``description``: A textual description of the object.
+:``@id``: A unique identifier for the object. (**Required**)
+:``votable:utype``: VOTable utype (usage-specific or unique type) of the object,
+   as defined in the `VOTable specification
+   <https://www.ivoa.net/Documents/VOTable/20230913/WD-VOTable-1.5-20230913.html>`__.
+
+These common fields are not repeated for each specific database object type defined below.
+
+.. admonition:: ID Generation
+   :class: note
+
+   Though IDs are technically required, the CLI enables ID generation by default.
+   When :option:`felis --id-generation` is used, Felis fills in missing ``@id`` values:
+   ``#<schema name>`` for schemas, ``#<table name>`` for tables, ``#<table name>.<column name>`` for columns,
+   and ``#<name>`` for constraints and indexes.
+   Without this option, these IDs must be supplied.
 
 ******
 Schema
 ******
 
-A `schema <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Schema>`__ is the top-level object
+A :py:class:`schema <felis.datamodel.Schema>` is the top-level object
 in the data model and represents a collection of tables along with their indexes and constraints.
-A schema is defined by a name and will be instantiated as a
-`schema object in PostgreSQL <https://www.postgresql.org/docs/13/ddl-schemas.html>`__ using ``CREATE SCHEMA``
-and a `database object in MySQL <https://dev.mysql.com/doc/refman/8.4/en/database-use.html>`__ with ``CREATE
+A Felis schema will be instantiated as a
+`schema in PostgreSQL <https://www.postgresql.org/docs/13/ddl-schemas.html>`__ using ``CREATE SCHEMA``
+or a `database in MySQL <https://dev.mysql.com/doc/refman/8.4/en/database-use.html>`__ with ``CREATE
 DATABASE``.
 
 Schemas may contain the following fields:
 
-:``name``: The name of this schema. This is the name that will be used to create the schema in the database.
-:``@id``: An identifier for this schema. This may be used for relating schemas together at a higher level. Typically, the name of the schema can be used as the id.
-:``description``: A textual description of this schema.
-:``tables``: The list of tables in the schema. A schema must have one or more tables.
-:``version``: Optional schema version description.
+:``tables``: The list of tables in the schema. A schema must have one or more tables. (**Required**)
+:``version``: Schema version description such as ``2.3.1``.
 
 **************
 Schema Version
 **************
 
-A `schema version <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.SchemaVersion>`__ can be used
+A :py:class:`schema version <felis.datamodel.SchemaVersion>` can be used
 to track changes to a schema over time.
 The version is defined by either a simple string or a more complex version object.
-Felis does not enforce any particular format for version strings.
 A version string could simply be defined as ``v1``, for instance.
 
-The `schema version <../dev/internals/felis.datamodel.SchemaVersion.html>`_ object has the following
+The :py:class:`schema version <felis.datamodel.SchemaVersion>` object has the following
 attributes:
 
-:``current``: The current version of the schema.
+:``current``: The current version of the schema. (**Required**)
 :``compatible``: A list of fully compatible versions.
 :``read_compatible``: A list of versions that are read-compatible. A read compatible version is one where a database created with the older version can be read by the newer version. An example of a non-read compatible change would be removing a column from a table.
 
-While Felis does not enforce any particular format for version strings, it is recommended to use a format that
-can be compared using `semantic versioning <https://semver.org/>`__.
+While Felis does not enforce any particular format for version strings, it is recommended to use `semantic versioning <https://semver.org/>`__ conventions or similar.
 
 *****
 Table
 *****
 
-A `table <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Table>`__ represents a collection of
+A :py:class:`table <felis.datamodel.Table>` represents a collection of
 columns along with their indexes and constraints and has these attributes:
 
-:``name``: The name of this table. This is the name that will be used to create the table in the database.
-:``@id``: A unique identifier for this table.
-:``description``: A textual description of this table.
-:``columns``: The list of columns in the table.
+:``columns``: The list of columns in the table. (**Required**)
 :``primaryKey``: The ID of the table's primary key column or a list of IDs that make up a composite primary key.
 :``constraints``: The list of constraints for the table. Refer to the :ref:`Constraint` section for more information.
 :``indexes``: The list of indexes for the table. Refer to the :ref:`Index` section for more information.
 
-A table may also have the following optional attributes:
+A table may also have the following attributes:
 
 :``tap:table_index``: The index of this table in a TAP schema. This is used to order the tables in public presentations of the schema.
 :``mysql:charset``: The `MySQL character set <https://dev.mysql.com/doc/refman/8.4/en/charset-charsets.html>`__ for the table.
-:``mysql:engine``: The `MySQL storage engine <https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html>`__ for the table.
+:``mysql:engine``: The `MySQL storage engine <https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html>`__ for the table. (Default: ``MyISAM``)
 
 ******
 Column
 ******
 
-A `column <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Column>`__ represents a single field
-in a table.
-A column has a name and a data type and may have additional metadata like units of measurement.
+A :py:class:`column <felis.datamodel.Column>` represents a single field
+in a table and may have additional metadata like units of measurement.
 
 Columns have the following primary attributes:
 
-:``name``: The name of this column. This is the name that will be used to create the column in the database.
-:``@id``: A unique identifier for this column.
-:``description``: A textual description of this column.
-:``datatype``: The data type of this column. Valid datatypes are defined by the `Felis type system <../dev/internals.html#module-felis.types>`__.
-:``autoincrement``: A boolean flag indicating whether this column is auto-incrementing.
+:``datatype``: The data type of this column. Valid datatypes are defined by the :py:mod:`Felis type system <felis.types>`. (**Required**)
+:``autoincrement``: A boolean flag indicating whether this column is auto-incrementing. (Default: ``false``)
 :``length``: The length of the column. This is only applicable to certain data types.
-:``nullable``: A boolean flag indicating whether this column can be null.
+:``nullable``: A boolean flag indicating whether this column can be null. (Default: ``true``)
 :``precision``: The precision of the column. This is current only applicable to columns with the ``timestamp`` datatype.
 :``value``: The default value for this column.
 
@@ -93,13 +115,25 @@ A column may also have the following optional properties:
 :``fits:tunit``: The `FITS TUNIT <https://fits.gsfc.nasa.gov/standard30/fits_standard30aa.pdf>`__ unit for this column [1]_.
 :``ivoa:ucd``: The `IVOA UCD <http://www.ivoa.net/documents/latest/UCD.html>`__ for this column [1]_.
 :``tap:column_index``: The index of this column in a TAP table. This is used to order the columns in public presentations of the table [2]_.
-:``tap:principal``: A flag indicating whether this column is a "principal column" in a TAP table; principal columns represent a subset to be highlighted or used as a default in public presentations and query builders. This should be encoded as 0 or 1 [2]_.
-:``tap:std``: A flag indicating whether this column is a representation of an element of an IVOA-standard data model. This should be encoded as 0 or 1 [2]_.
-:``votable:arraysize``: The VOTable ``arraysize`` for this column [3]_.
+:``tap:principal``: A flag indicating whether this column is a "principal column" in a TAP table; principal columns represent a subset to be highlighted or used as a default in public presentations and query builders. This should be encoded as 0 or 1 [2]_. (Default: ``0``)
+:``tap:std``: A flag indicating whether this column is a representation of an element of an IVOA-standard data model. This should be encoded as 0 or 1 [2]_. (Default: ``0``)
+:``votable:arraysize``: The VOTable ``arraysize`` for this column [3]_. (Default: derived from datatype and length)
 :``votable:datatype``: The VOTable ``datatype`` for this column [3]_.
-:``votable:xtype``: The VOTable ``xtype``, if any, for this column [3]_.
+:``votable:xtype``: The VOTable ``xtype``, if any, for this column [3]_. (Default: ``timestamp`` for timestamp columns)
 :``mysql:datatype``: A `MySQL data type <https://dev.mysql.com/doc/refman/8.4/en/data-types.html>`__ override for this column.
 :``postgresql:datatype``: A `PostgreSQL data type <https://www.postgresql.org/docs/13/datatype.html>`__ override for this column.
+
+When ``votable:arraysize`` is omitted or null, validation derives it as follows:
+
+- For ``char`` with a length greater than 1, the default is the length as a string.
+- For ``string``, ``unicode``, and ``binary`` with a length greater than 1, the
+  default is ``<length>*``, or ``*`` when the ``force_unbounded_arraysize``
+  validation context option is enabled.
+- For ``timestamp`` and ``text``, the default is ``*``.
+- Otherwise, the value remains null.
+
+For timestamp columns, validation also sets an omitted or null ``votable:xtype``
+to ``timestamp``. For other datatypes, it remains null.
 
 .. [1] The ``ivoa:unit`` and ``fits:tunit`` fields are mutually exclusive. Only one of these fields should be set on a column object.
 .. [2] `TAP Access Protocol (TAP) specification <https://www.ivoa.net/documents/TAP/>`__
@@ -109,11 +143,11 @@ A column may also have the following optional properties:
 Column Groups
 *************
 
-A `column group <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.ColumnGroup>`__ represents a set of related columns in a table.
-In addition to the standard column attributes, column groups have the following attributes:
+A :py:class:`column group <felis.datamodel.ColumnGroup>` represents a set of related columns in a table.
+Column groups have the following attributes:
 
 :``ivoa:ucd``: The `IVOA UCD <http://www.ivoa.net/documents/latest/UCD.html>`__ for this column group.
-:``columns``: The list of columns in this column group, which should be IDs of columns in the table. This is a required field.
+:``columns``: The list of columns in this column group, which should be IDs of columns in the table. (**Required**)
 
 The functionality of column groups is currently limited but may be expanded in future versions of Felis, in particular to support VOTable ``GROUP`` elements.
 
@@ -288,25 +322,22 @@ references and the features described above.
 Constraint
 **********
 
-A `constraint <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Constraint>`__ is a rule that
+A :py:class:`constraint <felis.datamodel.Constraint>` is a rule that
 restricts the values in a table.
 The most common type of constraint is a foreign key constraint.
 
 Constraints have specific types specified by the ``@type`` field, which can be one of the following:
 
-- `ForeignKeyConstraint <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.ForeignKeyConstraint>`__
-- `UniqueConstraint <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.UniqueConstraint>`__
-- `CheckConstraint <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.CheckConstraint>`__
+- :py:class:`ForeignKeyConstraint <felis.datamodel.ForeignKeyConstraint>`
+- :py:class:`UniqueConstraint <felis.datamodel.UniqueConstraint>`
+- :py:class:`CheckConstraint <felis.datamodel.CheckConstraint>`
 
 All types of constraints accept the following properties:
 
-:``name``: The name of the constraint. This is the name that will be used to create the constraint in the database.
-:``description``: A textual description of this constraint.
-:``@id``: A unique identifier for this constraint.
-:``deferrable``: A boolean flag indicating whether this constraint is deferrable. This will emit a ``DEFERRABLE`` clause when creating the constraint in the database.
+:``deferrable``: A boolean flag indicating whether this constraint is deferrable. This will emit a ``DEFERRABLE`` clause when creating the constraint in the database. (Default: ``false``)
 :``initially``: The initial deferrable state of the constraint. This will emit an ``INITIALLY <value>`` clause when creating the constraint in the database.
 :``annotations``: A list of annotations for this constraint [4]_.
-:``@type``: This is a special field which indicates the type of the constraint. The value of this field will determine the type of the constraint object that is created and what additional fields are allowed on the object.
+:``@type``: This is a special field which indicates the type of the constraint. The value of this field will determine the type of the constraint object that is created and what additional fields are allowed on the object. (**Required**)
 
 .. [4] The annotations field is currently unused and may be removed in a future version of Felis.
 
@@ -319,12 +350,12 @@ Foreign Key Constraint
 A `foreign key constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-foreign-key-constraint>`__ is
 a rule that enforces referential integrity between two tables.
 The constraint is defined by a column in the current table that references a column in another table.
-Foreign key constraints may have the following additional attributes:
+Foreign key constraints have the following additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the foreign key. This should be one or more ``@id`` values pointing to columns in the current table.
-:``referencedColumns``: The columns referenced by the foreign key. This should be one or more ``@id`` values pointing to columns in another table.
-:``on_update``: The action to take when the referenced column is updated. See the  `data model documentation for on_update <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_update>`__ for valid values [5]_.
-:``on_delete``: The action to take when the referenced column is deleted. See the `data model documentation for on_delete <../dev/internals/felis.datamodel.ForeignKeyConstraint.html#felis.datamodel.ForeignKeyConstraint.on_delete>`__ for valid values [5]_.
+:``columns``: One or more column names in the current table that are part of the foreign key. This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
+:``referencedColumns``: The columns referenced by the foreign key. This should be one or more ``@id`` values pointing to columns in another table. (**Required**)
+:``on_update``: The action to take when the referenced column is updated. See the  :py:attr:`data model documentation for on_update <felis.datamodel.ForeignKeyConstraint.on_update>` for valid values [5]_.
+:``on_delete``: The action to take when the referenced column is deleted. See the :py:attr:`data model documentation for on_delete <felis.datamodel.ForeignKeyConstraint.on_delete>` for valid values [5]_.
 
 .. [5] The ``on_update`` and ``on_delete`` fields are optional and will be omitted from the generated SQL if not set.
        The `SQLAlchemy documentation <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__ explains how these actions are implemented in DDL.
@@ -336,19 +367,19 @@ Check Constraint
 A `check constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-check-constraint>`__ is a rule that
 restricts the values in a column.
 The constraint is defined by a SQL expression.
-Check constraints may have the following additional attributes:
+Check constraints have the following additional attributes:
 
-:``expression``: The SQL expression that defines the constraint.
+:``expression``: The SQL expression that defines the constraint. (**Required**)
 
 Unique Constraint
 -----------------
 
 A `unique constraint <https://docs.sqlalchemy.org/en/20/glossary.html#term-unique-constraint>`__ is a rule
 that enforces uniqueness of values in a column or set of columns.
-The constraint is defined by one or more columns in the table. Unique constraints may have the following
+The constraint is defined by one or more columns in the table. Unique constraints have the following
 additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the unique constraint. This should be one or more ``@id`` values pointing to columns in the current table.
+:``columns``: One or more column names in the current table that are part of the unique constraint. This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
 
 .. _Index:
 
@@ -356,13 +387,10 @@ additional attributes:
 Index
 *****
 
-An `index <../dev/internals/felis.datamodel.Schema.html#felis.datamodel.Index>`__ is a data structure that
+An :py:class:`index <felis.datamodel.Index>` is a data structure that
 improves the speed of data retrieval operations on a table.
 Indexes are defined by one or more columns in the table and have the following attributes:
 
-:``name``: The name of the index. This is the name that will be used to create the index in the database.
-:``description``: A textual description of this index.
-:``@id``: A unique identifier for this index.
 :``columns``: The list of columns in the table that are part of the index. This should be one or more ``@id`` values pointing to columns in the table [6]_.
 :``expressions``: The list of SQL expressions that are part of the index. This is only applicable to indexes that are created using expressions [6]_.
 
