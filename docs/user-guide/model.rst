@@ -27,21 +27,22 @@ constraints, and indexes.
    When instantiating a schema in a database, this is typically used to name the object in Data Manipulation
    Language (DML). (**Required**)
 :``description``: A textual description of the object.
-:``@id``: A unique identifier for the object. (**Required**)
+:``@id``: A unique identifier for the object. (**Required**, but see :ref:`note below <id-generation>`)
 :``votable:utype``: VOTable utype (usage-specific or unique type) of the object,
    as defined in the `VOTable specification
    <https://www.ivoa.net/Documents/VOTable/20230913/WD-VOTable-1.5-20230913.html>`__.
 
 These common fields are not repeated for each specific database object type defined below.
 
+.. _id-generation:
+
 .. admonition:: ID Generation
    :class: note
 
-   Though IDs are technically required, the CLI enables ID generation by default.
-   When :option:`felis --id-generation` is used, Felis fills in missing ``@id`` values:
-   ``#<schema name>`` for schemas, ``#<table name>`` for tables, ``#<table name>.<column name>`` for columns,
-   and ``#<name>`` for constraints and indexes.
-   Without this option, these IDs must be supplied.
+   Though IDs are technically required, they can be omitted from the schema file when using the CLI, which
+   generates missing ``@id`` values by default.
+   This behavior can be disabled with :option:`felis --no-id-generation`, in which case all IDs must be
+   supplied explicitly.
 
 ******
 Schema
