@@ -144,9 +144,9 @@ A column may also have the following optional properties:
 :``votable:datatype``: The VOTable ``datatype`` for this column [3]_.
 :``votable:xtype``: The VOTable ``xtype``, if any, for this column [3]_.
    (Default: ``timestamp`` for timestamp columns)
-:``mysql:datatype``: A `MySQL data type <https://dev.mysql.com/doc/refman/8.4/en/data-types.html>`__ override
+:``mysql:datatype``: A `MySQL data type <https://dev.mysql.com/doc/refman/9.7/en/data-types.html>`__ override
    for this column.
-:``postgresql:datatype``: A `PostgreSQL data type <https://www.postgresql.org/docs/13/datatype.html>`__
+:``postgresql:datatype``: A `PostgreSQL data type <https://www.postgresql.org/docs/current/datatype.html>`__
    override for this column.
 
 When ``votable:arraysize`` is omitted or null, validation derives it as follows:
