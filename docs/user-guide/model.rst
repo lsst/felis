@@ -3,26 +3,28 @@ Data Model
 ##########
 
 Felis's :py:mod:`data model <felis.datamodel>` is defined by a set of
-`Pydantic <https://docs.pydantic.dev/latest/>`__ classes representing the semantics of an astronomical data catalog.
-In addition to the standard conceptual constructs of a relational database schema, such as tables and columns,
-Felis provides a way to attach extra metadata to these elements, like units of measurement on columns.
+`Pydantic <https://docs.pydantic.dev/latest/>`__ classes representing the semantics of an astronomical data
+catalog.
+In addition to the standard conceptual constructs of a relational database schema, such as tables and
+columns, Felis provides a way to attach extra metadata to these elements, like units of measurement on
+columns.
 
-Unless otherwise noted, all of the data model fields shown below are optional and default to ``null``
-or an empty data structure where applicable, e.g., an empty list or dictionary.
+Unless otherwise noted, all of the data model fields shown below are optional and default to ``null`` or an
+empty data structure where applicable, e.g., an empty list or dictionary.
 Fields marked (**Required**) after the description are required by the data model and not including them will
 result in a validation error at runtime when loading the schema from YAML data.
-Fields with a non-null or non-empty default show that in
-parentheses after the description as
+Fields with a non-null or non-empty default show that in parentheses after the description as
 (Default: **value**).
 
 *************
 Common Fields
 *************
 
-The following fields apply to all database objects in the model: schemas,
-tables, columns, column groups, constraints, and indexes.
+The following fields apply to all database objects in the model: schemas, tables, columns, column groups,
+constraints, and indexes.
 
-:``name``: The name of the database object. When instantiating a schema in a database, this is typically used to name the object in Data Manipulation
+:``name``: The name of the database object.
+   When instantiating a schema in a database, this is typically used to name the object in Data Manipulation
    Language (DML). (**Required**)
 :``description``: A textual description of the object.
 :``@id``: A unique identifier for the object. (**Required**)
@@ -45,8 +47,8 @@ These common fields are not repeated for each specific database object type defi
 Schema
 ******
 
-A :py:class:`schema <felis.datamodel.Schema>` is the top-level object
-in the data model and represents a collection of tables along with their indexes and constraints.
+A :py:class:`schema <felis.datamodel.Schema>` is the top-level object in the data model and represents a
+collection of tables along with their indexes and constraints.
 A Felis schema will be instantiated as a
 `schema in PostgreSQL <https://www.postgresql.org/docs/13/ddl-schemas.html>`__ using ``CREATE SCHEMA``
 or a `database in MySQL <https://dev.mysql.com/doc/refman/8.4/en/database-use.html>`__ with ``CREATE
@@ -61,8 +63,8 @@ Schemas may contain the following fields:
 Schema Version
 **************
 
-A :py:class:`schema version <felis.datamodel.SchemaVersion>` can be used
-to track changes to a schema over time.
+A :py:class:`schema version <felis.datamodel.SchemaVersion>` can be used to track changes to a schema over
+time.
 The version is defined by either a simple string or a more complex version object.
 A version string could simply be defined as ``v1``, for instance.
 
@@ -71,9 +73,13 @@ attributes:
 
 :``current``: The current version of the schema. (**Required**)
 :``compatible``: A list of fully compatible versions.
-:``read_compatible``: A list of versions that are read-compatible. A read compatible version is one where a database created with the older version can be read by the newer version. An example of a non-read compatible change would be removing a column from a table.
+:``read_compatible``: A list of versions that are read-compatible.
+   A read compatible version is one where a database created with the older version can be read by the newer
+   version.
+   An example of a non-read compatible change would be removing a column from a table.
 
-While Felis does not enforce any particular format for version strings, it is recommended to use `semantic versioning <https://semver.org/>`__ conventions or similar.
+While Felis does not enforce any particular format for version strings, it is recommended to use
+`semantic versioning <https://semver.org/>`__ conventions or similar.
 
 *****
 Table
@@ -83,15 +89,21 @@ A :py:class:`table <felis.datamodel.Table>` represents a collection of
 columns along with their indexes and constraints and has these attributes:
 
 :``columns``: The list of columns in the table. (**Required**)
-:``primaryKey``: The ID of the table's primary key column or a list of IDs that make up a composite primary key.
-:``constraints``: The list of constraints for the table. Refer to the :ref:`Constraint` section for more information.
+:``primaryKey``: The ID of the table's primary key column or a list of IDs that make up a composite primary
+   key.
+:``constraints``: The list of constraints for the table. Refer to the :ref:`Constraint` section for more
+   information.
 :``indexes``: The list of indexes for the table. Refer to the :ref:`Index` section for more information.
 
 A table may also have the following attributes:
 
-:``tap:table_index``: The index of this table in a TAP schema. This is used to order the tables in public presentations of the schema.
-:``mysql:charset``: The `MySQL character set <https://dev.mysql.com/doc/refman/8.4/en/charset-charsets.html>`__ for the table.
-:``mysql:engine``: The `MySQL storage engine <https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html>`__ for the table. (Default: ``MyISAM``)
+:``tap:table_index``: The index of this table in a TAP schema. This is used to order the tables in public
+   presentations of the schema.
+:``mysql:charset``: The
+   `MySQL character set <https://dev.mysql.com/doc/refman/8.4/en/charset-charsets.html>`__ for the table.
+:``mysql:engine``: The
+   `MySQL storage engine <https://dev.mysql.com/doc/refman/8.4/en/storage-engines.html>`__ for the table.
+   (Default: ``MyISAM``)
 
 ******
 Column
@@ -102,26 +114,39 @@ in a table and may have additional metadata like units of measurement.
 
 Columns have the following primary attributes:
 
-:``datatype``: The data type of this column. Valid datatypes are defined by the :py:mod:`Felis type system <felis.types>`. (**Required**)
+:``datatype``: The data type of this column. Valid datatypes are defined by the
+   :py:mod:`Felis type system <felis.types>`. (**Required**)
 :``autoincrement``: A boolean flag indicating whether this column is auto-incrementing. (Default: ``false``)
 :``length``: The length of the column. This is only applicable to certain data types.
 :``nullable``: A boolean flag indicating whether this column can be null. (Default: ``true``)
-:``precision``: The precision of the column. This is current only applicable to columns with the ``timestamp`` datatype.
+:``precision``: The precision of the column. This is current only applicable to columns with the
+   ``timestamp`` datatype.
 :``value``: The default value for this column.
 
 A column may also have the following optional properties:
 
 :``ivoa:unit``: The `IVOA unit <https://ivoa.net/documents/VOUnits/>`__ of this column.
-:``fits:tunit``: The `FITS TUNIT <https://fits.gsfc.nasa.gov/standard30/fits_standard30aa.pdf>`__ unit for this column [1]_.
+:``fits:tunit``: The `FITS TUNIT <https://fits.gsfc.nasa.gov/standard30/fits_standard30aa.pdf>`__ unit for
+   this column [1]_.
 :``ivoa:ucd``: The `IVOA UCD <http://www.ivoa.net/documents/latest/UCD.html>`__ for this column [1]_.
-:``tap:column_index``: The index of this column in a TAP table. This is used to order the columns in public presentations of the table [2]_.
-:``tap:principal``: A flag indicating whether this column is a "principal column" in a TAP table; principal columns represent a subset to be highlighted or used as a default in public presentations and query builders. This should be encoded as 0 or 1 [2]_. (Default: ``0``)
-:``tap:std``: A flag indicating whether this column is a representation of an element of an IVOA-standard data model. This should be encoded as 0 or 1 [2]_. (Default: ``0``)
-:``votable:arraysize``: The VOTable ``arraysize`` for this column [3]_. (Default: derived from datatype and length)
+:``tap:column_index``: The index of this column in a TAP table. This is used to order the columns in public
+   presentations of the table [2]_.
+:``tap:principal``: A flag indicating whether this column is a "principal column" in a TAP table; principal
+   columns represent a subset to be highlighted or used as a default in public presentations and query
+   builders.
+   This should be encoded as 0 or 1 [2]_. (Default: ``0``)
+:``tap:std``: A flag indicating whether this column is a representation of an element of an IVOA-standard
+   data model.
+   This should be encoded as 0 or 1 [2]_. (Default: ``0``)
+:``votable:arraysize``: The VOTable ``arraysize`` for this column [3]_. (Default: derived from datatype and
+   length)
 :``votable:datatype``: The VOTable ``datatype`` for this column [3]_.
-:``votable:xtype``: The VOTable ``xtype``, if any, for this column [3]_. (Default: ``timestamp`` for timestamp columns)
-:``mysql:datatype``: A `MySQL data type <https://dev.mysql.com/doc/refman/8.4/en/data-types.html>`__ override for this column.
-:``postgresql:datatype``: A `PostgreSQL data type <https://www.postgresql.org/docs/13/datatype.html>`__ override for this column.
+:``votable:xtype``: The VOTable ``xtype``, if any, for this column [3]_.
+   (Default: ``timestamp`` for timestamp columns)
+:``mysql:datatype``: A `MySQL data type <https://dev.mysql.com/doc/refman/8.4/en/data-types.html>`__ override
+   for this column.
+:``postgresql:datatype``: A `PostgreSQL data type <https://www.postgresql.org/docs/13/datatype.html>`__
+   override for this column.
 
 When ``votable:arraysize`` is omitted or null, validation derives it as follows:
 
@@ -135,7 +160,8 @@ When ``votable:arraysize`` is omitted or null, validation derives it as follows:
 For timestamp columns, validation also sets an omitted or null ``votable:xtype``
 to ``timestamp``. For other datatypes, it remains null.
 
-.. [1] The ``ivoa:unit`` and ``fits:tunit`` fields are mutually exclusive. Only one of these fields should be set on a column object.
+.. [1] The ``ivoa:unit`` and ``fits:tunit`` fields are mutually exclusive.
+       Only one of these fields should be set on a column object.
 .. [2] `TAP Access Protocol (TAP) specification <https://www.ivoa.net/documents/TAP/>`__
 .. [3] `VOTable specification <http://www.ivoa.net/documents/VOTable/>`__
 
@@ -147,31 +173,30 @@ A :py:class:`column group <felis.datamodel.ColumnGroup>` represents a set of rel
 Column groups have the following attributes:
 
 :``ivoa:ucd``: The `IVOA UCD <http://www.ivoa.net/documents/latest/UCD.html>`__ for this column group.
-:``columns``: The list of columns in this column group, which should be IDs of columns in the table. (**Required**)
+:``columns``: The list of columns in this column group, which should be IDs of columns in the table.
+   (**Required**)
 
-The functionality of column groups is currently limited but may be expanded in future versions of Felis, in particular to support VOTable ``GROUP`` elements.
+The functionality of column groups is currently limited but may be expanded in future versions of Felis, in
+particular to support VOTable ``GROUP`` elements.
 
 *****************
 Column References
 *****************
 
-Felis supports column references, allowing schemas to import and reference
-columns from external schema files.
-This feature enables modular schema design and reuse of common logical column
-definitions across multiple schemas.
-The motivation for this in the Rubin Observatory context is that we have many
-schemas with a large amount of commonality between the defined tables and
-columns, so obtaining the details of common columns from a single source of
-truth avoids a great deal of labor-intensive and error-prone parallel editing
-of multiple schema files.
+Felis supports column references, allowing schemas to import and reference columns from external schema
+files.
+This feature enables modular schema design and reuse of common logical column definitions across multiple
+schemas.
+The motivation for this in the Rubin Observatory context is that we have many schemas with a large amount of
+commonality between the defined tables and columns, so obtaining the details of common columns from a single
+source of truth avoids a great deal of labor-intensive and error-prone parallel editing of multiple schema
+files.
 
-These references are defined at the schema level and processed when the
-schema is loaded.
-The referenced external schemas are loaded and their column definitions become
-available for use in the importing schema.
+These references are defined at the schema level and processed when the schema is loaded.
+The referenced external schemas are loaded and their column definitions become available for use in the
+importing schema.
 
-To use column references, define a ``resources`` section in your schema and use
-it as follows:
+To use column references, define a ``resources`` section in your schema and use it as follows:
 
 .. code-block:: yaml
 
@@ -193,16 +218,12 @@ it as follows:
                overrides:  # Attribute overrides
                  datatype: "string"  # Override an allowed attribute
 
-The ``resources`` section maps resource names, e.g., ``some_schema``, to their
-locations.
-The ``uri`` field specifies the location of the external schema file containing
-the column definitions and may point to a local file path, URL, or other
-supported scheme such as a ``resource://`` URI.
-(A ``resource://`` URI can read YAML files from a Python package installed in
-the current environment.)
+The ``resources`` section maps resource names, e.g., ``some_schema``, to their locations.
+The ``uri`` field specifies the location of the external schema file containing the column definitions and
+may point to a local file path, URL, or other supported scheme such as a ``resource://`` URI.
+(A ``resource://`` URI can read YAML files from a Python package installed in the current environment.)
 
-The ``columnRefs`` structure in the referencing schema has a hierarchy of keys
-which is organized as follows:
+The ``columnRefs`` structure in the referencing schema has a hierarchy of keys which is organized as follows:
 
 .. code-block:: yaml
 
@@ -220,8 +241,8 @@ which is organized as follows:
              tap:principal: 1  # Override TAP principal flag
              tap:column_index: 2  # Override TAP column index
 
-As show above, when importing columns, you may override specific properties
-using the ``overrides`` subsection of the column reference.
+As show above, when importing columns, you may override specific properties using the ``overrides``
+subsection of the column reference.
 
 The following fields can be overridden from the original column definition:
 
@@ -232,20 +253,18 @@ The following fields can be overridden from the original column definition:
 - ``tap:principal``: Override the TAP principal flag
 - ``tap:column_index``: Override the TAP column index
 
-The value of the ``dereference_resources`` context parameter controls the
-processing behavior when resources are referenced in a schema and the data
-model is loaded:
+The value of the ``dereference_resources`` context parameter controls the processing behavior when resources
+are referenced in a schema and the data model is loaded:
 
 - **False** (default): References are preserved in ``columnRefs`` and the derived
   columns are flagged as references
 - **True**: References are resolved, the ``columnRefs`` section is set to
   empty, and the columns are added to the table's ``columns`` list
 
-Setting ``dereference_resources`` to ``True`` may be useful for producing a
-fully self-contained schema without any external references.
+Setting ``dereference_resources`` to ``True`` may be useful for producing a fully self-contained schema
+without any external references.
 
-Here is example Python code showing how to load a schema with and without
-dereferencing:
+Here is example Python code showing how to load a schema with and without dereferencing:
 
 .. code-block:: python
 
@@ -258,19 +277,18 @@ dereferencing:
    schema = Schema.from_uri("my_schema.yaml",
                            context={"dereference_resources": True})
 
-The ``felis dump`` command-line tool also supports a corresponding
-``--dereference-resources`` flag to control this behavior when serializing
-schemas using the CLI.
+The ``felis dump`` command-line tool also supports a corresponding ``--dereference-resources`` flag to
+control this behavior when serializing schemas using the CLI.
 
-If the schema is dereferenced, the ``columnsRefs`` section will not be written
-out when the schema is serialized.
-Instead, all of the referenced columns will be included in the ``columns`` list
-of the respective tables as regular column definitions.
-By default, the ``columnsRefs`` section will be preserved when serializing and
-the referenced columns will not be duplicated in the ``columns`` list.
+If the schema is dereferenced, the ``columnsRefs`` section will not be written out when the schema is
+serialized.
+Instead, all of the referenced columns will be included in the ``columns`` list of the respective tables as
+regular column definitions.
+By default, the ``columnsRefs`` section will be preserved when serializing and the referenced columns will
+not be duplicated in the ``columns`` list.
 
-Below are two example YAML schema files demonstrating the use of column
-references and the features described above.
+Below are two example YAML schema files demonstrating the use of column references and the features described
+above.
 
 **some_schema.yaml:**
 
@@ -322,8 +340,7 @@ references and the features described above.
 Constraint
 **********
 
-A :py:class:`constraint <felis.datamodel.Constraint>` is a rule that
-restricts the values in a table.
+A :py:class:`constraint <felis.datamodel.Constraint>` is a rule that restricts the values in a table.
 The most common type of constraint is a foreign key constraint.
 
 Constraints have specific types specified by the ``@type`` field, which can be one of the following:
@@ -334,10 +351,14 @@ Constraints have specific types specified by the ``@type`` field, which can be o
 
 All types of constraints accept the following properties:
 
-:``deferrable``: A boolean flag indicating whether this constraint is deferrable. This will emit a ``DEFERRABLE`` clause when creating the constraint in the database. (Default: ``false``)
-:``initially``: The initial deferrable state of the constraint. This will emit an ``INITIALLY <value>`` clause when creating the constraint in the database.
+:``deferrable``: A boolean flag indicating whether this constraint is deferrable.
+   This will emit a ``DEFERRABLE`` clause when creating the constraint in the database. (Default: ``false``)
+:``initially``: The initial deferrable state of the constraint. This will emit an ``INITIALLY <value>``
+   clause when creating the constraint in the database.
 :``annotations``: A list of annotations for this constraint [4]_.
-:``@type``: This is a special field which indicates the type of the constraint. The value of this field will determine the type of the constraint object that is created and what additional fields are allowed on the object. (**Required**)
+:``@type``: This is a special field which indicates the type of the constraint.
+   The value of this field will determine the type of the constraint object that is created and what
+   additional fields are allowed on the object. (**Required**)
 
 .. [4] The annotations field is currently unused and may be removed in a future version of Felis.
 
@@ -352,10 +373,16 @@ a rule that enforces referential integrity between two tables.
 The constraint is defined by a column in the current table that references a column in another table.
 Foreign key constraints have the following additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the foreign key. This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
-:``referencedColumns``: The columns referenced by the foreign key. This should be one or more ``@id`` values pointing to columns in another table. (**Required**)
-:``on_update``: The action to take when the referenced column is updated. See the  :py:attr:`data model documentation for on_update <felis.datamodel.ForeignKeyConstraint.on_update>` for valid values [5]_.
-:``on_delete``: The action to take when the referenced column is deleted. See the :py:attr:`data model documentation for on_delete <felis.datamodel.ForeignKeyConstraint.on_delete>` for valid values [5]_.
+:``columns``: One or more column names in the current table that are part of the foreign key.
+   This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
+:``referencedColumns``: The columns referenced by the foreign key.
+   This should be one or more ``@id`` values pointing to columns in another table. (**Required**)
+:``on_update``: The action to take when the referenced column is updated.
+   See the :py:attr:`data model documentation for on_update <felis.datamodel.ForeignKeyConstraint.on_update>`
+   for valid values [5]_.
+:``on_delete``: The action to take when the referenced column is deleted.
+   See the :py:attr:`data model documentation for on_delete <felis.datamodel.ForeignKeyConstraint.on_delete>`
+   for valid values [5]_.
 
 .. [5] The ``on_update`` and ``on_delete`` fields are optional and will be omitted from the generated SQL if not set.
        The `SQLAlchemy documentation <https://docs.sqlalchemy.org/en/20/core/constraints.html#on-update-on-delete>`__ explains how these actions are implemented in DDL.
@@ -379,7 +406,8 @@ that enforces uniqueness of values in a column or set of columns.
 The constraint is defined by one or more columns in the table. Unique constraints have the following
 additional attributes:
 
-:``columns``: One or more column names in the current table that are part of the unique constraint. This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
+:``columns``: One or more column names in the current table that are part of the unique constraint.
+   This should be one or more ``@id`` values pointing to columns in the current table. (**Required**)
 
 .. _Index:
 
@@ -387,15 +415,18 @@ additional attributes:
 Index
 *****
 
-An :py:class:`index <felis.datamodel.Index>` is a data structure that
-improves the speed of data retrieval operations on a table.
+An :py:class:`index <felis.datamodel.Index>` is a data structure that improves the speed of data retrieval
+operations on a table.
 Indexes are defined by one or more columns in the table and have the following attributes:
 
-:``columns``: The list of columns in the table that are part of the index. This should be one or more ``@id`` values pointing to columns in the table [6]_.
-:``expressions``: The list of SQL expressions that are part of the index. This is only applicable to indexes that are created using expressions [6]_.
+:``columns``: The list of columns in the table that are part of the index.
+   This should be one or more ``@id`` values pointing to columns in the table [6]_.
+:``expressions``: The list of SQL expressions that are part of the index.
+   This is only applicable to indexes that are created using expressions [6]_.
 
 .. [6] The ``columns`` and ``expressions`` fields are mutually exclusive.
        Only one of these fields should be set on an index object.
 
 .. warning::
-    Databases may be updated with additional indexes that are not defined in the schema. These indexes will not be reflected in the Felis schema.
+    Databases may be updated with additional indexes that are not defined in the schema.
+    These indexes will not be reflected in the Felis schema.
