@@ -118,7 +118,8 @@ Columns have the following primary attributes:
 :``datatype``: The data type of this column. Valid datatypes are defined by the
    :py:mod:`Felis type system <felis.types>`. (**Required**)
 :``autoincrement``: A boolean flag indicating whether this column is auto-incrementing. (Default: ``false``)
-:``length``: The length of the column. This is only applicable to certain data types.
+:``length``: The length of the column. This is required for the ``char``, ``string``, ``unicode``, and
+   ``binary`` datatypes and is ignored, with a warning, for all other types.
 :``nullable``: A boolean flag indicating whether this column can be null. (Default: ``true``)
 :``precision``: The precision of the column. This is current only applicable to columns with the
    ``timestamp`` datatype.
