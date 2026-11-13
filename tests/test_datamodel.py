@@ -747,6 +747,16 @@ class SchemaTestCase(unittest.TestCase):
         self.assertEqual(sch.name, "testSchema", "name should be 'testSchema'")
         self.assertEqual(sch.id, "#test_sch_id", "id should be '#test_sch_id'")
         self.assertEqual(sch.tables, [test_tbl], "tables should be ['testTable']")
+        self.assertIsNone(sch.display_name, "display_name should default to None")
+
+        # Setting the optional display name should load data correctly.
+        sch = Schema(
+            name="testSchema",
+            id="#test_sch_id",
+            displayName="Test Schema",
+            tables=[test_tbl],
+        )
+        self.assertEqual(sch.display_name, "Test Schema", "display_name should be 'Test Schema'")
 
         # Creating a schema with duplicate table names should raise an
         # exception.
